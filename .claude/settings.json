@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "session_start": {
+      "command": "bash hooks/start.sh",
+      "description": "Show project status and run tests at session start"
+    },
+    "session_end": {
+      "command": "bash hooks/end.sh",
+      "description": "Run tests and remind to update STATUS.md at session end"
+    }
+  }
+}
