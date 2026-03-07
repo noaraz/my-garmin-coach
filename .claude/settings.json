@@ -1,4 +1,13 @@
 {
+  "allowedTools": [
+    "Bash(/Applications/Docker.app/Contents/Resources/bin/docker compose exec backend pytest*)",
+    "Bash(/Applications/Docker.app/Contents/Resources/bin/docker compose exec backend ruff*)",
+    "Bash(/Applications/Docker.app/Contents/Resources/bin/docker compose ps*)",
+    "Bash(git log*)",
+    "Bash(git diff*)",
+    "Bash(git blame*)",
+    "Bash(gh pr*)"
+  ],
   "hooks": {
     "session_start": {
       "command": "bash hooks/start.sh",

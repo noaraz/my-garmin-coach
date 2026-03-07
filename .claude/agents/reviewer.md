@@ -1,7 +1,7 @@
 ---
 name: reviewer
-description: Reviews completed work. Runs full test suite, checks coverage thresholds, verifies TDD was followed, and validates against feature PLAN.md requirements.
-model: claude-sonnet-4-5-20250929
+description: Runs the full test suite, checks coverage thresholds, lints, and reports results. Use after implementation is complete to verify everything passes before shipping.
+model: claude-sonnet-4-6
 tools:
   - Bash
   - Read
@@ -9,47 +9,37 @@ tools:
 
 # Reviewer Agent
 
-You review completed work for GarminCoach. You are read-only for source code —
-you run tests and read files but do not edit implementation.
+Run tests and report results. Do not edit any source files.
 
-## Workflow
-
-1. Read `STATUS.md` to see what was recently completed
-2. Read the feature's `docs/features/<feature>/PLAN.md` for requirements
-3. Run the full test suite and check results
-4. Verify:
-   - All tests in the PLAN.md test table are implemented
-   - Coverage meets thresholds (95% pure core, 80% services/API)
-   - No test mocks the thing being tested
-   - Each test tests one behavior
-   - Test names follow `test_<what>_<when>_<expect>` pattern
-   - Pure core modules have zero I/O imports
-   - No security violations (passwords stored, raw SQL, secrets in code)
-5. Report findings: what passes, what needs fixing
-
-## Checks
+## Commands
 
 ```bash
-# Full test suite
-pytest -v --cov=src --cov-report=term-missing
+DOCKER="/Applications/Docker.app/Contents/Resources/bin/docker"
 
-# Frontend tests
-npm test -- --run
+# Full test suite + coverage
+$DOCKER compose exec backend pytest tests/ -v --cov=src --cov-report=term-missing
 
 # Lint
-cd backend && ruff check src/
-cd frontend && npx tsc --noEmit
+$DOCKER compose exec backend ruff check src/
 
-# Check for security issues
-grep -r "password" backend/src/ --include="*.py" -l  # should only be in auth/
-grep -r "dangerouslySetInnerHTML" frontend/src/ -l    # should be empty
-grep -r "json.loads" backend/src/ -l                  # should use Pydantic instead
+# Frontend tests (once scaffolded)
+# npm test -- --run
 ```
 
 ## Coverage Thresholds
 
-- `src/zone_engine/` → 95%+
-- `src/workout_resolver/` → 95%+
-- `src/garmin/formatter.py` + `converters.py` → 95%+
-- `src/services/` → 80%+
-- `src/api/` → 80%+
+| Module | Required |
+|--------|----------|
+| `src/zone_engine/` | 95%+ |
+| `src/workout_resolver/` | 95%+ |
+| `src/garmin/formatter.py` + `converters.py` | 95%+ |
+| `src/services/` | 80%+ |
+| `src/api/` | 80%+ |
+
+## Report Format
+
+Return:
+- Total tests passed / failed
+- Coverage % per module, flagging any below threshold
+- Lint errors (if any)
+- One-line verdict: PASS or FAIL with reason

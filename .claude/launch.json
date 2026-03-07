@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "runtimeArgs": ["compose", "up", "--build"],
+      "port": 8000
+    }
+  ]
+}

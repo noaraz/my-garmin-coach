@@ -3,7 +3,7 @@ services:
     build: ./backend
     ports: ["8000:8000"]
     environment:
-      - DATABASE_URL=sqlite:///data/garmincoach.db
+      - DATABASE_URL=sqlite:////data/garmincoach.db
       - GARMINCOACH_SECRET_KEY=local-dev-secret-change-in-prod
       - JWT_SECRET=local-dev-jwt-secret-change-in-prod
       - ENVIRONMENT=development
