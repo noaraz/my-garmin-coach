@@ -1,35 +1,111 @@
 # Database + API — CLAUDE
 
+## Architecture
+
+```
+routers/          ← async def route handlers (thin — validate + delegate)
+services/         ← async class-based singletons (business logic)
+repositories/     ← async BaseRepository[T] (data access layer)
+db/models.py      ← SQLModel tables
+db/database.py    ← async engine + AsyncSession factory
+core/config.py    ← BaseSettings (pydantic-settings, @lru_cache)
+```
+
 ## Integration Test conftest.py Pattern
 
 ```python
+# tests/integration/conftest.py
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
-from sqlmodel.pool import StaticPool
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 from src.api.app import create_app
 from src.api.dependencies import get_session
 
 @pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+async def session_fixture():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session_factory() as session:
         yield session
+    await engine.dispose()
 
 @pytest.fixture(name="client")
-def client_fixture(session: Session):
+async def client_fixture(session: AsyncSession):
     app = create_app()
-    app.dependency_overrides[get_session] = lambda: session
-    client = TestClient(app)
-    yield client
+    async def override_session():
+        yield session
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
     app.dependency_overrides.clear()
+```
+
+For routes that also need `get_sync_service` overridden (e.g. sync tests), add:
+```python
+app.dependency_overrides[get_sync_service] = lambda: mock_sync_service
+```
+
+## Service Class Pattern
+
+Services are async class singletons. Module-level shims keep router imports stable:
+
+```python
+class ProfileService:
+    async def get_or_create(self, session: AsyncSession) -> AthleteProfile: ...
+    async def update(self, session: AsyncSession, data: dict) -> AthleteProfile: ...
+
+profile_service = ProfileService()
+
+# shims
+async def get_or_create_profile(session): return await profile_service.get_or_create(session)
+async def update_profile(session, data): return await profile_service.update(session, data)
+```
+
+## Repository Pattern
+
+```python
+class BaseRepository(Generic[ModelType]):
+    async def get(self, session, id) -> ModelType | None: ...
+    async def get_all(self, session) -> list[ModelType]: ...
+    async def create(self, session, obj) -> ModelType: ...
+    async def delete(self, session, obj) -> None: ...
+
+class ProfileRepository(BaseRepository[AthleteProfile]):
+    async def get_singleton(self, session) -> AthleteProfile | None: ...
+
+profile_repository = ProfileRepository(AthleteProfile)
+```
+
+## Async Session Operations
+
+```python
+# queries
+result = await session.exec(select(Model).where(...))
+rows = result.all()
+obj = result.first()
+
+# by pk
+obj = await session.get(Model, pk)
+
+# mutations
+session.add(obj)          # sync — no await
+await session.commit()
+await session.refresh(obj)
+await session.delete(obj)
 ```
 
 ## Gotchas
 
-- **JSON columns**: Store WorkoutStep lists as JSON text. Use Pydantic for
-  serialization, not raw `json.loads`.
-- **Zone cascade**: Most complex flow. Test the full chain:
-  recalc zones → re-resolve workouts → mark modified → optionally re-sync.
-- **Thin routers**: Validate input and delegate. Business logic in services.
+- **Async engine**: `create_async_engine` + `sqlite+aiosqlite://` URL. `check_same_thread` not needed.
+- **Table creation**: `async with engine.begin() as conn: await conn.run_sync(SQLModel.metadata.create_all)`
+- **`expire_on_commit=False`**: Required on `sessionmaker` for async — avoids lazy-load errors after commit.
+- **JSON columns**: Store WorkoutStep lists as JSON text. Use Pydantic for serialization.
+- **Zone cascade**: Most complex flow. `recalculate_hr_zones` → `_cascade_re_resolve` → re-resolve all future workouts → mark `sync_status='modified'`.
+- **Thin routers**: Validate input, `await` service calls, return response model. No business logic in routers.
+- **API prefix**: All routes under `/api/v1/`. Health check at `/api/v1/health`.
+- **CORS**: Configured in `create_app()` via `CORSMiddleware`. Origins read from `Settings.cors_origins`.

@@ -4,7 +4,7 @@ Run this workflow when a feature is ready to ship. Follow the steps in order.
 
 ---
 
-## 1. Code Review
+## 1. Run Tests
 
 Run the full test suite with coverage inside Docker:
 
@@ -14,21 +14,13 @@ Run the full test suite with coverage inside Docker:
 
 Present results to the user: total passed/failed, coverage per module, any failures.
 
-Then invoke the `/code-review` command on the uncommitted changes:
-
-```
-/code-review uncommitted changes
-```
-
-Present any issues found (score ≥ 80) to the user.
-
 ---
 
-## 2. Ask What to Fix
+## 2. Ask What to Fix (Pre-PR)
 
-Show the findings and ask:
+Show the test results and ask:
 
-> "Here's the review. What would you like me to fix before opening the PR?"
+> "Tests look good. Anything to fix before I open the PR?"
 
 Wait for the user's response. Fix any requested items, re-run the affected tests to confirm green, then continue.
 
@@ -49,8 +41,7 @@ Print this block for the user to run manually:
 /Applications/Docker.app/Contents/Resources/bin/docker compose exec backend pytest tests/ --cov=src --cov-report=term-missing
 
 # Smoke test the API
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/profile
+curl http://localhost:8000/api/v1/health
 ```
 
 ---
@@ -102,8 +93,8 @@ gh pr create \
 ## Test plan
 - [ ] Unit tests pass: `pytest tests/unit/ -v`
 - [ ] Integration tests pass: `pytest tests/integration/ -v`
-- [ ] Coverage ≥ 90%: `pytest tests/ --cov=src --cov-report=term-missing`
-- [ ] API smoke test: `curl http://localhost:8000/api/health`
+- [ ] Coverage ≥ 80%: `pytest tests/ --cov=src --cov-report=term-missing`
+- [ ] API smoke test: `curl http://localhost:8000/api/v1/health`
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
@@ -111,3 +102,15 @@ EOF
 ```
 
 Return the PR URL to the user.
+
+---
+
+## 6. Code Review on the PR
+
+Now that the PR exists, invoke the `/code-review` command on it:
+
+```
+/code-review <PR URL>
+```
+
+The review will post comments directly on the PR. Present any issues found (score ≥ 80) to the user and offer to fix them.

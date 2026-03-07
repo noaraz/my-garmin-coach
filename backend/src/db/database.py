@@ -1,21 +1,26 @@
 from __future__ import annotations
 
-import os
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
-from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/garmincoach.db")
+from src.core.config import get_settings
 
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+engine = create_async_engine(get_settings().database_url, echo=False)
+
+async_session_factory = sessionmaker(  # type: ignore[call-overload]
+    engine, class_=AsyncSession, expire_on_commit=False
 )
 
 
-def create_db_and_tables() -> None:
-    SQLModel.metadata.create_all(engine)
+async def create_db_and_tables() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
 
 
-def get_session() -> Generator[Session, None, None]:
-    with Session(engine) as session:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
         yield session

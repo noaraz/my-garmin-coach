@@ -3,14 +3,14 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from fastapi.testclient import TestClient
-from sqlmodel import Session
+from httpx import AsyncClient
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import AthleteProfile, HRZone, ScheduledWorkout, WorkoutTemplate
 
 
 class TestCalendarAPI:
-    def _seed_template_with_steps(self, session: Session) -> WorkoutTemplate:
+    async def _seed_template_with_steps(self, session: AsyncSession) -> WorkoutTemplate:
         steps = [
             {
                 "order": 1,
@@ -27,17 +27,18 @@ class TestCalendarAPI:
             name="Easy Run", sport_type="running", steps=json.dumps(steps)
         )
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
         return template
 
-    def _seed_profile_with_hr_zones(self, session: Session) -> AthleteProfile:
-        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162)
-        session.add(profile)
-        session.commit()
-        session.refresh(profile)
+    async def _seed_profile_with_hr_zones(self, session: AsyncSession) -> AthleteProfile:
         from src.zone_engine.hr_zones import HRZoneCalculator
         from src.zone_engine.models import ZoneConfig
+
+        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162)
+        session.add(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         config = ZoneConfig(threshold=162, method="coggan")
         zone_set = HRZoneCalculator(config).calculate()
@@ -54,17 +55,17 @@ class TestCalendarAPI:
                     pct_upper=z.pct_upper,
                 )
             )
-        session.commit()
+        await session.commit()
         return profile
 
-    def test_schedule(self, client: TestClient, session: Session) -> None:
+    async def test_schedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = self._seed_template_with_steps(session)
-        self._seed_profile_with_hr_zones(session)
+        template = await self._seed_template_with_steps(session)
+        await self._seed_profile_with_hr_zones(session)
 
         # Act
-        response = client.post(
-            "/api/calendar",
+        response = await client.post(
+            "/api/v1/calendar",
             json={"template_id": template.id, "date": "2026-03-15"},
         )
 
@@ -75,19 +76,19 @@ class TestCalendarAPI:
         assert data["date"] == "2026-03-15"
         assert data["workout_template_id"] == template.id
 
-    def test_get_range(self, client: TestClient, session: Session) -> None:
+    async def test_get_range(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         for d in [date(2026, 3, 8), date(2026, 3, 10), date(2026, 3, 20)]:
             session.add(ScheduledWorkout(date=d, workout_template_id=template.id))
-        session.commit()
+        await session.commit()
 
         # Act
-        response = client.get("/api/calendar?start=2026-03-09&end=2026-03-15")
+        response = await client.get("/api/v1/calendar?start=2026-03-09&end=2026-03-15")
 
         # Assert
         assert response.status_code == 200
@@ -95,23 +96,23 @@ class TestCalendarAPI:
         assert len(data) == 1
         assert data[0]["date"] == "2026-03-10"
 
-    def test_reschedule(self, client: TestClient, session: Session) -> None:
+    async def test_reschedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         scheduled = ScheduledWorkout(
             date=date(2026, 3, 10), workout_template_id=template.id
         )
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Act
-        response = client.patch(
-            f"/api/calendar/{scheduled.id}", json={"date": "2026-03-17"}
+        response = await client.patch(
+            f"/api/v1/calendar/{scheduled.id}", json={"date": "2026-03-17"}
         )
 
         # Assert
@@ -119,38 +120,38 @@ class TestCalendarAPI:
         data = response.json()
         assert data["date"] == "2026-03-17"
 
-    def test_unschedule(self, client: TestClient, session: Session) -> None:
+    async def test_unschedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         scheduled = ScheduledWorkout(
             date=date(2026, 3, 10), workout_template_id=template.id
         )
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Act
-        response = client.delete(f"/api/calendar/{scheduled.id}")
+        response = await client.delete(f"/api/v1/calendar/{scheduled.id}")
 
         # Assert
         assert response.status_code == 204
-        deleted = session.get(ScheduledWorkout, scheduled.id)
+        deleted = await session.get(ScheduledWorkout, scheduled.id)
         assert deleted is None
 
-    def test_schedule_resolves_steps(
-        self, client: TestClient, session: Session
+    async def test_schedule_resolves_steps(
+        self, client: AsyncClient, session: AsyncSession
     ) -> None:
         # Arrange
-        template = self._seed_template_with_steps(session)
-        self._seed_profile_with_hr_zones(session)
+        template = await self._seed_template_with_steps(session)
+        await self._seed_profile_with_hr_zones(session)
 
         # Act
-        response = client.post(
-            "/api/calendar",
+        response = await client.post(
+            "/api/v1/calendar",
             json={"template_id": template.id, "date": "2026-03-15"},
         )
 

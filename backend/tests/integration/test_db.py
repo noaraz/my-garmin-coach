@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
-import pytest
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import (
     AthleteProfile,
@@ -16,14 +16,14 @@ from src.db.models import (
 
 
 class TestAthleteProfile:
-    def test_create_athlete_profile(self, session: Session) -> None:
+    async def test_create_athlete_profile(self, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Test Runner", max_hr=185, resting_hr=45, lthr=162)
 
         # Act
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         # Assert
         assert profile.id is not None
@@ -32,20 +32,20 @@ class TestAthleteProfile:
         assert profile.resting_hr == 45
         assert profile.lthr == 162
 
-    def test_update_athlete_lthr(self, session: Session) -> None:
+    async def test_update_athlete_lthr(self, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", lthr=155)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
         original_updated_at = profile.updated_at
 
         # Act
         profile.lthr = 162
         profile.updated_at = datetime.utcnow()
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         # Assert
         assert profile.lthr == 162
@@ -53,12 +53,12 @@ class TestAthleteProfile:
 
 
 class TestHRZones:
-    def test_create_hr_zones(self, session: Session) -> None:
+    async def test_create_hr_zones(self, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", lthr=162)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         zones = [
             HRZone(
@@ -77,23 +77,24 @@ class TestHRZones:
         # Act
         for z in zones:
             session.add(z)
-        session.commit()
+        await session.commit()
 
-        result = session.exec(
+        result = await session.exec(
             select(HRZone).where(HRZone.profile_id == profile.id)
-        ).all()
+        )
 
         # Assert
-        assert len(result) == 5
-        zone_numbers = sorted(z.zone_number for z in result)
+        all_zones = result.all()
+        assert len(all_zones) == 5
+        zone_numbers = sorted(z.zone_number for z in all_zones)
         assert zone_numbers == [1, 2, 3, 4, 5]
 
-    def test_create_pace_zones(self, session: Session) -> None:
+    async def test_create_pace_zones(self, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", threshold_pace=270.0)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         zones = [
             PaceZone(
@@ -112,23 +113,24 @@ class TestHRZones:
         # Act
         for z in zones:
             session.add(z)
-        session.commit()
+        await session.commit()
 
-        result = session.exec(
+        result = await session.exec(
             select(PaceZone).where(PaceZone.profile_id == profile.id)
-        ).all()
+        )
 
         # Assert
-        assert len(result) == 5
-        zone_numbers = sorted(z.zone_number for z in result)
+        all_zones = result.all()
+        assert len(all_zones) == 5
+        zone_numbers = sorted(z.zone_number for z in all_zones)
         assert zone_numbers == [1, 2, 3, 4, 5]
 
-    def test_cascade_delete(self, session: Session) -> None:
+    async def test_cascade_delete(self, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", lthr=162)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         hr_zones = [
             HRZone(
@@ -158,30 +160,31 @@ class TestHRZones:
         ]
         for z in hr_zones + pace_zones:
             session.add(z)
-        session.commit()
+        await session.commit()
 
-        # Act
-        # Delete zones associated with the profile manually (SQLite has no cascade by default)
-        for z in session.exec(select(HRZone).where(HRZone.profile_id == profile.id)).all():
-            session.delete(z)
-        for z in session.exec(select(PaceZone).where(PaceZone.profile_id == profile.id)).all():
-            session.delete(z)
-        session.delete(profile)
-        session.commit()
+        # Act — delete zones manually (SQLite has no cascade by default)
+        hr_result = await session.exec(select(HRZone).where(HRZone.profile_id == profile.id))
+        for z in hr_result.all():
+            await session.delete(z)
+        pace_result = await session.exec(select(PaceZone).where(PaceZone.profile_id == profile.id))
+        for z in pace_result.all():
+            await session.delete(z)
+        await session.delete(profile)
+        await session.commit()
 
         # Assert
-        remaining_hr = session.exec(
+        remaining_hr_result = await session.exec(
             select(HRZone).where(HRZone.profile_id == profile.id)
-        ).all()
-        remaining_pace = session.exec(
+        )
+        remaining_pace_result = await session.exec(
             select(PaceZone).where(PaceZone.profile_id == profile.id)
-        ).all()
-        assert len(remaining_hr) == 0
-        assert len(remaining_pace) == 0
+        )
+        assert len(remaining_hr_result.all()) == 0
+        assert len(remaining_pace_result.all()) == 0
 
 
 class TestWorkoutTemplate:
-    def test_create_workout_template(self, session: Session) -> None:
+    async def test_create_workout_template(self, session: AsyncSession) -> None:
         # Arrange
         steps = [
             {"order": 1, "type": "warmup", "duration_type": "time",
@@ -198,8 +201,8 @@ class TestWorkoutTemplate:
 
         # Act
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         # Assert
         assert template.id is not None
@@ -210,12 +213,12 @@ class TestWorkoutTemplate:
 
 
 class TestScheduledWorkout:
-    def test_schedule_workout(self, session: Session) -> None:
+    async def test_schedule_workout(self, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Tempo Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         scheduled = ScheduledWorkout(
             date=date(2026, 3, 10),
@@ -225,8 +228,8 @@ class TestScheduledWorkout:
 
         # Act
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Assert
         assert scheduled.id is not None
@@ -234,38 +237,39 @@ class TestScheduledWorkout:
         assert scheduled.workout_template_id == template.id
         assert scheduled.sync_status == "pending"
 
-    def test_get_by_date_range(self, session: Session) -> None:
+    async def test_get_by_date_range(self, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         dates = [date(2026, 3, 8), date(2026, 3, 10), date(2026, 3, 15)]
         for d in dates:
             session.add(ScheduledWorkout(date=d, workout_template_id=template.id))
-        session.commit()
+        await session.commit()
 
         # Act
         start = date(2026, 3, 9)
         end = date(2026, 3, 12)
-        result = session.exec(
+        result = await session.exec(
             select(ScheduledWorkout).where(
                 ScheduledWorkout.date >= start,
                 ScheduledWorkout.date <= end,
             )
-        ).all()
+        )
 
         # Assert
-        assert len(result) == 1
-        assert result[0].date == date(2026, 3, 10)
+        rows = result.all()
+        assert len(rows) == 1
+        assert rows[0].date == date(2026, 3, 10)
 
-    def test_update_sync_status(self, session: Session) -> None:
+    async def test_update_sync_status(self, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Run", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         scheduled = ScheduledWorkout(
             date=date(2026, 3, 10),
@@ -273,15 +277,15 @@ class TestScheduledWorkout:
             sync_status="pending",
         )
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Act
         scheduled.sync_status = "synced"
         scheduled.garmin_workout_id = "garmin-123"
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Assert
         assert scheduled.sync_status == "synced"

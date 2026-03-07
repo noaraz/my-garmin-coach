@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
-
-from fastapi.testclient import TestClient
-from sqlmodel import Session
+from httpx import AsyncClient
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import WorkoutTemplate
 
@@ -23,7 +21,7 @@ class TestWorkoutsAPI:
             }
         ]
 
-    def test_create(self, client: TestClient, session: Session) -> None:
+    async def test_create(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         payload = {
             "name": "Easy Run",
@@ -34,7 +32,7 @@ class TestWorkoutsAPI:
         }
 
         # Act
-        response = client.post("/api/workouts", json=payload)
+        response = await client.post("/api/v1/workouts", json=payload)
 
         # Assert
         assert response.status_code == 201
@@ -42,30 +40,30 @@ class TestWorkoutsAPI:
         assert data["id"] is not None
         assert data["name"] == "Easy Run"
 
-    def test_list(self, client: TestClient, session: Session) -> None:
+    async def test_list(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         for i in range(3):
             session.add(WorkoutTemplate(name=f"Run {i}", sport_type="running"))
-        session.commit()
+        await session.commit()
 
         # Act
-        response = client.get("/api/workouts")
+        response = await client.get("/api/v1/workouts")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 3
 
-    def test_update(self, client: TestClient, session: Session) -> None:
+    async def test_update(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="Old Name", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         # Act
-        response = client.put(
-            f"/api/workouts/{template.id}",
+        response = await client.put(
+            f"/api/v1/workouts/{template.id}",
             json={"name": "New Name", "description": "Updated"},
         )
 
@@ -75,17 +73,17 @@ class TestWorkoutsAPI:
         assert data["name"] == "New Name"
         assert data["description"] == "Updated"
 
-    def test_delete(self, client: TestClient, session: Session) -> None:
+    async def test_delete(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         template = WorkoutTemplate(name="To Delete", sport_type="running")
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         # Act
-        response = client.delete(f"/api/workouts/{template.id}")
+        response = await client.delete(f"/api/v1/workouts/{template.id}")
 
         # Assert
         assert response.status_code == 204
-        deleted = session.get(WorkoutTemplate, template.id)
+        deleted = await session.get(WorkoutTemplate, template.id)
         assert deleted is None
