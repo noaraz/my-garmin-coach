@@ -4,7 +4,7 @@ A self-hosted training platform for runners using Garmin watches.
 Replaces TrainingPeaks for self-coached athletes.
 
 - **STATUS.md** — what's done, in progress, next. Read before starting, update when done.
-- **docs/features/** — each feature has its own PLAN.md and CLAUDE.md.
+- **features/** — each feature has its own PLAN.md and CLAUDE.md.
 - **.claude/agents/** — specialist agents for parallel work.
 
 ---
@@ -93,14 +93,14 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 
 | Feature | Path | Description |
 | ------- | ---- | ----------- |
-| Zone Engine | `docs/features/zone-engine/` | HR + pace zone calculation, recalculation |
-| Workout Resolver | `docs/features/workout-resolver/` | Zone→absolute target resolution, duration/distance estimation |
-| Garmin Sync | `docs/features/garmin-sync/` | Formatter, sync service, session management |
-| Database + API | `docs/features/database-api/` | SQLModel tables, FastAPI routes, services |
-| Calendar | `docs/features/calendar/` | Frontend calendar view, scheduling, drag-reschedule |
-| Workout Builder | `docs/features/workout-builder/` | Drag-and-drop visual builder, library |
-| Auth | `docs/features/auth/` | JWT, user accounts, invite system, token encryption |
-| Infrastructure | `docs/features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
+| Zone Engine | `features/zone-engine/` | HR + pace zone calculation, recalculation |
+| Workout Resolver | `features/workout-resolver/` | Zone→absolute target resolution, duration/distance estimation |
+| Garmin Sync | `features/garmin-sync/` | Formatter, sync service, session management |
+| Database + API | `features/database-api/` | SQLModel tables, FastAPI routes, services |
+| Calendar | `features/calendar/` | Frontend calendar view, scheduling, drag-reschedule |
+| Workout Builder | `features/workout-builder/` | Drag-and-drop visual builder, library |
+| Auth | `features/auth/` | JWT, user accounts, invite system, token encryption |
+| Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
 
 ---
 
@@ -121,16 +121,16 @@ For independent features that don't touch the same files, delegate to subagents:
 
 ```
 Use the backend-dev agent to implement the zone-engine feature.
-It should read docs/features/zone-engine/PLAN.md and follow TDD.
+It should read features/zone-engine/PLAN.md and follow TDD.
 ```
 
 Parallel example (features 2-4 are independent pure logic):
 
 ```
 Run these in parallel as subagents:
-1. backend-dev: implement zone-engine (docs/features/zone-engine/)
-2. backend-dev: implement workout-resolver (docs/features/workout-resolver/)
-3. backend-dev: implement garmin formatter (docs/features/garmin-sync/ — formatter only)
+1. backend-dev: implement zone-engine (features/zone-engine/)
+2. backend-dev: implement workout-resolver (features/workout-resolver/)
+3. backend-dev: implement garmin formatter (features/garmin-sync/ — formatter only)
 After all three complete, use the reviewer agent to verify.
 ```
 
