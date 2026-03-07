@@ -5,6 +5,7 @@ Replaces TrainingPeaks for self-coached athletes.
 
 - **STATUS.md** — what's done, in progress, next. Read before starting, update when done.
 - **docs/features/** — each feature has its own PLAN.md and CLAUDE.md.
+- **.claude/agents/** — specialist agents for parallel work.
 
 ---
 
@@ -100,6 +101,63 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Workout Builder | `docs/features/workout-builder/` | Drag-and-drop visual builder, library |
 | Auth | `docs/features/auth/` | JWT, user accounts, invite system, token encryption |
 | Infrastructure | `docs/features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
+
+---
+
+## Agents
+
+Specialist agents in `.claude/agents/` for parallel and delegated work.
+
+| Agent | File | Role |
+| ----- | ---- | ---- |
+| backend-dev | `.claude/agents/backend-dev.md` | Python tests + implementation, TDD |
+| frontend-dev | `.claude/agents/frontend-dev.md` | React components + tests, RTL |
+| reviewer | `.claude/agents/reviewer.md` | Run tests, check coverage, verify quality (read-only) |
+| infra | `.claude/agents/infra.md` | Docker, deployment, scaffolding |
+
+### Using Agents as Subagents
+
+For independent features that don't touch the same files, delegate to subagents:
+
+```
+Use the backend-dev agent to implement the zone-engine feature.
+It should read docs/features/zone-engine/PLAN.md and follow TDD.
+```
+
+Parallel example (features 2-4 are independent pure logic):
+
+```
+Run these in parallel as subagents:
+1. backend-dev: implement zone-engine (docs/features/zone-engine/)
+2. backend-dev: implement workout-resolver (docs/features/workout-resolver/)
+3. backend-dev: implement garmin formatter (docs/features/garmin-sync/ — formatter only)
+After all three complete, use the reviewer agent to verify.
+```
+
+### Using Agent Teams (Experimental)
+
+For cross-layer work where agents need to coordinate:
+
+```bash
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+```
+
+```
+Create a team:
+1. "backend" (backend-dev) — build database-api feature
+2. "frontend" (frontend-dev) — build calendar feature
+3. "reviewer" — review both when done
+Backend and frontend work in parallel. Frontend depends on API types
+so backend should share its types.ts early.
+```
+
+### Cost Optimization
+
+Set subagents to use Sonnet while the main session uses Opus:
+
+```bash
+export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
+```
 
 ---
 
