@@ -1,48 +1,48 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: not started
+Last updated: 2026-03-07
 
-## Current Focus: Infrastructure (Scaffolding)
+## Current Focus: Database + API
 
 ---
 
 ### Infrastructure
 | Task | Status |
 |------|--------|
-| Repo structure + pyproject.toml | ⬜ |
-| backend/Dockerfile + docker-compose.yml | ⬜ |
-| Minimal FastAPI health check | ⬜ |
-| .env.example + .gitignore | ⬜ |
-| docker compose up works | ⬜ |
-| pytest runs in container | ⬜ |
+| Repo structure + pyproject.toml | ✅ |
+| backend/Dockerfile + docker-compose.yml | ✅ |
+| Minimal FastAPI health check | ✅ |
+| .env.example + .gitignore | ✅ |
+| docker compose up works | ✅ |
+| pytest runs in container | ✅ |
 
 ### Zone Engine
 | Task | Status |
 |------|--------|
-| models.py (Zone, ZoneConfig, ZoneSet) | ⬜ |
-| Tests: test_hr_zones.py | ⬜ |
-| Implement: hr_zones.py | ⬜ |
-| Tests: test_pace_zones.py | ⬜ |
-| Implement: pace_zones.py | ⬜ |
-| Coverage >95% | ⬜ |
+| models.py (Zone, ZoneConfig, ZoneSet) | ✅ |
+| Tests: test_hr_zones.py | ✅ |
+| Implement: hr_zones.py | ✅ |
+| Tests: test_pace_zones.py | ✅ |
+| Implement: pace_zones.py | ✅ |
+| Coverage >95% | ✅ |
 
 ### Workout Resolver
 | Task | Status |
 |------|--------|
-| models.py (WorkoutStep, ResolvedStep) | ⬜ |
-| Tests: test_workout_resolver.py | ⬜ |
-| Implement: resolver.py | ⬜ |
-| Tests: test_workout_estimator.py | ⬜ |
-| Implement: estimator.py | ⬜ |
+| models.py (WorkoutStep, ResolvedStep) | ✅ |
+| Tests: test_workout_resolver.py | ✅ |
+| Implement: resolver.py | ✅ |
+| Tests: test_workout_estimator.py | ✅ |
+| Implement: estimator.py | ✅ |
 
 ### Garmin Sync
 | Task | Status |
 |------|--------|
-| garmin/constants.py | ⬜ |
-| Tests: test_garmin_converters.py | ⬜ |
-| Implement: converters.py | ⬜ |
-| Tests: test_garmin_formatter.py | ⬜ |
-| Implement: formatter.py | ⬜ |
+| garmin/constants.py | ✅ |
+| Tests: test_garmin_converters.py | ✅ |
+| Implement: converters.py | ✅ |
+| Tests: test_garmin_formatter.py | ✅ |
+| Implement: formatter.py | ✅ |
 | Tests: test_garmin_sync.py (mocked) | ⬜ |
 | Implement: sync_service.py + session.py | ⬜ |
 | Implement: sync_orchestrator.py | ⬜ |
@@ -111,4 +111,9 @@ Last updated: not started
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
 ## Notes
-<!-- decisions, blockers, changes -->
+- Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path
+- Docker binary at `/Applications/Docker.app/Contents/Resources/bin/docker` (not in default PATH — add to ~/.zshrc)
+- Zone engine coverage: 97% (hr_zones line 43, models line 51, pace_zones line 39 are the three uncovered lines — all minor)
+- Dockerfile uses non-root `appuser`; dev hot-reload is via compose `command:` override only
+- `pct_max_hr` / `pct_hrr` methods prefer `ZoneConfig.max_value` when set, fall back to `threshold`
+- `scripts/try_it.py` provides an end-to-end local demo: `docker compose exec backend python scripts/try_it.py`

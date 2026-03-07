@@ -24,6 +24,7 @@ dist/
 
 # Data
 data/
+*.db
 
 # OS
 .DS_Store
