@@ -18,11 +18,14 @@
 ```
 GARMINCOACH_SECRET_KEY   # master encryption key (32+ random chars)
 JWT_SECRET               # JWT signing key (separate from above)
-DATABASE_URL             # sqlite:///data/garmincoach.db
+DATABASE_URL             # sqlite+aiosqlite:////data/garmincoach.db  ← aiosqlite driver required
 ENVIRONMENT              # development | production
-ALLOWED_ORIGINS          # CORS origins (production only)
+CORS_ORIGINS             # read by Settings.cors_origins (list[str])
 GARMIN_TOKENS_DIR        # /data/garmin-tokens
 ```
+
+> **Note:** CORS is configured in `create_app()` via `CORSMiddleware` (not Nginx). Origins come from
+> `src/core/config.py` `Settings.cors_origins` (default: localhost:5173 and localhost:3000).
 
 ## FastAPI Static File Mount (Production)
 

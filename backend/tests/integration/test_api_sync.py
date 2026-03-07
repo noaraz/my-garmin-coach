@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import Session
+from httpx import ASGITransport, AsyncClient
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session, get_sync_service
@@ -21,25 +22,34 @@ from src.db.models import ScheduledWorkout
 def mock_sync_service_fixture() -> MagicMock:
     """Return a MagicMock that stands in for SyncOrchestrator."""
     svc = MagicMock()
-    # Default: push_workout returns a garmin ID, schedule_workout succeeds
     svc.push_workout.return_value = "garmin-abc-123"
     svc.schedule_workout.return_value = None
     return svc
 
 
 @pytest.fixture(name="client")
-def client_fixture(session: Session, mock_sync_service: MagicMock) -> TestClient:
-    """TestClient with DB and sync service both overridden."""
+async def client_fixture(
+    session: AsyncSession, mock_sync_service: MagicMock
+) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient with DB and sync service both overridden."""
     app = create_app()
-    app.dependency_overrides[get_session] = lambda: session
+
+    async def override_session() -> AsyncGenerator[AsyncSession, None]:
+        yield session
+
+    app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_sync_service] = lambda: mock_sync_service
-    client = TestClient(app)
-    yield client
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+
     app.dependency_overrides.clear()
 
 
-def _make_scheduled_workout(
-    session: Session,
+async def _make_scheduled_workout(
+    session: AsyncSession,
     *,
     sync_status: str = "pending",
     garmin_workout_id: str | None = None,
@@ -51,30 +61,30 @@ def _make_scheduled_workout(
         garmin_workout_id=garmin_workout_id,
     )
     session.add(sw)
-    session.commit()
-    session.refresh(sw)
+    await session.commit()
+    await session.refresh(sw)
     return sw
 
 
 # ---------------------------------------------------------------------------
-# POST /api/sync/{workout_id}
+# POST /api/v1/sync/{workout_id}
 # ---------------------------------------------------------------------------
 
 
 class TestSyncSingle:
-    def test_sync_single_returns_200_with_sync_status(
+    async def test_sync_single_returns_200_with_sync_status(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """POST /api/sync/:id with an existing workout returns 200 and synced status."""
+        """POST /api/v1/sync/:id with an existing workout returns 200 and synced status."""
         # Arrange
-        sw = _make_scheduled_workout(session, sync_status="pending")
+        sw = await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.sync_workout.return_value = "garmin-xyz-999"
 
         # Act
-        response = client.post(f"/api/sync/{sw.id}")
+        response = await client.post(f"/api/v1/sync/{sw.id}")
 
         # Assert
         assert response.status_code == 200
@@ -83,30 +93,27 @@ class TestSyncSingle:
         assert body["sync_status"] == "synced"
         assert body["garmin_workout_id"] == "garmin-xyz-999"
 
-    def test_sync_single_not_found_returns_404(
+    async def test_sync_single_not_found_returns_404(
         self,
-        client: TestClient,
+        client: AsyncClient,
     ) -> None:
-        """POST /api/sync/:id for a non-existent workout returns 404."""
-        # Act
-        response = client.post("/api/sync/9999")
-
-        # Assert
+        """POST /api/v1/sync/:id for a non-existent workout returns 404."""
+        response = await client.post("/api/v1/sync/9999")
         assert response.status_code == 404
 
-    def test_sync_single_when_sync_raises_marks_failed(
+    async def test_sync_single_when_sync_raises_marks_failed(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """POST /api/sync/:id returns 200 with sync_status=failed when sync errors."""
+        """POST /api/v1/sync/:id returns 200 with sync_status=failed when sync errors."""
         # Arrange
-        sw = _make_scheduled_workout(session, sync_status="pending")
+        sw = await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.sync_workout.side_effect = RuntimeError("Garmin unavailable")
 
         # Act
-        response = client.post(f"/api/sync/{sw.id}")
+        response = await client.post(f"/api/v1/sync/{sw.id}")
 
         # Assert
         assert response.status_code == 200
@@ -114,48 +121,48 @@ class TestSyncSingle:
         assert body["id"] == sw.id
         assert body["sync_status"] == "failed"
 
-    def test_sync_single_persists_status_to_db(
+    async def test_sync_single_persists_status_to_db(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """POST /api/sync/:id persists the updated sync_status in the DB."""
+        """POST /api/v1/sync/:id persists the updated sync_status in the DB."""
         # Arrange
-        sw = _make_scheduled_workout(session, sync_status="pending")
+        sw = await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.sync_workout.return_value = "garmin-persisted"
 
         # Act
-        client.post(f"/api/sync/{sw.id}")
+        await client.post(f"/api/v1/sync/{sw.id}")
 
         # Assert — reload from DB
-        session.refresh(sw)
+        await session.refresh(sw)
         assert sw.sync_status == "synced"
         assert sw.garmin_workout_id == "garmin-persisted"
 
 
 # ---------------------------------------------------------------------------
-# POST /api/sync/all
+# POST /api/v1/sync/all
 # ---------------------------------------------------------------------------
 
 
 class TestSyncAll:
-    def test_sync_all_pending_returns_counts(
+    async def test_sync_all_pending_returns_counts(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """POST /api/sync/all syncs pending+modified workouts and returns counts."""
+        """POST /api/v1/sync/all syncs pending+modified workouts and returns counts."""
         # Arrange — two pending, one already synced (should be skipped)
-        _make_scheduled_workout(session, sync_status="pending")
-        _make_scheduled_workout(session, sync_status="modified")
-        _make_scheduled_workout(session, sync_status="synced")
+        await _make_scheduled_workout(session, sync_status="pending")
+        await _make_scheduled_workout(session, sync_status="modified")
+        await _make_scheduled_workout(session, sync_status="synced")
 
         mock_sync_service.sync_workout.return_value = "garmin-bulk-id"
 
         # Act
-        response = client.post("/api/sync/all")
+        response = await client.post("/api/v1/sync/all")
 
         # Assert
         assert response.status_code == 200
@@ -163,38 +170,35 @@ class TestSyncAll:
         assert body["synced"] == 2
         assert body["failed"] == 0
 
-    def test_sync_all_with_no_pending_returns_zero_counts(
+    async def test_sync_all_with_no_pending_returns_zero_counts(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
     ) -> None:
-        """POST /api/sync/all with no pending workouts returns synced=0 failed=0."""
-        # Arrange — only a synced workout
-        _make_scheduled_workout(session, sync_status="synced")
+        """POST /api/v1/sync/all with no pending workouts returns synced=0 failed=0."""
+        await _make_scheduled_workout(session, sync_status="synced")
 
-        # Act
-        response = client.post("/api/sync/all")
+        response = await client.post("/api/v1/sync/all")
 
-        # Assert
         assert response.status_code == 200
         body = response.json()
         assert body["synced"] == 0
         assert body["failed"] == 0
 
-    def test_sync_all_counts_failures(
+    async def test_sync_all_counts_failures(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """POST /api/sync/all tallies failures when sync raises."""
+        """POST /api/v1/sync/all tallies failures when sync raises."""
         # Arrange
-        _make_scheduled_workout(session, sync_status="pending")
-        _make_scheduled_workout(session, sync_status="pending")
+        await _make_scheduled_workout(session, sync_status="pending")
+        await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.sync_workout.side_effect = RuntimeError("boom")
 
         # Act
-        response = client.post("/api/sync/all")
+        response = await client.post("/api/v1/sync/all")
 
         # Assert
         assert response.status_code == 200
@@ -204,50 +208,46 @@ class TestSyncAll:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/sync/status
+# GET /api/v1/sync/status
 # ---------------------------------------------------------------------------
 
 
 class TestSyncStatus:
-    def test_sync_status_returns_all_workouts(
+    async def test_sync_status_returns_all_workouts(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
     ) -> None:
-        """GET /api/sync/status returns all scheduled workouts with sync info."""
+        """GET /api/v1/sync/status returns all scheduled workouts with sync info."""
         # Arrange
-        sw1 = _make_scheduled_workout(session, sync_status="pending")
-        sw2 = _make_scheduled_workout(
+        sw1 = await _make_scheduled_workout(session, sync_status="pending")
+        sw2 = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="garmin-001"
         )
 
         # Act
-        response = client.get("/api/sync/status")
+        response = await client.get("/api/v1/sync/status")
 
         # Assert
         assert response.status_code == 200
         body = response.json()
         assert len(body) == 2
-
         ids = {item["id"] for item in body}
         assert sw1.id in ids
         assert sw2.id in ids
 
-    def test_sync_status_includes_required_fields(
+    async def test_sync_status_includes_required_fields(
         self,
-        client: TestClient,
-        session: Session,
+        client: AsyncClient,
+        session: AsyncSession,
     ) -> None:
-        """GET /api/sync/status items contain id, date, sync_status, garmin_workout_id."""
-        # Arrange
-        _make_scheduled_workout(
+        """GET /api/v1/sync/status items contain id, date, sync_status, garmin_workout_id."""
+        await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="garmin-abc"
         )
 
-        # Act
-        response = client.get("/api/sync/status")
+        response = await client.get("/api/v1/sync/status")
 
-        # Assert
         assert response.status_code == 200
         item = response.json()[0]
         assert "id" in item
@@ -257,14 +257,11 @@ class TestSyncStatus:
         assert item["sync_status"] == "synced"
         assert item["garmin_workout_id"] == "garmin-abc"
 
-    def test_sync_status_empty_when_no_workouts(
+    async def test_sync_status_empty_when_no_workouts(
         self,
-        client: TestClient,
+        client: AsyncClient,
     ) -> None:
-        """GET /api/sync/status returns empty list when no workouts exist."""
-        # Act
-        response = client.get("/api/sync/status")
-
-        # Assert
+        """GET /api/v1/sync/status returns empty list when no workouts exist."""
+        response = await client.get("/api/v1/sync/status")
         assert response.status_code == 200
         assert response.json() == []

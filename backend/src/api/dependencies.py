@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
-from src.db.database import get_session
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from src.db.database import get_session as _get_session
 from src.services.sync_orchestrator import SyncOrchestrator
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Yield an AsyncSession for each request."""
+    async for session in _get_session():
+        yield session
 
 
 def _noop_formatter(name: str, steps: list[Any]) -> dict[str, Any]:

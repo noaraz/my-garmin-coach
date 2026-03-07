@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-07 (Garmin Sync + Database + API complete)
+Last updated: 2026-03-07 (Async migration + FastAPI skill alignment complete)
 
 ## Current Focus: Calendar (Frontend)
 
@@ -60,6 +60,11 @@ Last updated: 2026-03-07 (Garmin Sync + Database + API complete)
 | Tests: test_api_sync.py | ✅ |
 | Implement: services + routers | ✅ |
 | Zone change cascade | ✅ |
+| Async migration (aiosqlite + AsyncSession) | ✅ |
+| Repository layer (BaseRepository + domain repos) | ✅ |
+| BaseSettings config (pydantic-settings) | ✅ |
+| CORS middleware + /api/v1/ prefix | ✅ |
+| Async class-based services with shims | ✅ |
 
 ### Calendar (Frontend)
 | Task | Status |

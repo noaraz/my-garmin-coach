@@ -3,23 +3,25 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from fastapi.testclient import TestClient
-from sqlmodel import Session
+from httpx import AsyncClient
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import AthleteProfile, HRZone, PaceZone, ScheduledWorkout, WorkoutTemplate
 
 
 class TestHRZonesAPI:
-    def _seed_profile_with_lthr(self, session: Session, lthr: int = 162) -> AthleteProfile:
+    async def _seed_profile_with_lthr(
+        self, session: AsyncSession, lthr: int = 162
+    ) -> AthleteProfile:
         profile = AthleteProfile(name="Runner", max_hr=185, lthr=lthr)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
         return profile
 
-    def test_get_hr_zones(self, client: TestClient, session: Session) -> None:
+    async def test_get_hr_zones(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        profile = self._seed_profile_with_lthr(session)
+        profile = await self._seed_profile_with_lthr(session)
         for i in range(1, 6):
             session.add(
                 HRZone(
@@ -33,19 +35,19 @@ class TestHRZonesAPI:
                     pct_upper=0.70,
                 )
             )
-        session.commit()
+        await session.commit()
 
         # Act
-        response = client.get("/api/zones/hr")
+        response = await client.get("/api/v1/zones/hr")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 5
 
-    def test_set_hr_zones_custom(self, client: TestClient, session: Session) -> None:
+    async def test_set_hr_zones_custom(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        profile = self._seed_profile_with_lthr(session)
+        await self._seed_profile_with_lthr(session)
         custom_zones = [
             {
                 "zone_number": i,
@@ -60,7 +62,7 @@ class TestHRZonesAPI:
         ]
 
         # Act
-        response = client.put("/api/zones/hr", json=custom_zones)
+        response = await client.put("/api/v1/zones/hr", json=custom_zones)
 
         # Assert
         assert response.status_code == 200
@@ -68,12 +70,12 @@ class TestHRZonesAPI:
         assert len(data) == 5
         assert all(z["calculation_method"] == "custom" for z in data)
 
-    def test_recalculate_hr_zones(self, client: TestClient, session: Session) -> None:
+    async def test_recalculate_hr_zones(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        profile = self._seed_profile_with_lthr(session, lthr=162)
+        await self._seed_profile_with_lthr(session, lthr=162)
 
         # Act
-        response = client.post("/api/zones/hr/recalculate")
+        response = await client.post("/api/v1/zones/hr/recalculate")
 
         # Assert
         assert response.status_code == 200
@@ -83,12 +85,12 @@ class TestHRZonesAPI:
         zone4 = next(z for z in data if z["zone_number"] == 4)
         assert abs(zone4["lower_bpm"] - 162 * 0.94) < 1.0
 
-    def test_get_pace_zones(self, client: TestClient, session: Session) -> None:
+    async def test_get_pace_zones(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", threshold_pace=270.0)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
         for i in range(1, 6):
             session.add(
                 PaceZone(
@@ -102,37 +104,41 @@ class TestHRZonesAPI:
                     pct_upper=1.00,
                 )
             )
-        session.commit()
+        await session.commit()
 
         # Act
-        response = client.get("/api/zones/pace")
+        response = await client.get("/api/v1/zones/pace")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 5
 
-    def test_recalculate_pace_zones(self, client: TestClient, session: Session) -> None:
+    async def test_recalculate_pace_zones(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
         # Arrange
         profile = AthleteProfile(name="Runner", threshold_pace=270.0)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         # Act
-        response = client.post("/api/zones/pace/recalculate")
+        response = await client.post("/api/v1/zones/pace/recalculate")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 5
 
-    def test_zone_change_re_resolves(self, client: TestClient, session: Session) -> None:
+    async def test_zone_change_re_resolves(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
         # Arrange — profile with LTHR
         profile = AthleteProfile(name="Runner", max_hr=185, lthr=155)
         session.add(profile)
-        session.commit()
-        session.refresh(profile)
+        await session.commit()
+        await session.refresh(profile)
 
         # Create a workout template with HR zone reference
         steps = [
@@ -147,8 +153,8 @@ class TestHRZonesAPI:
             name="Tempo", sport_type="running", steps=json.dumps(steps)
         )
         session.add(template)
-        session.commit()
-        session.refresh(template)
+        await session.commit()
+        await session.refresh(template)
 
         # Schedule a future workout (date in future)
         scheduled = ScheduledWorkout(
@@ -157,16 +163,15 @@ class TestHRZonesAPI:
             sync_status="synced",
         )
         session.add(scheduled)
-        session.commit()
-        session.refresh(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
 
         # Act — recalculate HR zones with new LTHR (triggers cascade)
-        response = client.post("/api/zones/hr/recalculate")
+        response = await client.post("/api/v1/zones/hr/recalculate")
 
         # Assert
         assert response.status_code == 200
-        session.expire_all()
-        updated = session.get(ScheduledWorkout, scheduled.id)
+        updated = await session.get(ScheduledWorkout, scheduled.id)
         # resolved_steps should be populated and sync_status updated to "modified"
         assert updated.resolved_steps is not None
         assert updated.sync_status == "modified"
