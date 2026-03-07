@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-07
+Last updated: 2026-03-07 (Garmin Sync + Database + API complete)
 
-## Current Focus: Database + API
+## Current Focus: Calendar (Frontend)
 
 ---
 
@@ -43,23 +43,23 @@ Last updated: 2026-03-07
 | Implement: converters.py | ✅ |
 | Tests: test_garmin_formatter.py | ✅ |
 | Implement: formatter.py | ✅ |
-| Tests: test_garmin_sync.py (mocked) | ⬜ |
-| Implement: sync_service.py + session.py | ⬜ |
-| Implement: sync_orchestrator.py | ⬜ |
+| Tests: test_garmin_sync.py (mocked) | ✅ |
+| Implement: sync_service.py + session.py | ✅ |
+| Implement: sync_orchestrator.py | ✅ |
 
 ### Database + API
 | Task | Status |
 |------|--------|
-| db/models.py (SQLModel tables) | ⬜ |
-| db/database.py | ⬜ |
-| Tests: test_db.py | ⬜ |
-| Tests: test_api_profile.py | ⬜ |
-| Tests: test_api_zones.py | ⬜ |
-| Tests: test_api_workouts.py | ⬜ |
-| Tests: test_api_calendar.py | ⬜ |
-| Tests: test_api_sync.py | ⬜ |
-| Implement: services + routers | ⬜ |
-| Zone change cascade | ⬜ |
+| db/models.py (SQLModel tables) | ✅ |
+| db/database.py | ✅ |
+| Tests: test_db.py | ✅ |
+| Tests: test_api_profile.py | ✅ |
+| Tests: test_api_zones.py | ✅ |
+| Tests: test_api_workouts.py | ✅ |
+| Tests: test_api_calendar.py | ✅ |
+| Tests: test_api_sync.py | ✅ |
+| Implement: services + routers | ✅ |
+| Zone change cascade | ✅ |
 
 ### Calendar (Frontend)
 | Task | Status |

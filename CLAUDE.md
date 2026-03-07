@@ -53,6 +53,7 @@ Replaces TrainingPeaks for self-coached athletes.
 
 ### Git
 - Conventional commits: `test:`, `feat:`, `fix:`, `refactor:`
+- **NEVER commit directly to `main`.** Always work on a feature branch. The session start hook auto-creates one if needed.
 
 ---
 
@@ -166,3 +167,19 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 - **Do NOT install generic skills.** Feature CLAUDE.md files have all needed context.
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
+- **fastapi-templates** — installed at `.claude/skills/fastapi-templates/`. Async patterns, DI, middleware.
+
+## Commands
+
+Project slash commands in `.claude/commands/`:
+
+| Command | Description |
+|---------|-------------|
+| `/ship` | Full ship workflow: tests → code review → fix prompt → local test steps → update docs → open PR |
+
+## Workflow Patterns
+
+- **Subagents for parallel features**: launch `backend-dev` agents in parallel for independent features (different file sets). They don't conflict if files don't overlap.
+- **Reviewer agent**: delegates test-running to background subagent. Returns pass/fail + coverage.
+- **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
+- **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.

@@ -16,29 +16,29 @@ Track progress in **STATUS.md**.
 ## Tasks
 
 ### Database
-- [ ] Write `db/models.py` — all SQLModel table classes (see data model below)
-- [ ] Write `db/database.py` — engine creation, `get_session()` dependency
-- [ ] Write `tests/integration/conftest.py` — test DB, test client, fixtures
-- [ ] Write all tests in `test_db.py` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement DB operations in service layer
-- [ ] Run tests → GREEN
+- [x] Write `db/models.py` — all SQLModel table classes (see data model below)
+- [x] Write `db/database.py` — engine creation, `get_session()` dependency
+- [x] Write `tests/integration/conftest.py` — test DB, test client, fixtures
+- [x] Write all tests in `test_db.py` (see test table)
+- [x] Run tests → RED
+- [x] Implement DB operations in service layer
+- [x] Run tests → GREEN
 
 ### API Endpoints
-- [ ] Write all tests in `test_api_profile.py`
-- [ ] Write all tests in `test_api_zones.py`
-- [ ] Write all tests in `test_api_workouts.py`
-- [ ] Write all tests in `test_api_calendar.py`
-- [ ] Write all tests in `test_api_sync.py`
-- [ ] Run all tests → RED
-- [ ] Implement `api/routers/` — profile, zones, workouts, calendar, sync
-- [ ] Implement `services/` — profile, zone, workout, calendar services
-- [ ] Run all tests → GREEN
+- [x] Write all tests in `test_api_profile.py`
+- [x] Write all tests in `test_api_zones.py`
+- [x] Write all tests in `test_api_workouts.py`
+- [x] Write all tests in `test_api_calendar.py`
+- [x] Write all tests in `test_api_sync.py`
+- [x] Run all tests → RED
+- [x] Implement `api/routers/` — profile, zones, workouts, calendar, sync
+- [x] Implement `services/` — profile, zone, workout, calendar services
+- [x] Run all tests → GREEN
 
 ### Zone Cascade
-- [ ] Implement zone change → re-resolve → mark modified flow in zone_service
-- [ ] Write specific test: change LTHR → verify future workouts re-resolved
-- [ ] Run test → GREEN
+- [x] Implement zone change → re-resolve → mark modified flow in zone_service
+- [x] Write specific test: change LTHR → verify future workouts re-resolved
+- [x] Run test → GREEN
 
 ---
 

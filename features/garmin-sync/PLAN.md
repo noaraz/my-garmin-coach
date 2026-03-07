@@ -27,15 +27,15 @@ Track progress in **STATUS.md**.
 - [ ] Run tests → GREEN
 
 ### Sync Service (mocked I/O)
-- [ ] Write `tests/fixtures/garmin_mocks.py` — mock client factory
-- [ ] Write all tests in `test_garmin_sync.py` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `garmin/sync_service.py` — push, update, delete, schedule
-- [ ] Implement `garmin/session.py` — login, token caching, refresh
-- [ ] Run tests → GREEN
-- [ ] Implement `services/sync_orchestrator.py` — resolve → format → push pipeline
-- [ ] Write `test_api_sync.py` — API endpoint tests
-- [ ] Run tests → GREEN
+- [x] Write `tests/fixtures/garmin_mocks.py` — mock client factory
+- [x] Write all tests in `test_garmin_sync.py` (see test table)
+- [x] Run tests → RED
+- [x] Implement `garmin/sync_service.py` — push, update, delete, schedule
+- [x] Implement `garmin/session.py` — login, token caching, refresh
+- [x] Run tests → GREEN
+- [x] Implement `services/sync_orchestrator.py` — resolve → format → push pipeline
+- [x] Write `test_api_sync.py` — API endpoint tests
+- [x] Run tests → GREEN
 
 ---
 

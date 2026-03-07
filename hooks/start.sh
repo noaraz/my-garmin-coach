@@ -7,6 +7,19 @@ echo "  GarminCoach — Session Start"
 echo "=========================================="
 echo ""
 
+# Auto-create a feature branch if on main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    FOCUS=$(grep "^## Current Focus:" STATUS.md 2>/dev/null | sed 's/## Current Focus: //' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | tr -s '-' | sed 's/^-//;s/-$//')
+    if [ -z "$FOCUS" ]; then
+        FOCUS="work-$(date +%Y-%m-%d)"
+    fi
+    BRANCH="feature/$FOCUS"
+    git checkout -b "$BRANCH" 2>/dev/null
+    echo "🌿 Created branch: $BRANCH"
+    echo ""
+fi
+
 if [ ! -f STATUS.md ]; then
     echo "⚠️  STATUS.md not found. Create it before starting work."
     exit 0
