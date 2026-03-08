@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-zone-1: #3B82F6;
+  --color-zone-2: #22C55E;
+  --color-zone-3: #EAB308;
+  --color-zone-4: #F97316;
+  --color-zone-5: #EF4444;
+  --color-surface: #f8f7f5;
+  --color-ink: #1a1a1a;
+  --font-family-display: 'Barlow Condensed', system-ui, sans-serif;
+  --font-family-body: 'Barlow', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Light theme (default) ───────────────────────── */
+:root, [data-theme="light"] {
+  --bg-main:       #f8f7f5;
+  --bg-surface:    #ffffff;
+  --bg-surface-2:  #f4f3f1;
+  --bg-surface-3:  #edeae5;
+  --border:        #ece9e3;
+  --border-strong: #d4d0c8;
+  --text-primary:  #111111;
+  --text-secondary:#555555;
+  --text-muted:    #aaaaaa;
+  --input-bg:      #ffffff;
+  --input-border:  #d4d0c8;
+  --toolbar-bg:    #ffffff;
+  --toolbar-border:#ece9e3;
+  --today-bg:      #f0f5ff;
+  --drop-bg:       #eef4ff;
+  --card-bg:       #1c1c1e;
+  --scrollbar:     #d1d5db;
+}
+
+/* ── Dark theme ──────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-main:       #111111;
+  --bg-surface:    #1a1a1a;
+  --bg-surface-2:  #222222;
+  --bg-surface-3:  #2a2a2a;
+  --border:        #2a2a2a;
+  --border-strong: #3a3a3a;
+  --text-primary:  #e8e4dc;
+  --text-secondary:#9a9080;
+  --text-muted:    #555555;
+  --input-bg:      #1c1c1e;
+  --input-border:  #333333;
+  --toolbar-bg:    #1a1a1a;
+  --toolbar-border:#2a2a2a;
+  --today-bg:      #0f1e3a;
+  --drop-bg:       #0f1e3a;
+  --card-bg:       #242424;
+  --scrollbar:     #333333;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: 'Barlow', system-ui, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

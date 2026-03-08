@@ -168,6 +168,7 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
 - **fastapi-templates** — installed at `.claude/skills/fastapi-templates/`. Async patterns, DI, middleware.
+- **frontend-design** — installed at `.claude/skills/frontend-design/`. Use when building React components, pages, or UI. Generates distinctive, production-grade designs (avoid generic AI aesthetics). Invoke via Skill tool.
 
 ## Commands
 
@@ -183,3 +184,14 @@ Project slash commands in `.claude/commands/`:
 - **Reviewer agent**: delegates test-running to background subagent. Returns pass/fail + coverage.
 - **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
 - **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.
+
+## Frontend Patterns (added 2026-03-08)
+
+- **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
+- **ThemeContext**: `React.createContext` + `useState` + `localStorage` persistence. Wrap `<App>` in `<ThemeProvider>`.
+- **@dnd-kit/sortable drag reorder**: `SortableContext` (horizontal strategy) → `useSortable` per item → `arrayMove` in `onDragEnd`. Drag handle element gets `{...listeners}`, container gets `{...attributes}` + `ref={setNodeRef}`.
+- **ErrorBoundary**: class component with `getDerivedStateFromError`. Wrap each route element in `App.tsx`.
+- **Vitest + vite.config.ts**: add `/// <reference types="vitest" />` at top of `vite.config.ts` for `test` property to typecheck.
+- **TypeScript strict build**: `npm run build` runs `tsc -b` which is stricter than Vitest. Common gotchas: unused imports/vars, `null` vs `undefined` in props, missing explicit types on `as` casts.
+- **Prod Docker**: `frontend/Dockerfile.prod` (node:20-alpine builder → nginx:alpine), `frontend/nginx.conf` (SPA try_files + `/api/` proxy to `http://backend:8000`).
+- **Docker credential helper**: `docker-credential-desktop` must be in PATH. Prefix commands: `PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" docker compose ...`

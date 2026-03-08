@@ -17,33 +17,33 @@ Track progress in **STATUS.md**.
 ## Tasks
 
 ### Frontend Scaffolding (first time)
-- [ ] Scaffold React + Vite + TypeScript + Tailwind
-- [ ] Write `frontend/Dockerfile.dev`
-- [ ] Add frontend service to `docker-compose.yml`
-- [ ] Verify: `docker compose up` runs both backend + frontend
-- [ ] Write `src/api/types.ts` — TypeScript interfaces matching backend models
-- [ ] Write `src/api/client.ts` — typed fetch wrappers for all API endpoints
-- [ ] Implement `layout/AppShell.tsx` + `layout/Sidebar.tsx`
+- [x] Scaffold React + Vite + TypeScript + Tailwind
+- [x] Write `frontend/Dockerfile.dev`
+- [x] Add frontend service to `docker-compose.yml`
+- [x] Verify: `docker compose up` runs both backend + frontend
+- [x] Write `src/api/types.ts` — TypeScript interfaces matching backend models
+- [x] Write `src/api/client.ts` — typed fetch wrappers for all API endpoints
+- [x] Implement `layout/AppShell.tsx` + `layout/Sidebar.tsx`
 
 ### Zone Manager
-- [ ] Write all tests in `ZoneManager.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `ZoneManager.tsx`, `HRZoneTable.tsx`, `PaceZoneTable.tsx`
-- [ ] Implement `ThresholdInput.tsx`, `MethodSelector.tsx`
-- [ ] Run tests → GREEN
+- [x] Write all tests in `ZoneManager.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `ZoneManager.tsx`, `HRZoneTable.tsx`, `PaceZoneTable.tsx`
+- [x] Implement `ThresholdInput.tsx`, `MethodSelector.tsx`
+- [x] Run tests → GREEN
 
 ### Calendar View
-- [ ] Write all tests in `Calendar.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `CalendarView.tsx`, `WeekView.tsx`, `MonthView.tsx`
-- [ ] Implement `DayCell.tsx`, `WorkoutCard.tsx`, `WorkoutPicker.tsx`
-- [ ] Run tests → GREEN
+- [x] Write all tests in `Calendar.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `CalendarView.tsx`, `WeekView.tsx`, `MonthView.tsx`
+- [x] Implement `DayCell.tsx`, `WorkoutCard.tsx`, `WorkoutPicker.tsx`
+- [x] Run tests → GREEN
 
 ### API Client Tests
-- [ ] Write all tests in `client.test.ts` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement API client functions
-- [ ] Run tests → GREEN
+- [x] Write all tests in `client.test.ts` (see test table)
+- [x] Run tests → RED
+- [x] Implement API client functions
+- [x] Run tests → GREEN
 
 ---
 
@@ -91,6 +91,16 @@ Track progress in **STATUS.md**.
 | `test_handles_network_error` | mock failure → error |
 
 ---
+
+## Design
+
+Use the **`frontend-design`** skill (`.claude/skills/frontend-design/`) when implementing React components. Invoke via the Skill tool to get distinctive, production-grade UI that avoids generic AI aesthetics.
+
+Design spec (from CLAUDE.md):
+- Tone: Athletic, utilitarian, clean — Strava meets Notion
+- Colors: Dark sidebar (`bg-gray-900`), light main (`bg-gray-50`). Zone colors: blue (z1) → red (z5)
+- Typography: Clean sans-serif, monospace for pace/time values
+- Cards: Colored blocks with zone distribution, name, duration, sync icon
 
 ## Implementation Files
 

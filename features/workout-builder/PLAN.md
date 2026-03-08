@@ -17,29 +17,29 @@ Track progress in **STATUS.md**.
 ## Tasks
 
 ### Workout Builder
-- [ ] Write all tests in `WorkoutBuilder.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `StepTimeline.tsx` + `StepBar.tsx` (display only)
-- [ ] Implement `StepPalette.tsx` (add step buttons)
-- [ ] Implement `StepConfigPanel.tsx` (step editor)
-- [ ] Implement `RepeatGroup.tsx` (visual container)
-- [ ] Implement `DurationInput.tsx` + `ZoneSelector.tsx`
-- [ ] Implement `WorkoutSummary.tsx` (total duration/distance)
-- [ ] Add drag-and-drop with @dnd-kit/core + @dnd-kit/sortable
-- [ ] Run tests → GREEN
+- [x] Write all tests in `WorkoutBuilder.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `StepTimeline.tsx` + `StepBar.tsx` (display only)
+- [x] Implement `StepPalette.tsx` (add step buttons)
+- [x] Implement `StepConfigPanel.tsx` (step editor)
+- [x] Implement `RepeatGroup.tsx` (visual container)
+- [x] Implement `DurationInput.tsx` + `ZoneSelector.tsx`
+- [x] Implement `WorkoutSummary.tsx` (total duration/distance)
+- [x] Add drag-and-drop with @dnd-kit/core + @dnd-kit/sortable
+- [x] Run tests → GREEN
 
 ### Step Config Panel
-- [ ] Write all tests in `StepConfigPanel.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement config panel
-- [ ] Run tests → GREEN
+- [x] Write all tests in `StepConfigPanel.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement config panel
+- [x] Run tests → GREEN
 
 ### Workout Library
-- [ ] Write all tests in `WorkoutLibrary.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `WorkoutLibrary.tsx`, `TemplateCard.tsx`, `TemplateSearch.tsx`
-- [ ] Add save-to-library and schedule-on-calendar integration
-- [ ] Run tests → GREEN
+- [x] Write all tests in `WorkoutLibrary.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `WorkoutLibrary.tsx`, `TemplateCard.tsx`, `TemplateSearch.tsx`
+- [x] Add save-to-library and schedule-on-calendar integration
+- [x] Run tests → GREEN
 
 ---
 
