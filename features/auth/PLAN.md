@@ -17,38 +17,38 @@ Track progress in **STATUS.md**.
 ## Tasks
 
 ### Auth Module
-- [ ] Write `auth/passwords.py` — hash_password, verify_password (pure logic)
-- [ ] Write `auth/jwt.py` — create_access_token, create_refresh_token, decode_token
-- [ ] Write `auth/models.py` — User, InviteCode SQLModel tables
-- [ ] Write `auth/schemas.py` — LoginRequest, RegisterRequest, TokenResponse
-- [ ] Write all tests in `test_api_auth.py` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `auth/service.py` — register, login, refresh, create_invite
-- [ ] Implement `auth/dependencies.py` — get_current_user
-- [ ] Implement `api/routers/auth.py` — /api/auth/* endpoints
-- [ ] Run tests → GREEN
+- [x] Write `auth/passwords.py` — hash_password, verify_password (pure logic)
+- [x] Write `auth/jwt.py` — create_access_token, create_refresh_token, decode_token
+- [x] Write `auth/models.py` — User, InviteCode SQLModel tables
+- [x] Write `auth/schemas.py` — LoginRequest, RegisterRequest, TokenResponse
+- [x] Write all tests in `test_api_auth.py` (see test table)
+- [x] Run tests → RED
+- [x] Implement `auth/service.py` — register, login, refresh, create_invite
+- [x] Implement `auth/dependencies.py` — get_current_user
+- [x] Implement `api/routers/auth.py` — /api/auth/* endpoints
+- [x] Run tests → GREEN
 
 ### Garmin Token Encryption
-- [ ] Write all tests in `test_garmin_connect_flow.py` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement encryption in garmin/session.py (Fernet per-user key)
-- [ ] Implement `api/routers/garmin_connect.py` — connect, status, disconnect
-- [ ] Run tests → GREEN
+- [x] Write all tests in `test_garmin_connect_flow.py` (see test table)
+- [x] Run tests → RED
+- [x] Implement encryption in garmin/session.py (Fernet per-user key)
+- [x] Implement `api/routers/garmin_connect.py` — connect, status, disconnect
+- [x] Run tests → GREEN
 
 ### Retrofit Existing Code
-- [ ] Add `user_id` FK to AthleteProfile, HRZone, PaceZone, WorkoutTemplate, ScheduledWorkout
-- [ ] Write DB migration (add column, set existing rows to admin user)
-- [ ] Add `Depends(get_current_user)` to ALL existing route handlers
-- [ ] Filter ALL existing queries by `current_user.id`
-- [ ] Update ALL existing integration test fixtures to include auth headers
-- [ ] Run ALL tests (new + existing) → GREEN
+- [x] Add `user_id` FK to AthleteProfile, HRZone, PaceZone, WorkoutTemplate, ScheduledWorkout
+- [x] Write DB migration (add column, set existing rows to admin user)
+- [x] Add `Depends(get_current_user)` to ALL existing route handlers
+- [x] Filter ALL existing queries by `current_user.id`
+- [x] Update ALL existing integration test fixtures to include auth headers
+- [x] Run ALL tests (new + existing) → GREEN
 
 ### Frontend
-- [ ] Add login page
-- [ ] Add registration page (with invite code field)
-- [ ] Add auth context/provider to React app
-- [ ] Add auth header to all API client calls
-- [ ] Add "Connect Garmin" button to settings page
+- [x] Add login page
+- [x] Add registration page (with invite code field)
+- [x] Add auth context/provider to React app
+- [x] Add auth header to all API client calls
+- [x] Add "Connect Garmin" button to settings page
 
 ---
 

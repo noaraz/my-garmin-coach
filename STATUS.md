@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-08 (Render deployment wired — prod build passes, 144 backend tests green)
+Last updated: 2026-03-09 (Auth + Deployment shipped — JWT login, invite system, Garmin token encryption, 258 backend tests green, 91% coverage)
 
-## Current Focus: Auth + Deployment
+## Current Focus: Mobile Responsive + E2E Tests
 
 ---
 

@@ -55,3 +55,68 @@ async def get_current_user(
 - [ ] .env NOT in git
 - [ ] Database NOT publicly accessible
 - [ ] Registration is invite-only
+
+## Gotchas & Patterns (added 2026-03-09)
+
+### JWT must include `email` claim
+Frontend's `userFromPayload` in `AuthContext.tsx` requires both `sub` (user_id) and `email`
+from the JWT payload. If `email` is missing, `userFromPayload` returns `null` → `setUser(null)` →
+ProtectedRoute redirects back to `/login` after a successful login creating an infinite redirect loop.
+Always call `create_access_token(user.id, user.email)` — never the one-arg form.
+
+### client.ts 401 handler must be token-aware
+A global 401 handler that always redirects to `/login` breaks the login form — a failed login
+attempt (wrong password) also returns 401, which would redirect before the form can show an error.
+Guard the redirect: only redirect if there was a stored token (expired authenticated session):
+```typescript
+if (res.status === 401) {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  if (token) {          // ← only redirect when session was authenticated
+    window.location.href = '/login'
+    return undefined as T
+  }
+}
+```
+
+### FastAPI error format — always parse `detail`
+Backend returns `{"detail": "Invalid credentials"}`. Parse `body.detail` in the error handler
+rather than `JSON.stringify(body)`, or the UI shows the raw JSON string.
+
+### bcrypt 5.x — use `bcrypt` directly, not passlib
+`passlib` doesn't support `bcrypt` ≥ 5.0. Use `bcrypt.gensalt()`, `bcrypt.hashpw()`,
+`bcrypt.checkpw()` directly in `auth/passwords.py`.
+
+### Vite proxy inside Docker — use service name
+`VITE_PROXY_TARGET=http://backend:8000` in docker-compose.yml frontend environment.
+`localhost` inside the container resolves to the container itself, not the host or the
+backend container.
+
+### Admin user creation (scripts)
+```bash
+docker compose exec backend python - <<'EOF'
+import asyncio, secrets
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from src.auth.models import User, InviteCode
+from src.auth.passwords import hash_password
+from src.core.config import get_settings
+
+async def main():
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        user = User(email="admin@garmincoach.com", password_hash=hash_password("YourPassword123"))
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        code = secrets.token_urlsafe(16)
+        invite = InviteCode(code=code, created_by=user.id)
+        session.add(invite)
+        await session.commit()
+        print(f"User id={user.id}, invite code={code}")
+
+asyncio.run(main())
+EOF
+```

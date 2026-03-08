@@ -104,7 +104,7 @@ async def login(
     await session.commit()
 
     return TokenResponse(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(user.id, user.email),
         refresh_token=create_refresh_token(user.id),
     )
 

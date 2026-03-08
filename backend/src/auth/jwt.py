@@ -12,13 +12,13 @@ def _settings() -> Any:
     return get_settings()
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, email: str = "") -> str:
     """Create a short-lived JWT access token for the given user."""
     settings = _settings()
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
-    payload = {"sub": str(user_id), "type": "access", "exp": expire}
+    payload = {"sub": str(user_id), "email": email, "type": "access", "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

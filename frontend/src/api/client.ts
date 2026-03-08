@@ -23,13 +23,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (res.status === 401) {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
-    window.location.href = '/login'
-    return undefined as T
+    // Only redirect if this was an authenticated request (token expired / revoked).
+    // Auth endpoints (login, register) have no token — let the error propagate so
+    // the form can display "Invalid credentials" instead of silently reloading.
+    if (token) {
+      window.location.href = '/login'
+      return undefined as T
+    }
   }
 
   if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`${res.status}: ${detail}`)
+    let message: string
+    try {
+      const body = await res.json() as { detail?: string }
+      message = body.detail ?? JSON.stringify(body)
+    } catch {
+      message = await res.text()
+    }
+    throw new Error(message)
   }
   if (res.status === 204) return undefined as T
   return res.json()
