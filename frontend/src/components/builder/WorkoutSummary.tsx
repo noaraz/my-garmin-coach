@@ -14,6 +14,16 @@ function totalSeconds(steps: BuilderStep[]): number {
   }, 0)
 }
 
+function totalMeters(steps: BuilderStep[]): number {
+  return steps.reduce((sum, step) => {
+    if (isRepeatGroup(step)) {
+      const groupDist = step.steps.reduce((s, inner: WorkoutStep) => s + (inner.distance_m ?? 0), 0)
+      return sum + groupDist * step.repeat_count
+    }
+    return sum + ((step as WorkoutStep).distance_m ?? 0)
+  }, 0)
+}
+
 function formatDuration(seconds: number): string {
   const mins = Math.round(seconds / 60)
   if (mins < 60) return `${mins} min`
@@ -27,7 +37,14 @@ interface WorkoutSummaryProps {
 }
 
 export function WorkoutSummary({ steps }: WorkoutSummaryProps) {
-  const total = totalSeconds(steps)
+  const totalSec = totalSeconds(steps)
+  const totalDist = totalMeters(steps)
+
+  const parts: string[] = []
+  if (totalSec > 0) parts.push(formatDuration(totalSec))
+  if (totalDist > 0) parts.push(`${(totalDist / 1000).toFixed(1)} km`)
+  const display = parts.length > 0 ? parts.join(' + ') : '—'
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span style={{
@@ -47,7 +64,7 @@ export function WorkoutSummary({ steps }: WorkoutSummaryProps) {
           color: 'var(--text-secondary)',
         }}
       >
-        {total > 0 ? formatDuration(total) : '0 min'}
+        {display}
       </span>
     </div>
   )

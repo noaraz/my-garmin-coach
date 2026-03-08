@@ -12,27 +12,10 @@ interface CalendarPageProps {
   templates?: WorkoutTemplate[]
 }
 
-// Module-level promise cache so the promise starts before first render
-// In test environments, the mock resolves immediately, enabling sync-like behavior
-let _templateFetch: Promise<WorkoutTemplate[]> | null = null
-let _templateCache: WorkoutTemplate[] | null = null
-
-function getTemplatePromise(): Promise<WorkoutTemplate[]> {
-  if (!_templateFetch) {
-    _templateFetch = fetchWorkoutTemplates().then(data => {
-      _templateCache = data
-      return data
-    }).catch(() => [])
-  }
-  return _templateFetch
-}
-
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
-  const [templates, setTemplates] = useState<WorkoutTemplate[]>(
-    propTemplates ?? _templateCache ?? []
-  )
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
 
   // Compute range for calendar hook
@@ -44,12 +27,11 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     weekEnd
   )
 
-  // Load templates on mount if not provided as prop
+  // Fetch templates on every mount so navigating Builder → Calendar always
+  // shows up-to-date templates (including any newly created ones).
   useEffect(() => {
     if (propTemplates) return
-    getTemplatePromise().then(data => {
-      setTemplates(data)
-    })
+    fetchWorkoutTemplates().then(setTemplates).catch(() => {})
   }, [propTemplates])
 
   // Update range when currentDate or view changes

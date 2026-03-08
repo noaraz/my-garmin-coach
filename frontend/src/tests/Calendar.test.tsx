@@ -74,9 +74,10 @@ describe('test_workouts_on_dates', () => {
 })
 
 describe('test_card_name_duration', () => {
-  it('card → name and "45 min" duration', () => {
+  it('card → name and "45 min" duration', async () => {
     render(<CalendarPage />)
-    const card = screen.getByText('Easy Run').closest('[data-testid="workout-card"]') as HTMLElement
+    const nameEl = await screen.findByText('Easy Run')
+    const card = nameEl.closest('[data-testid="workout-card"]') as HTMLElement
     expect(within(card).getByText('45 min')).toBeInTheDocument()
   })
 })
