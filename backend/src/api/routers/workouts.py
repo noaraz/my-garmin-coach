@@ -8,6 +8,7 @@ from src.api.schemas import WorkoutTemplateCreate, WorkoutTemplateRead, WorkoutT
 from src.services.workout_service import (
     create_template,
     delete_template,
+    get_template,
     list_templates,
     update_template,
 )
@@ -32,6 +33,18 @@ async def list_workouts(
     """List all workout templates."""
     templates = await list_templates(session)
     return [WorkoutTemplateRead.model_validate(t) for t in templates]
+
+
+@router.get("/{template_id}", response_model=WorkoutTemplateRead)
+async def get_workout(
+    template_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> WorkoutTemplateRead:
+    """Get a single workout template by id."""
+    template = await get_template(session, template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail=f"WorkoutTemplate {template_id} not found")
+    return WorkoutTemplateRead.model_validate(template)
 
 
 @router.put("/{template_id}", response_model=WorkoutTemplateRead)

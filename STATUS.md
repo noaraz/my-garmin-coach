@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-07 (Async migration + FastAPI skill alignment complete)
+Last updated: 2026-03-08 (Post-ship polish — 94 frontend tests + 126 backend tests green)
 
-## Current Focus: Calendar (Frontend)
+## Current Focus: Auth + Deployment
 
 ---
 
@@ -69,32 +69,39 @@ Last updated: 2026-03-07 (Async migration + FastAPI skill alignment complete)
 ### Calendar (Frontend)
 | Task | Status |
 |------|--------|
-| Scaffold React + Vite + TS + Tailwind | ⬜ |
-| Dockerfile.dev + add to docker-compose | ⬜ |
-| api/types.ts + api/client.ts | ⬜ |
-| Tests: ZoneManager.test.tsx | ⬜ |
-| Implement: Zone Manager page | ⬜ |
-| Tests: Calendar.test.tsx | ⬜ |
-| Implement: Calendar view | ⬜ |
-| Layout: AppShell + Sidebar | ⬜ |
+| Scaffold React + Vite + TS + Tailwind | ✅ |
+| Dockerfile.dev + add to docker-compose | ✅ |
+| api/types.ts + api/client.ts | ✅ |
+| Tests: ZoneManager.test.tsx | ✅ |
+| Implement: Zone Manager page | ✅ |
+| Tests: Calendar.test.tsx | ✅ |
+| Implement: Calendar view | ✅ |
+| Layout: AppShell + Sidebar | ✅ |
 
 ### Workout Builder (Frontend)
 | Task | Status |
 |------|--------|
-| Tests: WorkoutBuilder.test.tsx | ⬜ |
-| Implement: StepTimeline + StepBar | ⬜ |
-| Implement: StepConfigPanel | ⬜ |
-| Implement: drag-and-drop | ⬜ |
-| Tests: WorkoutLibrary.test.tsx | ⬜ |
-| Implement: Library page | ⬜ |
+| Tests: WorkoutBuilder.test.tsx | ✅ |
+| Implement: StepTimeline + StepBar | ✅ |
+| Implement: StepConfigPanel | ✅ |
+| Implement: drag-and-drop | ✅ |
+| Tests: WorkoutLibrary.test.tsx | ✅ |
+| Implement: Library page | ✅ |
 
 ### Integration + Polish
 | Task | Status |
 |------|--------|
 | Playwright E2E tests | ⬜ |
-| Error boundaries + loading states | ⬜ |
-| Dockerfile.prod + docker-compose.prod.yml | ⬜ |
-| Dark mode | ⬜ |
+| Error boundaries + loading states | ✅ |
+| Dockerfile.prod + docker-compose.prod.yml | ✅ |
+| Dark/light theme toggle (CSS vars + ThemeContext) | ✅ |
+| Design polish (Field Monitor aesthetic — all components) | ✅ |
+| Post-ship: light theme card bg fix, sidebar tone, font scaling | ✅ |
+| Post-ship: remove drag-and-drop from calendar | ✅ |
+| Post-ship: clock-format duration + distance summary on cards | ✅ |
+| Post-ship: description stacking (per comma-segment) | ✅ |
+| Post-ship: workoutStats.ts shared utils + 41 new edge-case tests | ✅ |
+| Post-ship: vite proxy localhost fallback for outside-Docker dev | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment

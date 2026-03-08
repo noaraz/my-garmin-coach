@@ -168,6 +168,7 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
 - **fastapi-templates** — installed at `.claude/skills/fastapi-templates/`. Async patterns, DI, middleware.
+- **frontend-design** — installed at `.claude/skills/frontend-design/`. Use when building React components, pages, or UI. Generates distinctive, production-grade designs (avoid generic AI aesthetics). Invoke via Skill tool.
 
 ## Commands
 
@@ -183,3 +184,146 @@ Project slash commands in `.claude/commands/`:
 - **Reviewer agent**: delegates test-running to background subagent. Returns pass/fail + coverage.
 - **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
 - **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.
+
+## Frontend Patterns (added 2026-03-08)
+
+- **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
+- **ThemeContext**: `React.createContext` + `useState` + `localStorage` persistence. Wrap `<App>` in `<ThemeProvider>`.
+- **@dnd-kit/sortable drag reorder**: `SortableContext` (horizontal strategy) → `useSortable` per item → `arrayMove` in `onDragEnd`. Drag handle element gets `{...listeners}`, container gets `{...attributes}` + `ref={setNodeRef}`.
+- **@dnd-kit pointer drag**: always add `activationConstraint: { distance: 8 }` to `PointerSensor` — without it, drag conflicts with click handlers and may not activate reliably.
+- **ErrorBoundary**: class component with `getDerivedStateFromError`. Wrap each route element in `App.tsx`.
+- **Vitest + vite.config.ts**: add `/// <reference types="vitest" />` at top of `vite.config.ts` for `test` property to typecheck.
+- **TypeScript strict build**: `npm run build` runs `tsc -b` which is stricter than Vitest. Common gotchas: unused imports/vars, `null` vs `undefined` in props, missing explicit types on `as` casts.
+- **Prod Docker**: `frontend/Dockerfile.prod` (node:20-alpine builder → nginx:alpine), `frontend/nginx.conf` (SPA try_files + `/api/` proxy to `http://backend:8000`).
+- **Docker credential helper**: `docker-credential-desktop` must be in PATH. Prefix commands: `PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" docker compose ...`
+
+## Color Token Conventions (added 2026-03-09)
+
+**Rule: zero hardcoded hex values in component files.** All colors must use CSS custom properties.
+
+### Available tokens (index.css)
+
+| Token | Usage |
+|-------|-------|
+| `--bg-main` | Page background |
+| `--bg-surface` | Cards, panels, modals |
+| `--bg-surface-2` | Hover states, alternate rows |
+| `--bg-surface-3` | Active/selected states |
+| `--border` | Default border |
+| `--border-strong` | Emphasized border |
+| `--text-primary` | Main body text |
+| `--text-secondary` | Labels, captions |
+| `--text-muted` | Placeholder, disabled, de-emphasized |
+| `--accent` | Primary CTA: blue buttons, today highlight, selected borders |
+| `--accent-subtle` | Selected state background (low opacity blue) |
+| `--text-on-accent` | Text on `--accent` backgrounds |
+| `--zone-default` | Fallback zone color (gray) for unknown types |
+| `--color-zone-1..5` | Zone step colors (blue → red). Available as CSS vars from Tailwind `@theme` |
+
+### Patterns
+
+```tsx
+// ✅ Correct — always use var()
+style={{ color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
+
+// ❌ Wrong — no hardcoded hex
+style={{ color: '#555', background: '#1c1c1e' }}
+
+// Zone stripes (WorkoutCard sport stripe)
+style={{ background: 'var(--color-zone-1)' }}   // not Tailwind bg-blue-500
+```
+
+### Tailwind classes to avoid in new code
+- `bg-white`, `text-gray-*`, `bg-gray-*` — use CSS vars instead
+- `dark:` prefix — we use `[data-theme="light"]` overrides in index.css, not Tailwind dark mode
+
+## workoutStats Utilities (added 2026-03-09)
+
+Four pure helpers in `frontend/src/utils/workoutStats.ts` — shared between `WorkoutCard` and `TemplateCard`:
+
+```typescript
+computeDurationFromSteps(stepsJson: string | null | undefined): number | null
+// Parses template.steps JSON, sums duration_sec recursively.
+// Handles repeat groups: multiplies child seconds by group.repeat_count (default 1).
+// Returns null if stepsJson is null/undefined/empty/invalid JSON or no time-based steps.
+
+computeDistanceFromSteps(stepsJson: string | null | undefined): number | null
+// Same logic but sums distance_m fields. Returns null if only time-based steps.
+
+formatClock(seconds: number): string
+// Clock format: 65 → "1:05", 2700 → "45:00", 4200 → "1:10:00"
+// Omits hours column when < 3600s.
+
+formatKm(metres: number): string
+// "12.5 km" — always 1 decimal place.
+```
+
+**Usage pattern** (both WorkoutCard and TemplateCard):
+```typescript
+const durationSec = template.estimated_duration_sec ?? computeDurationFromSteps(template.steps)
+const distanceM   = template.estimated_distance_m   ?? computeDistanceFromSteps(template.steps)
+const hasDuration = durationSec != null && durationSec > 0
+const hasDistance = distanceM   != null && distanceM   > 0
+// Summary row: {hasDuration && formatClock(durationSec!)}  {hasDistance && formatKm(distanceM!)}
+```
+
+**Why steps fallback is necessary**: workout templates created by the builder typically have `estimated_duration_sec: null` in the DB (the builder doesn't compute/save it). The steps JSON always exists and contains the ground truth.
+
+## Vitest Testing Gotchas (added 2026-03-09)
+
+### React 18 StrictMode double-fires effects
+`useEffect` runs **twice** in test environment (StrictMode). This consumes `mockResolvedValueOnce`:
+
+```typescript
+// ❌ Wrong — Once is consumed by first StrictMode call; second call gets stale default
+mockFetchTemplates.mockResolvedValueOnce([...myTemplates])
+
+// ✅ Correct — permanent override, reset in beforeEach
+mockFetchTemplates.mockResolvedValue([...myTemplates])
+// beforeEach: mockFetchTemplates.mockReset(); mockFetchTemplates.mockResolvedValue(defaults)
+```
+
+### `vi.hoisted()` for mutable mock references
+When mock functions need to be referenced both inside `vi.mock()` factory AND in individual test bodies:
+
+```typescript
+// ✅ Correct — vi.hoisted runs before vi.mock, refs are stable
+const { mockFetchTemplates } = vi.hoisted(() => ({
+  mockFetchTemplates: vi.fn().mockResolvedValue(defaultTemplates),
+}))
+
+vi.mock('../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/client')>()
+  return { ...actual, fetchWorkoutTemplates: mockFetchTemplates }
+})
+
+// In test: mockFetchTemplates.mockResolvedValue([...override])
+```
+
+### `findByText` vs `findAllByText` when content repeats
+If multiple workouts map to the same template, the same duration text appears multiple times.
+`findByText('15:00')` throws "Found multiple elements" — use `findAllByText('15:00')` instead.
+
+## generateDescription Pattern (added 2026-03-09)
+
+Two pure utility functions in `frontend/src/utils/generateDescription.ts`:
+
+```typescript
+generateDescription(steps: BuilderStep[]): string
+// One-liner for template.description field
+// Example: "10m@Z1, 45m@Z2, 5m@Z3" or "2K@Z1, 6x (0.5K@Z5 + 0.4K@Z1), 1K@Z2"
+// Format per step: {value}{unit}@Z{zone}   (m=min, K=km)
+// Repeat group:   "{n}x ({step1} + {step2})"
+
+generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
+// Multi-line structured text with resolved pace ranges
+// Example:
+//   Warm up
+//     10 min @ 07:43–09:38 min/km
+//   Repeat 6 times
+//     1. Hard
+//        0.50 km @ 05:02–05:30 min/km
+//        Zone 5
+```
+
+**WorkoutBuilder usage**: auto-fills `description` via `useEffect` from `generateDescription(steps)` on step change, unless `isDescriptionEdited` is true (user manually typed). Fetches `paceZones` on mount for the details panel.

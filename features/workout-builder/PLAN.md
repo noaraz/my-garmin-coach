@@ -17,29 +17,43 @@ Track progress in **STATUS.md**.
 ## Tasks
 
 ### Workout Builder
-- [ ] Write all tests in `WorkoutBuilder.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `StepTimeline.tsx` + `StepBar.tsx` (display only)
-- [ ] Implement `StepPalette.tsx` (add step buttons)
-- [ ] Implement `StepConfigPanel.tsx` (step editor)
-- [ ] Implement `RepeatGroup.tsx` (visual container)
-- [ ] Implement `DurationInput.tsx` + `ZoneSelector.tsx`
-- [ ] Implement `WorkoutSummary.tsx` (total duration/distance)
-- [ ] Add drag-and-drop with @dnd-kit/core + @dnd-kit/sortable
-- [ ] Run tests → GREEN
+- [x] Write all tests in `WorkoutBuilder.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `StepTimeline.tsx` + `StepBar.tsx` (display only)
+- [x] Implement `StepPalette.tsx` (add step buttons)
+- [x] Implement `StepConfigPanel.tsx` (step editor)
+- [x] Implement `RepeatGroup.tsx` (visual container)
+- [x] Implement `DurationInput.tsx` + `ZoneSelector.tsx`
+- [x] Implement `WorkoutSummary.tsx` (total duration/distance)
+- [x] Add drag-and-drop with @dnd-kit/core + @dnd-kit/sortable
+- [x] Run tests → GREEN
 
 ### Step Config Panel
-- [ ] Write all tests in `StepConfigPanel.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement config panel
-- [ ] Run tests → GREEN
+- [x] Write all tests in `StepConfigPanel.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement config panel
+- [x] Run tests → GREEN
 
 ### Workout Library
-- [ ] Write all tests in `WorkoutLibrary.test.tsx` (see test table)
-- [ ] Run tests → RED
-- [ ] Implement `WorkoutLibrary.tsx`, `TemplateCard.tsx`, `TemplateSearch.tsx`
-- [ ] Add save-to-library and schedule-on-calendar integration
-- [ ] Run tests → GREEN
+- [x] Write all tests in `WorkoutLibrary.test.tsx` (see test table)
+- [x] Run tests → RED
+- [x] Implement `WorkoutLibrary.tsx`, `TemplateCard.tsx`, `TemplateSearch.tsx`
+- [x] Add save-to-library and schedule-on-calendar integration
+- [x] Run tests → GREEN
+
+### Post-Ship Polish (2026-03-09)
+- [x] `RepeatGroup` — add `+ Recovery` button inside repeat groups (alongside `+ Interval`)
+- [x] `WorkoutBuilder` — save feedback toast: `saving → success / error` with auto-reset
+- [x] `WorkoutBuilder` — description textarea: auto-fills from `generateDescription(steps)`, editable
+- [x] `WorkoutBuilder` — Workout Details section: shows `generateWorkoutDetails(steps, paceZones)` with resolved pace ranges
+- [x] `WorkoutBuilder` — accept `initialName?`, `initialSteps?`, `initialDescription?` props for edit mode
+- [x] `BuilderPage` — read `?id` URL param, fetch template, pass as initial props to WorkoutBuilder
+- [x] Backend `GET /api/v1/workouts/templates/{id}` — added endpoint + service shim
+- [x] `client.ts` — added `fetchWorkoutTemplate(id)` API wrapper
+- [x] `TemplateCard` — show `template.description` below name (stacked per comma-segment)
+- [x] `TemplateCard` — clock-format duration + distance summary (uses `workoutStats.ts` with steps fallback — same pattern as WorkoutCard)
+- [x] Color token audit — StepPalette, RepeatGroup zone colors use CSS vars
+- [x] `WorkoutLibrary.test.tsx` — 4 new tests: clock from estimated, clock from steps, distance + duration, no-data no-clock
 
 ---
 
@@ -83,10 +97,14 @@ Track progress in **STATUS.md**.
 |------|----------|
 | `test_renders_list` | 3 templates → 3 cards |
 | `test_search_filters` | "interval" → filtered |
-| `test_click_opens_builder` | template → builder with steps |
+| `test_click_opens_builder` | template → navigate to /builder |
 | `test_schedule_opens_picker` | date picker shown |
 | `test_delete` | removed |
 | `test_duplicate` | new copy created |
+| `test_template_card_clock_from_estimated` | estimated_duration_sec → clock format ("45:00") |
+| `test_template_card_clock_from_steps_fallback` | null duration + steps JSON → clock from steps |
+| `test_template_card_shows_distance` | estimated_distance_m → km alongside duration |
+| `test_template_card_no_summary_when_no_data` | null duration + null steps → no clock text |
 
 ---
 
@@ -110,5 +128,5 @@ frontend/src/
     StepConfigPanel, RepeatGroup, DurationInput, ZoneSelector, WorkoutSummary
   components/library/ — WorkoutLibrary, TemplateCard, TemplateSearch
   pages/ — BuilderPage, LibraryPage
-  utils/ — colors.ts, stepDefaults.ts
+  utils/ — colors.ts, stepDefaults.ts, workoutStats.ts (shared with Calendar feature)
 ```
