@@ -10,6 +10,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session, get_sync_service
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.db.models import ScheduledWorkout
 
 
@@ -27,11 +29,18 @@ def mock_sync_service_fixture() -> MagicMock:
     return svc
 
 
+_TEST_USER = User(id=1, email="test@example.com", password_hash="x", is_active=True)
+
+
+async def _mock_get_current_user() -> User:
+    return _TEST_USER
+
+
 @pytest.fixture(name="client")
 async def client_fixture(
     session: AsyncSession, mock_sync_service: MagicMock
 ) -> AsyncGenerator[AsyncClient, None]:
-    """AsyncClient with DB and sync service both overridden."""
+    """AsyncClient with DB, sync service, and auth all overridden."""
     app = create_app()
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:
@@ -39,6 +48,7 @@ async def client_fixture(
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_sync_service] = lambda: mock_sync_service
+    app.dependency_overrides[get_current_user] = _mock_get_current_user
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

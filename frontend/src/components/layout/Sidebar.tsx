@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 const CalendarIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -43,6 +44,8 @@ const SIDE_ICON_INACTIVE = '#6a6a78'
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const navStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -148,6 +151,55 @@ export function Sidebar() {
           )}
         </NavLink>
       </nav>
+
+      {/* User info + logout */}
+      {user && (
+        <div style={{
+          padding: '10px 14px',
+          borderTop: `1px solid ${SIDE_BORD}`,
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: SIDE_LOGO_SUB,
+            letterSpacing: '0.04em',
+            marginBottom: '7px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap' as const,
+          }}>
+            {user.email}
+          </div>
+          <button
+            aria-label="Log out"
+            onClick={() => { logout(); navigate('/login') }}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${SIDE_BORD}`,
+              cursor: 'pointer',
+              color: SIDE_ICON_INACTIVE,
+              padding: '4px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Log out
+          </button>
+        </div>
+      )}
 
       {/* Theme toggle + version */}
       <div style={{

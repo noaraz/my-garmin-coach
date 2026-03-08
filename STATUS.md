@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-08 (Post-ship polish — 94 frontend tests + 126 backend tests green)
+Last updated: 2026-03-08 (Render deployment wired — prod build passes, 144 backend tests green)
 
 ## Current Focus: Auth + Deployment
 
@@ -93,7 +93,7 @@ Last updated: 2026-03-08 (Post-ship polish — 94 frontend tests + 126 backend t
 |------|--------|
 | Playwright E2E tests | ⬜ |
 | Error boundaries + loading states | ✅ |
-| Dockerfile.prod + docker-compose.prod.yml | ✅ |
+| Dockerfile.prod + docker-compose.prod.yml + render.yaml | ✅ |
 | Dark/light theme toggle (CSS vars + ThemeContext) | ✅ |
 | Design polish (Field Monitor aesthetic — all components) | ✅ |
 | Post-ship: light theme card bg fix, sidebar tone, font scaling | ✅ |
@@ -107,15 +107,15 @@ Last updated: 2026-03-08 (Post-ship polish — 94 frontend tests + 126 backend t
 ### Auth + Deployment
 | Task | Status |
 |------|--------|
-| Tests: test_api_auth.py | ⬜ |
-| Implement: auth module | ⬜ |
-| Add auth to all routes | ⬜ |
-| user_id FK migration | ⬜ |
-| Tests: test_garmin_connect_flow.py | ⬜ |
-| Garmin token encryption | ⬜ |
-| Invite code system | ⬜ |
-| Frontend: login page | ⬜ |
-| Deploy to Render | ⬜ |
+| Tests: test_api_auth.py | ✅ |
+| Implement: auth module | ✅ |
+| Add auth to all routes | ✅ |
+| user_id FK migration | ✅ |
+| Tests: test_garmin_connect_flow.py | ✅ |
+| Garmin token encryption | ✅ |
+| Invite code system | ✅ |
+| Frontend: AuthContext + login/register pages + protected routes | ✅ |
+| Deploy to Render | ✅ |
 
 ---
 

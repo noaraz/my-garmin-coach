@@ -7,6 +7,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
 from src.api.schemas import RescheduleUpdate, ScheduleCreate, ScheduledWorkoutRead
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.services.calendar_service import get_range, reschedule, schedule, unschedule
 from src.services.profile_service import get_or_create_profile
 
@@ -17,9 +19,10 @@ router = APIRouter(prefix="/api/v1/calendar", tags=["calendar"])
 async def post_schedule(
     body: ScheduleCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> ScheduledWorkoutRead:
     """Schedule a workout template on a specific date."""
-    profile = await get_or_create_profile(session)
+    profile = await get_or_create_profile(session, user_id=current_user.id)
     try:
         sw = await schedule(session, body.template_id, body.date, profile)
     except ValueError as e:
@@ -32,6 +35,7 @@ async def get_calendar_range(
     start: date,
     end: date,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[ScheduledWorkoutRead]:
     """Return scheduled workouts within the given date range."""
     workouts = await get_range(session, start, end)
@@ -43,6 +47,7 @@ async def patch_reschedule(
     scheduled_id: int,
     body: RescheduleUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> ScheduledWorkoutRead:
     """Move a scheduled workout to a new date."""
     try:
@@ -56,6 +61,7 @@ async def patch_reschedule(
 async def delete_schedule(
     scheduled_id: int,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Response:
     """Delete a scheduled workout."""
     try:

@@ -41,9 +41,9 @@ class TestWorkoutsAPI:
         assert data["name"] == "Easy Run"
 
     async def test_list(self, client: AsyncClient, session: AsyncSession) -> None:
-        # Arrange
+        # Arrange — templates owned by the mock test user (id=1)
         for i in range(3):
-            session.add(WorkoutTemplate(name=f"Run {i}", sport_type="running"))
+            session.add(WorkoutTemplate(name=f"Run {i}", sport_type="running", user_id=1))
         await session.commit()
 
         # Act

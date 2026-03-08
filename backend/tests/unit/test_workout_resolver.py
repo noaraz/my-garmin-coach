@@ -232,3 +232,18 @@ def test_resolve_returns_new_objects() -> None:
     assert step.target_low == original_low  # still None
     assert resolved is not step
     assert isinstance(resolved, ResolvedStep)
+
+
+# ---------------------------------------------------------------------------
+# test_resolve_missing_pace_zone_raises
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_missing_pace_zone_raises() -> None:
+    # Arrange — pace zone 6 does not exist (only 1-5)
+    # This exercises lines 41-42 in resolver.py
+    step = _make_step(target_type="pace_zone", target_zone=6)
+
+    # Act / Assert
+    with pytest.raises(WorkoutResolveError, match="6"):
+        resolve_step(step, hr_zones=HR_ZONES, pace_zones=PACE_ZONES)

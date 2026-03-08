@@ -12,5 +12,13 @@ class ProfileRepository(BaseRepository[AthleteProfile]):
         result = await session.exec(select(AthleteProfile))
         return result.first()
 
+    async def get_by_user_id(
+        self, session: AsyncSession, user_id: int
+    ) -> AthleteProfile | None:
+        result = await session.exec(
+            select(AthleteProfile).where(AthleteProfile.user_id == user_id)
+        )
+        return result.first()
+
 
 profile_repository = ProfileRepository(AthleteProfile)

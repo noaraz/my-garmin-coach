@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session, get_sync_service
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.db.models import ScheduledWorkout, WorkoutTemplate
 from src.repositories.calendar import scheduled_workout_repository
 from src.services.sync_orchestrator import SyncOrchestrator
@@ -91,6 +93,7 @@ async def _sync_and_persist(
 async def sync_all(
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(get_sync_service),
+    current_user: User = Depends(get_current_user),
 ) -> SyncAllResponse:
     """Sync all workouts whose status is 'pending' or 'modified'.
 
@@ -109,6 +112,7 @@ async def sync_single(
     workout_id: int,
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(get_sync_service),
+    current_user: User = Depends(get_current_user),
 ) -> SyncSingleResponse:
     """Sync a single scheduled workout by id.
 
@@ -137,6 +141,7 @@ async def sync_single(
 @router.get("/status", response_model=list[SyncStatusItem])
 async def sync_status(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[SyncStatusItem]:
     """Return all scheduled workouts with their sync status.
 

@@ -327,3 +327,56 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 ```
 
 **WorkoutBuilder usage**: auto-fills `description` via `useEffect` from `generateDescription(steps)` on step change, unless `isDescriptionEdited` is true (user manually typed). Fetches `paceZones` on mount for the details panel.
+
+---
+
+## Nice to Have (future features)
+
+Ideas for future iterations, roughly in priority order.
+
+### Test Run → Zone Update
+When a user completes a deliberate effort (time trial, race, or 30-min test), they should be able to tag it and have zones auto-updated from the result.
+
+**Flow:**
+1. User marks a completed `ScheduledWorkout` as `is_zone_test: bool` + `test_type: "lthr" | "threshold_pace" | "max_hr"`
+2. Backend reads the Garmin activity data for that workout (avg HR for LTHR, best pace for threshold_pace)
+3. Updates the `AthleteProfile` with the new value
+4. Triggers the existing zone recalculation cascade (already implemented in `zone_service`)
+
+**Data model addition:**
+```python
+# ScheduledWorkout
+is_zone_test: bool = False
+test_type: Optional[str] = None   # "lthr" | "threshold_pace" | "max_hr"
+```
+
+**Backend:**
+- `POST /api/v1/calendar/{id}/apply-as-zone-test` → reads Garmin activity, updates profile, recalculates zones
+- Or: add `apply_zone_test` field to the `PATCH /api/v1/calendar/{id}` body
+
+**Frontend:** "Apply as zone test" button on a completed workout card in the calendar.
+
+---
+
+### Playwright E2E Tests
+Full browser tests for the critical user journey: login → set zones → build workout → schedule it → sync to Garmin.
+
+---
+
+### Mobile Responsive
+CSS polish pass — the app is built desktop-first. Key breakpoints needed for calendar, sidebar, and workout builder on small screens.
+
+---
+
+### Rate Limiting on Auth Routes
+Add `slowapi` (or similar) to limit `/api/v1/auth/login` and `/api/v1/auth/register` to e.g. 10 req/min per IP. Required before making the app publicly accessible.
+
+---
+
+### Refresh Token Rotation
+Currently the refresh token is long-lived and static. Implement single-use rotation: each `/auth/refresh` call returns a new refresh token and invalidates the old one. Requires a `RefreshToken` DB table.
+
+---
+
+### Activity Feed / History
+Show completed workouts pulled from Garmin Connect — not just scheduled ones. Useful for reviewing training load.

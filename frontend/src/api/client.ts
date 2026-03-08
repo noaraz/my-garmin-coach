@@ -10,10 +10,23 @@ import type {
 const BASE = '/api/v1'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('access_token')
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
     ...options,
   })
+
+  if (res.status === 401) {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    window.location.href = '/login'
+    return undefined as T
+  }
+
   if (!res.ok) {
     const detail = await res.text()
     throw new Error(`${res.status}: ${detail}`)
@@ -68,3 +81,18 @@ export const syncOne = (id: number) =>
   request<SyncStatusItem>(`/sync/${id}`, { method: 'POST' })
 export const fetchSyncStatus = () =>
   request<SyncStatusItem[]>('/sync/status')
+
+export const loginUser = (email: string, password: string) =>
+  request<{ access_token: string; refresh_token: string; token_type: string }>(
+    '/auth/login',
+    { method: 'POST', body: JSON.stringify({ email, password }) }
+  )
+
+export const registerUser = (email: string, password: string, invite_code: string) =>
+  request<{ id: number; email: string }>(
+    '/auth/register',
+    { method: 'POST', body: JSON.stringify({ email, password, invite_code }) }
+  )
+
+export const fetchMe = () =>
+  request<{ id: number; email: string; is_active: boolean }>('/auth/me')

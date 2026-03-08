@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import AthleteProfile, HRZone, ScheduledWorkout, WorkoutTemplate
+from src.services.calendar_service import CalendarService
 
 
 class TestCalendarAPI:
@@ -35,7 +37,7 @@ class TestCalendarAPI:
         from src.zone_engine.hr_zones import HRZoneCalculator
         from src.zone_engine.models import ZoneConfig
 
-        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162)
+        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162, user_id=1)
         session.add(profile)
         await session.commit()
         await session.refresh(profile)
@@ -166,3 +168,101 @@ class TestCalendarAPI:
         step = resolved[0]
         assert step["target_low"] is not None
         assert step["target_high"] is not None
+
+    async def test_schedule_invalid_template_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Arrange — no template with id=9999 exists
+        profile = AthleteProfile(name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act
+        response = await client.post(
+            "/api/v1/calendar",
+            json={"template_id": 9999, "date": "2026-03-15"},
+        )
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_reschedule_nonexistent_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Act — try to reschedule a workout that doesn't exist
+        response = await client.patch(
+            "/api/v1/calendar/9999", json={"date": "2026-03-20"}
+        )
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_unschedule_nonexistent_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Act — try to delete a workout that doesn't exist
+        response = await client.delete("/api/v1/calendar/9999")
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_schedule_template_without_steps_sets_null_resolved(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Arrange — template with no steps
+        template = WorkoutTemplate(name="Empty", sport_type="running", steps=None)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        profile = AthleteProfile(name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act
+        response = await client.post(
+            "/api/v1/calendar",
+            json={"template_id": template.id, "date": "2026-03-15"},
+        )
+
+        # Assert
+        assert response.status_code == 201
+        data = response.json()
+        assert data["resolved_steps"] is None
+
+
+class TestCalendarServiceUnit:
+    """Unit tests for CalendarService that target uncovered service branches."""
+
+    async def test_schedule_raises_value_error_for_missing_template(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+        profile = AthleteProfile(id=1, name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="WorkoutTemplate 9999 not found"):
+            await service.schedule(session, 9999, date(2026, 3, 15), profile)
+
+    async def test_reschedule_raises_value_error_for_missing_scheduled(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
+            await service.reschedule(session, 9999, date(2026, 3, 20))
+
+    async def test_unschedule_raises_value_error_for_missing_scheduled(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
+            await service.unschedule(session, 9999)

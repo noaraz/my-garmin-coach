@@ -218,3 +218,48 @@ class TestEmptyRaises:
         # Act & Assert
         with pytest.raises(FormatterError):
             format_workout("Empty Workout", steps)
+
+
+class TestUnknownStepTypeRaises:
+    def test_unknown_step_type_raises_formatter_error(self) -> None:
+        # Arrange — line 41: unknown step_type key
+        step = {
+            "step_type": "sprint",  # not in STEP_TYPES
+            "end_condition": "time",
+            "end_condition_value": 60,
+            "target_type": "open",
+        }
+
+        # Act & Assert
+        with pytest.raises(FormatterError, match="Unknown step type"):
+            format_step(step, step_order=1)
+
+
+class TestUnknownEndConditionRaises:
+    def test_unknown_end_condition_raises_formatter_error(self) -> None:
+        # Arrange — line 62: unknown end_condition key
+        step = {
+            "step_type": "active",
+            "end_condition": "calories",  # not in END_CONDITIONS
+            "end_condition_value": 200,
+            "target_type": "open",
+        }
+
+        # Act & Assert
+        with pytest.raises(FormatterError, match="Unknown end condition"):
+            format_step(step, step_order=1)
+
+
+class TestUnknownTargetTypeRaises:
+    def test_unknown_target_type_raises_formatter_error(self) -> None:
+        # Arrange — line 70: unknown target_type key
+        step = {
+            "step_type": "active",
+            "end_condition": "time",
+            "end_condition_value": 300,
+            "target_type": "power_zone",  # not in TARGET_TYPES
+        }
+
+        # Act & Assert
+        with pytest.raises(FormatterError, match="Unknown target type"):
+            format_step(step, step_order=1)

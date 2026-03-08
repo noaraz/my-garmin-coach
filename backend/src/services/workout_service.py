@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from typing import Any
 
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import WorkoutTemplate
@@ -12,10 +13,14 @@ from src.repositories.workouts import workout_template_repository
 
 class WorkoutService:
     async def create_template(
-        self, session: AsyncSession, data: dict[str, Any]
+        self,
+        session: AsyncSession,
+        data: dict[str, Any],
+        user_id: int | None = None,
     ) -> WorkoutTemplate:
         """Create a new WorkoutTemplate from the provided data dict."""
         template = WorkoutTemplate(
+            user_id=user_id,
             name=data["name"],
             description=data.get("description"),
             sport_type=data.get("sport_type", "running"),
@@ -24,8 +29,15 @@ class WorkoutService:
         )
         return await workout_template_repository.create(session, template)
 
-    async def list_templates(self, session: AsyncSession) -> list[WorkoutTemplate]:
-        """Return all workout templates."""
+    async def list_templates(
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[WorkoutTemplate]:
+        """Return workout templates, scoped to user_id when provided."""
+        if user_id is not None:
+            result = await session.exec(
+                select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
+            )
+            return list(result.all())
         return await workout_template_repository.get_all_ordered(session)
 
     async def update_template(
@@ -68,12 +80,18 @@ workout_service = WorkoutService()
 # ---------------------------------------------------------------------------
 
 
-async def create_template(session: AsyncSession, data: dict[str, Any]) -> WorkoutTemplate:
-    return await workout_service.create_template(session, data)
+async def create_template(
+    session: AsyncSession,
+    data: dict[str, Any],
+    user_id: int | None = None,
+) -> WorkoutTemplate:
+    return await workout_service.create_template(session, data, user_id=user_id)
 
 
-async def list_templates(session: AsyncSession) -> list[WorkoutTemplate]:
-    return await workout_service.list_templates(session)
+async def list_templates(
+    session: AsyncSession, user_id: int | None = None
+) -> list[WorkoutTemplate]:
+    return await workout_service.list_templates(session, user_id=user_id)
 
 
 async def update_template(
