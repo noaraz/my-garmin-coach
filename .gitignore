@@ -39,3 +39,6 @@ Thumbs.db
 # Garmin tokens (sensitive)
 .garminconnect/
 .garth/
+
+# Claude local session state (allowed commands, per-machine config)
+.claude/settings.local.json
