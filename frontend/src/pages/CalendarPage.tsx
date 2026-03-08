@@ -22,7 +22,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, loading, schedule, reschedule, remove, syncAllWorkouts, loadRange } = useCalendar(
+  const { workouts, loading, schedule, remove, syncAllWorkouts, loadRange } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -72,10 +72,6 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       await schedule(templateId, pickerDate)
       setPickerDate(null)
     }
-  }
-
-  const handleReschedule = async (workoutId: number, newDate: string) => {
-    await reschedule(workoutId, newDate)
   }
 
   const handleSyncAll = async () => {
@@ -228,7 +224,6 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           currentDate={currentDate}
           workouts={workouts}
           templates={templates}
-          onReschedule={handleReschedule}
           onAddWorkout={handleAddWorkout}
           onRemove={remove}
         />

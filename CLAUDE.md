@@ -190,8 +190,73 @@ Project slash commands in `.claude/commands/`:
 - **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
 - **ThemeContext**: `React.createContext` + `useState` + `localStorage` persistence. Wrap `<App>` in `<ThemeProvider>`.
 - **@dnd-kit/sortable drag reorder**: `SortableContext` (horizontal strategy) → `useSortable` per item → `arrayMove` in `onDragEnd`. Drag handle element gets `{...listeners}`, container gets `{...attributes}` + `ref={setNodeRef}`.
+- **@dnd-kit pointer drag**: always add `activationConstraint: { distance: 8 }` to `PointerSensor` — without it, drag conflicts with click handlers and may not activate reliably.
 - **ErrorBoundary**: class component with `getDerivedStateFromError`. Wrap each route element in `App.tsx`.
 - **Vitest + vite.config.ts**: add `/// <reference types="vitest" />` at top of `vite.config.ts` for `test` property to typecheck.
 - **TypeScript strict build**: `npm run build` runs `tsc -b` which is stricter than Vitest. Common gotchas: unused imports/vars, `null` vs `undefined` in props, missing explicit types on `as` casts.
 - **Prod Docker**: `frontend/Dockerfile.prod` (node:20-alpine builder → nginx:alpine), `frontend/nginx.conf` (SPA try_files + `/api/` proxy to `http://backend:8000`).
 - **Docker credential helper**: `docker-credential-desktop` must be in PATH. Prefix commands: `PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" docker compose ...`
+
+## Color Token Conventions (added 2026-03-09)
+
+**Rule: zero hardcoded hex values in component files.** All colors must use CSS custom properties.
+
+### Available tokens (index.css)
+
+| Token | Usage |
+|-------|-------|
+| `--bg-main` | Page background |
+| `--bg-surface` | Cards, panels, modals |
+| `--bg-surface-2` | Hover states, alternate rows |
+| `--bg-surface-3` | Active/selected states |
+| `--border` | Default border |
+| `--border-strong` | Emphasized border |
+| `--text-primary` | Main body text |
+| `--text-secondary` | Labels, captions |
+| `--text-muted` | Placeholder, disabled, de-emphasized |
+| `--accent` | Primary CTA: blue buttons, today highlight, selected borders |
+| `--accent-subtle` | Selected state background (low opacity blue) |
+| `--text-on-accent` | Text on `--accent` backgrounds |
+| `--zone-default` | Fallback zone color (gray) for unknown types |
+| `--color-zone-1..5` | Zone step colors (blue → red). Available as CSS vars from Tailwind `@theme` |
+
+### Patterns
+
+```tsx
+// ✅ Correct — always use var()
+style={{ color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
+
+// ❌ Wrong — no hardcoded hex
+style={{ color: '#555', background: '#1c1c1e' }}
+
+// Zone stripes (WorkoutCard sport stripe)
+style={{ background: 'var(--color-zone-1)' }}   // not Tailwind bg-blue-500
+```
+
+### Tailwind classes to avoid in new code
+- `bg-white`, `text-gray-*`, `bg-gray-*` — use CSS vars instead
+- `dark:` prefix — we use `[data-theme="light"]` overrides in index.css, not Tailwind dark mode
+
+## generateDescription Pattern (added 2026-03-09)
+
+Two pure utility functions in `frontend/src/utils/generateDescription.ts`:
+
+```typescript
+generateDescription(steps: BuilderStep[]): string
+// One-liner for template.description field
+// Example: "10m@Z1, 45m@Z2, 5m@Z3" or "2K@Z1, 6x (0.5K@Z5 + 0.4K@Z1), 1K@Z2"
+// Format per step: {value}{unit}@Z{zone}   (m=min, K=km)
+// Repeat group:   "{n}x ({step1} + {step2})"
+
+generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
+// Multi-line structured text with resolved pace ranges
+// Example:
+//   Warm up
+//     10 min @ 07:43–09:38 min/km
+//   Repeat 6 times
+//     1. Hard
+//        0.50 km @ 05:02–05:30 min/km
+//        Zone 5
+```
+
+**WorkoutBuilder usage**: auto-fills `description` via `useEffect` from `generateDescription(steps)` on step change, unless `isDescriptionEdited` is true (user manually typed). Fetches `paceZones` on mount for the details panel.

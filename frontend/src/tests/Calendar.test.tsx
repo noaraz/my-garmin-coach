@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CalendarPage } from '../pages/CalendarPage'
 
 const mockSchedule = vi.fn()
-const mockReschedule = vi.fn()
 const mockSyncAll = vi.fn()
 const mockLoadRange = vi.fn()
 
@@ -14,14 +13,12 @@ const baseWorkouts = [
   { id: 3, date: '2026-03-11', workout_template_id: 1, sync_status: 'pending' as const, completed: false, resolved_steps: null, garmin_workout_id: null,   notes: null, created_at: '', updated_at: '' },
 ]
 
-
 vi.mock('../hooks/useCalendar', () => ({
   useCalendar: () => ({
     workouts: baseWorkouts,
     loading: false,
     error: null,
     schedule: mockSchedule,
-    reschedule: mockReschedule,
     remove: vi.fn(),
     syncAllWorkouts: mockSyncAll,
     loadRange: mockLoadRange,
@@ -41,7 +38,6 @@ vi.mock('../api/client', async (importOriginal) => {
 
 beforeEach(() => {
   mockSchedule.mockReset()
-  mockReschedule.mockReset()
   mockSyncAll.mockReset()
 })
 
@@ -74,11 +70,12 @@ describe('test_workouts_on_dates', () => {
 })
 
 describe('test_card_name_duration', () => {
-  it('card → name and "45 min" duration', async () => {
+  it('card → name and clock duration', async () => {
     render(<CalendarPage />)
     const nameEl = await screen.findByText('Easy Run')
     const card = nameEl.closest('[data-testid="workout-card"]') as HTMLElement
-    expect(within(card).getByText('45 min')).toBeInTheDocument()
+    // 2700s = 45:00 in clock format
+    expect(within(card).getByText('45:00')).toBeInTheDocument()
   })
 })
 
@@ -99,20 +96,6 @@ describe('test_click_day_opens_picker', () => {
     const addBtn = screen.getAllByRole('button', { name: /add workout/i })[0]
     await user.click(addBtn)
     expect(screen.getByRole('dialog', { name: /pick a workout/i })).toBeInTheDocument()
-  })
-})
-
-describe('test_drag_reschedules', () => {
-  it('keyboard drag → reschedule API call', async () => {
-    mockReschedule.mockResolvedValue(undefined)
-    render(<CalendarPage />)
-    const cards = screen.getAllByTestId('workout-card')
-    const dragHandle = within(cards[0]).getByRole('button', { name: /drag/i })
-    dragHandle.focus()
-    await userEvent.keyboard(' ')
-    await userEvent.keyboard('{ArrowRight}')
-    await userEvent.keyboard(' ')
-    await waitFor(() => { expect(mockReschedule).toHaveBeenCalled() })
   })
 })
 

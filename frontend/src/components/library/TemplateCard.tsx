@@ -1,4 +1,5 @@
 import type { WorkoutTemplate } from '../../api/types'
+import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 
 interface TemplateCardProps {
   template: WorkoutTemplate
@@ -8,14 +9,6 @@ interface TemplateCardProps {
   onDuplicate: (template: WorkoutTemplate) => void
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '—'
-  const mins = Math.round(seconds / 60)
-  if (mins < 60) return `${mins} min`
-  const hours = Math.floor(mins / 60)
-  const remainMins = mins % 60
-  return remainMins > 0 ? `${hours}h ${remainMins} min` : `${hours}h`
-}
 
 const btnBase: React.CSSProperties = {
   padding: '3px 10px',
@@ -33,6 +26,11 @@ const btnBase: React.CSSProperties = {
 }
 
 export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplicate }: TemplateCardProps) {
+  const durationSec = template.estimated_duration_sec ?? computeDurationFromSteps(template.steps)
+  const distanceM = template.estimated_distance_m ?? computeDistanceFromSteps(template.steps)
+  const hasDuration = durationSec != null && durationSec > 0
+  const hasDistance = distanceM != null && distanceM > 0
+
   return (
     <div
       data-testid="template-card"
@@ -62,30 +60,56 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
           {template.name}
         </div>
         {template.description && (
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '10px',
-            color: 'var(--text-muted)',
-            marginTop: '2px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {template.description}
+          <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            {template.description.split(',').map((seg, i) => (
+              <span key={i} style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '10px',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.4,
+              }}>
+                {seg.trim()}
+              </span>
+            ))}
           </div>
         )}
+        {/* Summary: duration + distance */}
+        {(hasDuration || hasDistance) && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
+            {hasDuration && (
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '13px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1,
+              }}>
+                {formatClock(durationSec!)}
+              </span>
+            )}
+            {hasDistance && (
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                lineHeight: 1,
+              }}>
+                {formatKm(distanceM!)}
+              </span>
+            )}
+          </div>
+        )}
+        {/* Sport label */}
         <div style={{
-          fontSize: '11px',
+          fontSize: '10px',
           color: 'var(--text-muted)',
-          marginTop: '2px',
+          marginTop: '3px',
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
         }}>
-          {template.sport_type} &middot;&nbsp;
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px' }}>
-            {formatDuration(template.estimated_duration_sec)}
-          </span>
+          {template.sport_type}
         </div>
       </div>
 

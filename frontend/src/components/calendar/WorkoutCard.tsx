@@ -1,14 +1,11 @@
-import { useDraggable } from '@dnd-kit/core'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ScheduledWorkout, WorkoutTemplate, SyncStatus } from '../../api/types'
-import { formatDuration } from '../../utils/formatting'
-import { addDays } from 'date-fns'
+import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 
 interface WorkoutCardProps {
   workout: ScheduledWorkout
   template: WorkoutTemplate | undefined
   onRemove: (id: number) => void
-  onReschedule?: (id: number, date: string) => void
   displayName?: string
 }
 
@@ -32,97 +29,25 @@ function syncStatusLabel(status: SyncStatus): string {
   return labels[status]
 }
 
-function toLocalDateString(date: Date): string {
-  // Use local date to avoid timezone issues
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
 function zoneStripeColor(sportType: string | undefined): string {
   if (sportType === 'running') return 'var(--color-zone-1)'
   if (sportType === 'cycling') return 'var(--color-zone-2)'
   return 'var(--zone-default)'
 }
 
-export function WorkoutCard({ workout, template, onRemove, onReschedule, displayName }: WorkoutCardProps) {
-  // Use refs for keyboard drag state to avoid stale closures
-  const isDraggingRef = useRef(false)
-  const pendingDateRef = useRef<string>(workout.date)
-  const [keyboardDragging, setKeyboardDragging] = useState(false)
-  const [pendingDate, setPendingDate] = useState<string>(workout.date)
+
+export function WorkoutCard({ workout, template, onRemove, displayName }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
-
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: workout.id,
-  })
-
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined
-
-  // Keyboard-accessible drag handler using refs for latest values
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      if (!isDraggingRef.current) {
-        // Start keyboard drag
-        isDraggingRef.current = true
-        pendingDateRef.current = workout.date
-        setKeyboardDragging(true)
-        setPendingDate(workout.date)
-      } else {
-        // Drop: reschedule to pending date
-        const targetDate = pendingDateRef.current
-        isDraggingRef.current = false
-        setKeyboardDragging(false)
-        if (targetDate !== workout.date && onReschedule) {
-          onReschedule(workout.id, targetDate)
-        }
-      }
-      return
-    }
-
-    if (isDraggingRef.current) {
-      if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        e.stopPropagation()
-        const current = pendingDateRef.current
-        const currentDate = new Date(current + 'T00:00:00')
-        const nextDate = addDays(currentDate, 1)
-        const next = toLocalDateString(nextDate)
-        pendingDateRef.current = next
-        setPendingDate(next)
-      }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        e.stopPropagation()
-        const current = pendingDateRef.current
-        const currentDate = new Date(current + 'T00:00:00')
-        const prevDate = addDays(currentDate, -1)
-        const prev = toLocalDateString(prevDate)
-        pendingDateRef.current = prev
-        setPendingDate(prev)
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        isDraggingRef.current = false
-        pendingDateRef.current = workout.date
-        setKeyboardDragging(false)
-        setPendingDate(workout.date)
-      }
-    }
-  }
-
   const stripeColor = zoneStripeColor(template?.sport_type)
+
+  const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
+  const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
+  const hasDuration = durationSec != null && durationSec > 0
+  const hasDistance = distanceM != null && distanceM > 0
 
   return (
     <div
-      ref={setNodeRef}
       style={{
-        ...style,
         position: 'relative',
         display: 'flex',
         alignItems: 'stretch',
@@ -130,42 +55,21 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
         borderRadius: '5px',
         border: '1px solid var(--border)',
         userSelect: 'none',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-        opacity: isDragging ? 0.5 : 1,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
         overflow: 'hidden',
       }}
       data-testid="workout-card"
     >
       {/* Left zone stripe */}
-      <div style={{ width: '3px', background: stripeColor, flexShrink: 0 }} />
-
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        aria-label="Drag"
-        aria-pressed={keyboardDragging}
-        onKeyDown={handleKeyDown}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '6px 4px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'grab',
-          color: 'var(--text-muted)',
-          fontSize: '11px',
-          flexShrink: 0,
-          touchAction: 'none',
-          lineHeight: 1,
-        }}
-      >⠿</button>
+      <div style={{ width: '4px', background: stripeColor, flexShrink: 0 }} />
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, padding: '5px 0 5px 1px' }}>
+      <div style={{ flex: 1, minWidth: 0, padding: '8px 0 8px 8px' }}>
+
+        {/* Workout name */}
         <div style={{
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-          fontSize: '12px',
+          fontSize: '14px',
           fontWeight: 600,
           letterSpacing: '0.02em',
           color: 'var(--text-primary)',
@@ -176,51 +80,68 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
         }}>
           {displayName ?? template?.name ?? 'Workout'}
         </div>
-        {template?.estimated_duration_sec != null && (
+
+        {/* Summary: duration + distance — prominent, like TrainingPeaks */}
+        {(hasDuration || hasDistance) && (
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '9px',
-            color: 'var(--text-muted)',
-            marginTop: '2px',
-            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '8px',
+            marginTop: '4px',
+            flexWrap: 'wrap',
           }}>
-            {formatDuration(template.estimated_duration_sec)}
+            {hasDuration && (
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '13px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1,
+              }}>
+                {formatClock(durationSec!)}
+              </span>
+            )}
+            {hasDistance && (
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                lineHeight: 1,
+              }}>
+                {formatKm(distanceM!)}
+              </span>
+            )}
           </div>
         )}
+
+        {/* Description — one row per comma-segment */}
         {template?.description && (
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '9px',
-            color: 'var(--text-muted)',
-            marginTop: '2px',
-            lineHeight: 1.2,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: '160px',
-          }}>
-            {template.description}
-          </div>
-        )}
-        {keyboardDragging && pendingDate && (
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '9px',
-            color: 'var(--accent)',
-            marginTop: '2px',
-          }}>
-            → {pendingDate}
+          <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            {template.description.split(',').map((seg, i) => (
+              <span key={i} style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '10px',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {seg.trim()}
+              </span>
+            ))}
           </div>
         )}
       </div>
 
       {/* Right column: sync icon + remove */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 4px 4px 2px', gap: '3px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 6px 6px 2px', gap: '4px', flexShrink: 0 }}>
         <span
           data-sync={workout.sync_status}
           className={`text-xs font-mono ${syncStatusClass(workout.sync_status)}`}
           aria-label={`sync status: ${workout.sync_status}`}
-          style={{ fontSize: '10px', lineHeight: 1 }}
+          style={{ fontSize: '11px', lineHeight: 1 }}
         >
           {syncStatusLabel(workout.sync_status)}
         </span>
@@ -232,8 +153,8 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
           onMouseLeave={() => setRemoveHover(false)}
           style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: removeHover ? 'var(--color-zone-5)' : 'var(--text-muted)',
-            fontSize: '11px', padding: '0 3px', lineHeight: 1,
+            color: removeHover ? 'var(--color-zone-5)' : 'var(--text-secondary)',
+            fontSize: '12px', padding: '0 2px', lineHeight: 1,
           }}
         >✕</button>
       </div>

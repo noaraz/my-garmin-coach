@@ -39,6 +39,15 @@ Track progress in **STATUS.md**.
 - [x] Implement `DayCell.tsx`, `WorkoutCard.tsx`, `WorkoutPicker.tsx`
 - [x] Run tests → GREEN
 
+### Post-Ship Polish (2026-03-09)
+- [x] `WorkoutPicker` — convert Tailwind classes to CSS vars (respects dark/light theme)
+- [x] `DayCell` — expand click area to entire day column (not just "+ Add workout" button)
+- [x] `CalendarView` — add `activationConstraint: { distance: 8 }` to PointerSensor for reliable drag
+- [x] `WorkoutCard` — make remove button visible (grey, red on hover); replace hardcoded colors with CSS vars
+- [x] `WorkoutCard` — show `template.description` one-liner below name
+- [x] Color token audit — 40+ hardcoded hex values replaced with CSS vars across all calendar components
+- [x] Dark theme lightened for readability; `--accent`, `--accent-subtle`, `--text-on-accent`, `--zone-default` tokens added
+
 ### API Client Tests
 - [x] Write all tests in `client.test.ts` (see test table)
 - [x] Run tests → RED

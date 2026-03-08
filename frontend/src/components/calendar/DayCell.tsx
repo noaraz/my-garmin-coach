@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useDroppable } from '@dnd-kit/core'
 import type { ScheduledWorkout, WorkoutTemplate } from '../../api/types'
 import { WorkoutCard } from './WorkoutCard'
 
@@ -9,7 +8,6 @@ interface DayCellProps {
   templates: WorkoutTemplate[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
-  onReschedule?: (id: number, date: string) => void
   getDisplayName?: (workout: ScheduledWorkout) => string | undefined
 }
 
@@ -21,8 +19,7 @@ function parseDateParts(dateStr: string) {
   return { dayName, dayNum, isToday }
 }
 
-export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onReschedule, getDisplayName }: DayCellProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: date })
+export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, getDisplayName }: DayCellProps) {
   const [hovering, setHovering] = useState(false)
   const { dayName, dayNum, isToday } = parseDateParts(date)
 
@@ -32,7 +29,6 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
   return (
     <div
       data-testid="day-column"
-      ref={setNodeRef}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       style={{
@@ -41,9 +37,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
         flex: 1,
         minHeight: 0,
         borderRight: '1px solid var(--border)',
-        background: isOver ? 'var(--drop-bg)' : 'var(--bg-surface)',
-        transition: 'background 0.1s',
-        overflow: 'hidden',
+        background: 'var(--bg-surface)',
       }}
     >
       {/* Column header */}
@@ -59,19 +53,19 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
       >
         <div style={{
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-          fontSize: '10px',
+          fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.12em',
-          color: isToday ? 'var(--accent)' : 'var(--text-muted)',
+          color: isToday ? 'var(--accent)' : 'var(--text-secondary)',
           textTransform: 'uppercase',
           lineHeight: 1,
-          marginBottom: '3px',
+          marginBottom: '4px',
         }}>
           {dayName}
         </div>
         <div style={{
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-          fontSize: '18px',
+          fontSize: '22px',
           fontWeight: 700,
           color: isToday ? 'var(--accent)' : 'var(--text-primary)',
           lineHeight: 1,
@@ -80,14 +74,14 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
         </div>
       </div>
 
-      {/* Workout cards — clickable area */}
+      {/* Workout cards — clicking empty area opens picker */}
       <div
         style={{
           flex: 1,
-          padding: '6px 5px',
+          padding: '6px 6px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '5px',
           overflowY: 'auto',
           cursor: 'pointer',
         }}
@@ -99,7 +93,6 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
               workout={workout}
               template={getTemplate(workout)}
               onRemove={onRemove}
-              onReschedule={onReschedule}
               displayName={getDisplayName ? getDisplayName(workout) : undefined}
             />
           </div>
@@ -111,13 +104,13 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
         onClick={() => onAddWorkout(date)}
         aria-label="Add workout"
         style={{
-          margin: '0 5px 5px',
-          padding: '5px',
+          margin: '0 6px 6px',
+          padding: '6px',
           border: `1px dashed ${hovering ? 'var(--accent)' : 'var(--border-strong)'}`,
           borderRadius: '4px',
           background: 'transparent',
           cursor: 'pointer',
-          fontSize: '10px',
+          fontSize: '11px',
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
           fontWeight: 700,
           letterSpacing: '0.1em',

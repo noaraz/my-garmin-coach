@@ -41,6 +41,18 @@ Track progress in **STATUS.md**.
 - [x] Add save-to-library and schedule-on-calendar integration
 - [x] Run tests → GREEN
 
+### Post-Ship Polish (2026-03-09)
+- [x] `RepeatGroup` — add `+ Recovery` button inside repeat groups (alongside `+ Interval`)
+- [x] `WorkoutBuilder` — save feedback toast: `saving → success / error` with auto-reset
+- [x] `WorkoutBuilder` — description textarea: auto-fills from `generateDescription(steps)`, editable
+- [x] `WorkoutBuilder` — Workout Details section: shows `generateWorkoutDetails(steps, paceZones)` with resolved pace ranges
+- [x] `WorkoutBuilder` — accept `initialName?`, `initialSteps?`, `initialDescription?` props for edit mode
+- [x] `BuilderPage` — read `?id` URL param, fetch template, pass as initial props to WorkoutBuilder
+- [x] Backend `GET /api/v1/workouts/templates/{id}` — added endpoint + service shim
+- [x] `client.ts` — added `fetchWorkoutTemplate(id)` API wrapper
+- [x] `TemplateCard` — show `template.description` below name (1 line, truncated)
+- [x] Color token audit — StepPalette, RepeatGroup zone colors use CSS vars
+
 ---
 
 ## Tests

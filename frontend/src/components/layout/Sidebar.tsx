@@ -34,6 +34,13 @@ const LibraryIcon = () => (
   </svg>
 )
 
+/* Sidebar is intentionally always dark — uses its own palette, not theme tokens */
+const SIDE_BG    = '#18181c'
+const SIDE_BORD  = '#2a2a30'
+const SIDE_LOGO_SUB = '#505060'
+const SIDE_VER   = '#42424e'
+const SIDE_ICON_INACTIVE = '#6a6a78'
+
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme()
   const navStyle = (isActive: boolean): React.CSSProperties => ({
@@ -49,8 +56,8 @@ export function Sidebar() {
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     textDecoration: 'none',
-    color: isActive ? '#ffffff' : '#5a5a5a',
-    background: isActive ? 'rgba(255,255,255,0.09)' : 'transparent',
+    color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE,
+    background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
     transition: 'color 0.12s, background 0.12s',
   })
 
@@ -58,16 +65,16 @@ export function Sidebar() {
     <aside style={{
       width: '210px',
       minWidth: '210px',
-      background: '#0d0d0d',
+      background: SIDE_BG,
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      borderRight: '1px solid #222',
+      borderRight: `1px solid ${SIDE_BORD}`,
     }}>
       {/* Logo area */}
       <div style={{
         padding: '18px 14px 14px',
-        borderBottom: '1px solid #1e1e1e',
+        borderBottom: `1px solid ${SIDE_BORD}`,
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
@@ -82,7 +89,6 @@ export function Sidebar() {
           justifyContent: 'center',
           flexShrink: 0,
         }}>
-          {/* Pulse/heartbeat icon */}
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
@@ -100,7 +106,7 @@ export function Sidebar() {
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '9px',
-            color: '#3a3a3a',
+            color: SIDE_LOGO_SUB,
             letterSpacing: '0.05em',
             marginTop: '1px',
           }}>TRAINING PLATFORM</div>
@@ -111,7 +117,7 @@ export function Sidebar() {
       <nav style={{ padding: '10px 8px', flex: 1 }}>
         <NavLink to="/calendar" style={({ isActive }) => navStyle(isActive)}>
           {({ isActive }) => (
-            <span style={{ color: isActive ? '#ffffff' : '#5a5a5a', display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <CalendarIcon />
               Calendar
             </span>
@@ -119,7 +125,7 @@ export function Sidebar() {
         </NavLink>
         <NavLink to="/zones" style={({ isActive }) => navStyle(isActive)}>
           {({ isActive }) => (
-            <span style={{ color: isActive ? '#ffffff' : '#5a5a5a', display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <ZonesIcon />
               Zones
             </span>
@@ -127,7 +133,7 @@ export function Sidebar() {
         </NavLink>
         <NavLink to="/builder" style={({ isActive }) => navStyle(isActive)}>
           {({ isActive }) => (
-            <span style={{ color: isActive ? '#ffffff' : '#5a5a5a', display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <BuilderIcon />
               Builder
             </span>
@@ -135,7 +141,7 @@ export function Sidebar() {
         </NavLink>
         <NavLink to="/library" style={({ isActive }) => navStyle(isActive)}>
           {({ isActive }) => (
-            <span style={{ color: isActive ? '#ffffff' : '#5a5a5a', display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <LibraryIcon />
               Library
             </span>
@@ -146,7 +152,7 @@ export function Sidebar() {
       {/* Theme toggle + version */}
       <div style={{
         padding: '10px 14px',
-        borderTop: '1px solid #1a1a1a',
+        borderTop: `1px solid ${SIDE_BORD}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -154,7 +160,7 @@ export function Sidebar() {
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: '9px',
-          color: '#2e2e2e',
+          color: SIDE_VER,
           letterSpacing: '0.06em',
         }}>v0.1.0-dev</span>
         <button
@@ -165,7 +171,7 @@ export function Sidebar() {
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: '#4a4a4a',
+            color: SIDE_ICON_INACTIVE,
             padding: '2px',
             display: 'flex',
             alignItems: 'center',
@@ -174,13 +180,11 @@ export function Sidebar() {
           }}
         >
           {theme === 'light' ? (
-            /* Moon icon */
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           ) : (
-            /* Sun icon */
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="5"/>
               <line x1="12" y1="1" x2="12" y2="3"/>
               <line x1="12" y1="21" x2="12" y2="23"/>

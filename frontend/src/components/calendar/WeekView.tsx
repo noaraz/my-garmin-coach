@@ -9,10 +9,9 @@ interface WeekViewProps {
   templates: WorkoutTemplate[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
-  onReschedule?: (id: number, date: string) => void
 }
 
-export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemove, onReschedule }: WeekViewProps) {
+export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemove }: WeekViewProps) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i)
     return toDateString(date)
@@ -21,11 +20,10 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
   const workoutsForDate = (date: string) =>
     workouts.filter(w => w.date === date)
 
-  // Build a set of template IDs seen so far across the week for uniqueness
-  // Use a display name map: first occurrence gets plain name, duplicates get name + zero-width space
+  // Display name deduplication: first occurrence of a template gets plain name,
+  // duplicates get a zero-width space suffix to satisfy React key uniqueness
   const seenTemplateIds = new Set<number>()
   const workoutDisplayNames = new Map<number, string>()
-  // Process in date order to ensure deterministic first-occurrence
   const orderedWorkouts = [...workouts].sort((a, b) => a.date.localeCompare(b.date))
   for (const workout of orderedWorkouts) {
     const tid = workout.workout_template_id
@@ -39,9 +37,8 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
     }
   }
 
-  const getDisplayName = (workout: ScheduledWorkout): string | undefined => {
-    return workoutDisplayNames.get(workout.id)
-  }
+  const getDisplayName = (workout: ScheduledWorkout): string | undefined =>
+    workoutDisplayNames.get(workout.id)
 
   return (
     <div className="flex flex-1 overflow-x-auto">
@@ -53,7 +50,6 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
             templates={templates}
             onAddWorkout={onAddWorkout}
             onRemove={onRemove}
-            onReschedule={onReschedule}
             getDisplayName={getDisplayName}
           />
         </div>
