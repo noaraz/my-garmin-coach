@@ -44,9 +44,13 @@ Track progress in **STATUS.md**.
 - [x] `DayCell` — expand click area to entire day column (not just "+ Add workout" button)
 - [x] `CalendarView` — add `activationConstraint: { distance: 8 }` to PointerSensor for reliable drag
 - [x] `WorkoutCard` — make remove button visible (grey, red on hover); replace hardcoded colors with CSS vars
-- [x] `WorkoutCard` — show `template.description` one-liner below name
+- [x] `WorkoutCard` — show `template.description` one-liner below name (stacked per comma-segment)
+- [x] `WorkoutCard` — clock-format duration + distance summary (uses `workoutStats.ts` shared utils with steps fallback)
 - [x] Color token audit — 40+ hardcoded hex values replaced with CSS vars across all calendar components
 - [x] Dark theme lightened for readability; `--accent`, `--accent-subtle`, `--text-on-accent`, `--zone-default` tokens added
+- [x] Remove drag-and-drop from calendar (scheduling via picker only; drag-to-reschedule removed for UX simplicity)
+- [x] Vite proxy fallback — `vite.config.ts` target uses `process.env.VITE_PROXY_TARGET ?? 'http://localhost:8000'` so dev outside Docker works without `ENOTFOUND backend`
+- [x] `workoutStats.ts` + 41 new edge-case tests — `computeDurationFromSteps`, `computeDistanceFromSteps`, `formatClock`, `formatKm`; `Calendar.test.tsx` updated with steps-fallback + no-data tests
 
 ### API Client Tests
 - [x] Write all tests in `client.test.ts` (see test table)
@@ -79,13 +83,14 @@ Track progress in **STATUS.md**.
 | `test_week_view_7_days` | render → 7 columns |
 | `test_month_view_correct_days` | March 2026 → 31 days |
 | `test_workouts_on_dates` | 3 workouts → 3 cards |
-| `test_card_name_duration` | card → name, "45 min" |
+| `test_card_name_duration` | card → name + clock duration ("45:00") |
 | `test_card_sync_status` | synced → green icon |
 | `test_click_day_opens_picker` | click empty day → modal |
-| `test_drag_reschedules` | drag to new day → API call |
 | `test_toggle_week_month` | toggle → view switches |
 | `test_navigate_prev_next` | arrows → dates shift |
 | `test_sync_all_button` | click → POST called |
+| `test_card_duration_from_steps_fallback` | null estimated + steps JSON → clock from steps |
+| `test_card_no_summary_when_no_data` | null duration + null steps → no clock text |
 
 ### client.test.ts
 
@@ -121,5 +126,5 @@ frontend/src/
   components/layout/ — AppShell, Sidebar
   pages/ — CalendarPage, ZonesPage, SettingsPage
   hooks/ — useProfile, useZones, useCalendar
-  utils/ — formatting.ts (pace "4:30", duration "1h 15m")
+  utils/ — workoutStats.ts (computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm)
 ```

@@ -237,6 +237,73 @@ style={{ background: 'var(--color-zone-1)' }}   // not Tailwind bg-blue-500
 - `bg-white`, `text-gray-*`, `bg-gray-*` — use CSS vars instead
 - `dark:` prefix — we use `[data-theme="light"]` overrides in index.css, not Tailwind dark mode
 
+## workoutStats Utilities (added 2026-03-09)
+
+Four pure helpers in `frontend/src/utils/workoutStats.ts` — shared between `WorkoutCard` and `TemplateCard`:
+
+```typescript
+computeDurationFromSteps(stepsJson: string | null | undefined): number | null
+// Parses template.steps JSON, sums duration_sec recursively.
+// Handles repeat groups: multiplies child seconds by group.repeat_count (default 1).
+// Returns null if stepsJson is null/undefined/empty/invalid JSON or no time-based steps.
+
+computeDistanceFromSteps(stepsJson: string | null | undefined): number | null
+// Same logic but sums distance_m fields. Returns null if only time-based steps.
+
+formatClock(seconds: number): string
+// Clock format: 65 → "1:05", 2700 → "45:00", 4200 → "1:10:00"
+// Omits hours column when < 3600s.
+
+formatKm(metres: number): string
+// "12.5 km" — always 1 decimal place.
+```
+
+**Usage pattern** (both WorkoutCard and TemplateCard):
+```typescript
+const durationSec = template.estimated_duration_sec ?? computeDurationFromSteps(template.steps)
+const distanceM   = template.estimated_distance_m   ?? computeDistanceFromSteps(template.steps)
+const hasDuration = durationSec != null && durationSec > 0
+const hasDistance = distanceM   != null && distanceM   > 0
+// Summary row: {hasDuration && formatClock(durationSec!)}  {hasDistance && formatKm(distanceM!)}
+```
+
+**Why steps fallback is necessary**: workout templates created by the builder typically have `estimated_duration_sec: null` in the DB (the builder doesn't compute/save it). The steps JSON always exists and contains the ground truth.
+
+## Vitest Testing Gotchas (added 2026-03-09)
+
+### React 18 StrictMode double-fires effects
+`useEffect` runs **twice** in test environment (StrictMode). This consumes `mockResolvedValueOnce`:
+
+```typescript
+// ❌ Wrong — Once is consumed by first StrictMode call; second call gets stale default
+mockFetchTemplates.mockResolvedValueOnce([...myTemplates])
+
+// ✅ Correct — permanent override, reset in beforeEach
+mockFetchTemplates.mockResolvedValue([...myTemplates])
+// beforeEach: mockFetchTemplates.mockReset(); mockFetchTemplates.mockResolvedValue(defaults)
+```
+
+### `vi.hoisted()` for mutable mock references
+When mock functions need to be referenced both inside `vi.mock()` factory AND in individual test bodies:
+
+```typescript
+// ✅ Correct — vi.hoisted runs before vi.mock, refs are stable
+const { mockFetchTemplates } = vi.hoisted(() => ({
+  mockFetchTemplates: vi.fn().mockResolvedValue(defaultTemplates),
+}))
+
+vi.mock('../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/client')>()
+  return { ...actual, fetchWorkoutTemplates: mockFetchTemplates }
+})
+
+// In test: mockFetchTemplates.mockResolvedValue([...override])
+```
+
+### `findByText` vs `findAllByText` when content repeats
+If multiple workouts map to the same template, the same duration text appears multiple times.
+`findByText('15:00')` throws "Found multiple elements" — use `findAllByText('15:00')` instead.
+
 ## generateDescription Pattern (added 2026-03-09)
 
 Two pure utility functions in `frontend/src/utils/generateDescription.ts`:
