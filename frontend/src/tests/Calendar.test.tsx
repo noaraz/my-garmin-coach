@@ -3,9 +3,18 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CalendarPage } from '../pages/CalendarPage'
 
-const mockSchedule = vi.fn()
-const mockSyncAll = vi.fn()
-const mockLoadRange = vi.fn()
+const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates } = vi.hoisted(() => {
+  const defaultTemplates = [
+    { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
+    { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
+  ]
+  return {
+    mockSchedule: vi.fn(),
+    mockSyncAll: vi.fn(),
+    mockLoadRange: vi.fn(),
+    mockFetchTemplates: vi.fn().mockResolvedValue(defaultTemplates),
+  }
+})
 
 const baseWorkouts = [
   { id: 1, date: '2026-03-09', workout_template_id: 1, sync_status: 'synced' as const,  completed: false, resolved_steps: null, garmin_workout_id: 'G123', notes: null, created_at: '', updated_at: '' },
@@ -27,18 +36,18 @@ vi.mock('../hooks/useCalendar', () => ({
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
-  return {
-    ...actual,
-    fetchWorkoutTemplates: vi.fn().mockResolvedValue([
-      { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
-      { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
-    ]),
-  }
+  return { ...actual, fetchWorkoutTemplates: mockFetchTemplates }
 })
 
 beforeEach(() => {
   mockSchedule.mockReset()
   mockSyncAll.mockReset()
+  const defaultTemplates = [
+    { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
+    { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
+  ]
+  mockFetchTemplates.mockReset()
+  mockFetchTemplates.mockResolvedValue(defaultTemplates)
 })
 
 describe('test_week_view_7_days', () => {
@@ -130,5 +139,48 @@ describe('test_sync_all_button', () => {
     const syncBtn = screen.getByRole('button', { name: /sync all/i })
     await user.click(syncBtn)
     expect(mockSyncAll).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('test_card_duration_from_steps_fallback', () => {
+  it('null estimated_duration_sec + steps JSON → computes clock from steps', async () => {
+    // 600 + 300 = 900s = "15:00"
+    const stepsJson = JSON.stringify([
+      { type: 'warmup',   duration_type: 'time', duration_sec: 600 },
+      { type: 'cooldown', duration_type: 'time', duration_sec: 300 },
+    ])
+    // Use mockResolvedValue (not Once) — React 18 StrictMode fires effects twice,
+    // so Once would be consumed by the first call and fall back to default on the second.
+    mockFetchTemplates.mockResolvedValue([
+      { id: 1, name: 'Easy Run', estimated_duration_sec: null, estimated_distance_m: null,
+        sport_type: 'running', description: null, tags: null,
+        steps: stepsJson, created_at: '', updated_at: '' },
+      { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, estimated_distance_m: null,
+        sport_type: 'running', description: null, tags: null,
+        steps: null, created_at: '', updated_at: '' },
+    ])
+    render(<CalendarPage />)
+    // workouts id:1 and id:3 both map to template id:1 → two "15:00" cards
+    const clocks = await screen.findAllByText('15:00')
+    expect(clocks.length).toBeGreaterThan(0)
+  })
+})
+
+describe('test_card_no_summary_when_no_data', () => {
+  it('null duration + null steps → no clock text rendered', async () => {
+    mockFetchTemplates.mockResolvedValue([
+      { id: 1, name: 'Easy Run', estimated_duration_sec: null, estimated_distance_m: null,
+        sport_type: 'running', description: null, tags: null,
+        steps: null, created_at: '', updated_at: '' },
+      { id: 2, name: 'Tempo Run', estimated_duration_sec: null, estimated_distance_m: null,
+        sport_type: 'running', description: null, tags: null,
+        steps: null, created_at: '', updated_at: '' },
+    ])
+    render(<CalendarPage />)
+    await screen.findByText('Easy Run')
+    const cards = screen.getAllByTestId('workout-card')
+    cards.forEach(card => {
+      expect(card.textContent).not.toMatch(/\d+:\d{2}/)
+    })
   })
 })
