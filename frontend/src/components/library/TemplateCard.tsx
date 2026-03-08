@@ -61,6 +61,19 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
         }}>
           {template.name}
         </div>
+        {template.description && (
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '10px',
+            color: 'var(--text-muted)',
+            marginTop: '2px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {template.description}
+          </div>
+        )}
         <div style={{
           fontSize: '11px',
           color: 'var(--text-muted)',
@@ -83,8 +96,8 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
         </button>
         <button aria-label="Schedule" onClick={() => onSchedule(template)} style={{
           ...btnBase,
-          border: '1px solid #0057ff',
-          color: '#0057ff',
+          border: '1px solid var(--accent)',
+          color: 'var(--accent)',
         }}>
           Schedule
         </button>

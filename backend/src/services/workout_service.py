@@ -84,3 +84,7 @@ async def update_template(
 
 async def delete_template(session: AsyncSession, template_id: int) -> None:
     return await workout_service.delete_template(session, template_id)
+
+
+async def get_template(session: AsyncSession, template_id: int) -> WorkoutTemplate | None:
+    return await workout_template_repository.get(session, template_id)

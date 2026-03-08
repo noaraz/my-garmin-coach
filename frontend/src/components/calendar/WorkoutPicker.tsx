@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { WorkoutTemplate } from '../../api/types'
 
@@ -8,37 +9,95 @@ interface WorkoutPickerProps {
 }
 
 export function WorkoutPicker({ templates, onSchedule, onClose }: WorkoutPickerProps) {
+  const [hoveredId, setHoveredId] = useState<number | null>(null)
+
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+      }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         role="dialog"
         aria-label="Pick a workout"
         aria-modal="true"
-        className="bg-white rounded-lg shadow-xl p-6 w-96 max-h-[80vh] overflow-y-auto"
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: '8px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          padding: '24px',
+          width: '384px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+        }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Pick a workout</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontSize: '16px',
+            fontWeight: 700,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--text-primary)',
+          }}>Pick a workout</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
             aria-label="Close"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              fontSize: '16px',
+              lineHeight: 1,
+              padding: '2px 6px',
+            }}
           >
             ✕
           </button>
         </div>
-        <ul className="space-y-2">
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {templates.map(template => (
             <li key={template.id}>
               <button
                 onClick={() => { onSchedule(template.id); onClose() }}
-                className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 border border-gray-200 transition-colors"
+                onMouseEnter={() => setHoveredId(template.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '12px 16px',
+                  borderRadius: '6px',
+                  background: hoveredId === template.id ? 'var(--bg-surface-2)' : 'transparent',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  transition: 'background 0.1s',
+                }}
               >
-                <div className="font-medium text-gray-900">{template.name}</div>
+                <div style={{
+                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                }}>{template.name}</div>
                 {template.sport_type && (
-                  <div className="text-xs text-gray-500 mt-0.5">{template.sport_type}</div>
+                  <div style={{
+                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    marginTop: '2px',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}>{template.sport_type}</div>
                 )}
               </button>
             </li>

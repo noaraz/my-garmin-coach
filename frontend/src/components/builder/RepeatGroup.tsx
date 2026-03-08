@@ -17,6 +17,11 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
     onChange({ ...group, steps: [...group.steps, newStep] })
   }
 
+  const handleAddRecovery = () => {
+    const newStep = makeStep('recovery')
+    onChange({ ...group, steps: [...group.steps, newStep] })
+  }
+
   const handleDeleteStep = (stepIndex: number) => {
     const newSteps = group.steps.filter((_, i) => i !== stepIndex)
     onChange({ ...group, steps: newSteps })
@@ -27,7 +32,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
       data-testid={`repeat-group-${groupIndex}`}
       onClick={onSelect}
       style={{
-        border: `1px dashed ${isSelected ? '#0057ff' : 'var(--border-strong)'}`,
+        border: `1px dashed ${isSelected ? 'var(--accent)' : 'var(--border-strong)'}`,
         borderRadius: '6px',
         padding: '8px 10px',
         display: 'flex',
@@ -35,7 +40,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
         gap: '6px',
         minWidth: '80px',
         cursor: 'pointer',
-        background: isSelected ? 'rgba(0,87,255,0.04)' : 'transparent',
+        background: isSelected ? 'var(--accent-subtle)' : 'transparent',
         transition: 'border-color 0.1s',
       }}
     >
@@ -70,9 +75,9 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
             padding: '2px 8px',
             cursor: 'pointer',
             background: 'transparent',
-            border: '1px solid #F97316',
+            border: `1px solid var(--color-zone-4)`,
             borderRadius: '2px',
-            color: '#F97316',
+            color: 'var(--color-zone-4)',
             fontFamily: "'Barlow Condensed', sans-serif",
             fontWeight: 700,
             letterSpacing: '0.08em',
@@ -80,6 +85,25 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
           }}
         >
           + Interval
+        </button>
+        <button
+          aria-label="Add recovery to repeat"
+          onClick={handleAddRecovery}
+          style={{
+            fontSize: '9px',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            background: 'transparent',
+            border: `1px solid var(--color-zone-2)`,
+            borderRadius: '2px',
+            color: 'var(--color-zone-2)',
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          + Recovery
         </button>
         <button
           aria-label="Delete step"

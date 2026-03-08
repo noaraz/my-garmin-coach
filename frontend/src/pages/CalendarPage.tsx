@@ -162,8 +162,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 border: 'none',
                 borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
                 cursor: 'pointer',
-                background: view === v ? '#0d0d0d' : 'transparent',
-                color: view === v ? '#fff' : '#888',
+                background: view === v ? 'var(--text-primary)' : 'transparent',
+                color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
                 transition: 'background 0.1s, color 0.1s',
               }}
             >
@@ -182,8 +182,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               alignItems: 'center',
               gap: '5px',
               padding: '5px 13px',
-              background: '#0057ff',
-              color: '#fff',
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
               border: 'none',
               borderRadius: '4px',
               fontSize: '10px',

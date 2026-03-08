@@ -6,10 +6,10 @@ interface StepPaletteProps {
 }
 
 const STEP_COLORS: Record<string, string> = {
-  warmup:   '#3B82F6',
-  interval: '#F97316',
-  recovery: '#22C55E',
-  cooldown: '#6B7280',
+  warmup:   'var(--color-zone-1)',
+  interval: 'var(--color-zone-4)',
+  recovery: 'var(--color-zone-2)',
+  cooldown: 'var(--zone-default)',
 }
 
 export function StepPalette({ onAddStep, onAddRepeat }: StepPaletteProps) {

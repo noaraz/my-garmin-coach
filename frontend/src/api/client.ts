@@ -38,6 +38,9 @@ export const recalculatePaceZones = () =>
 
 export const fetchWorkoutTemplates = () => request<WorkoutTemplate[]>('/workouts')
 
+export const fetchWorkoutTemplate = (id: number) =>
+  request<WorkoutTemplate>(`/workouts/${id}`)
+
 export const createTemplate = (body: WorkoutTemplateCreate) =>
   request<WorkoutTemplate>('/workouts', { method: 'POST', body: JSON.stringify(body) })
 

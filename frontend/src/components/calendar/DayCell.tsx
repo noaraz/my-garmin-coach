@@ -62,7 +62,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
           fontSize: '10px',
           fontWeight: 600,
           letterSpacing: '0.12em',
-          color: isToday ? '#0057ff' : '#aaa',
+          color: isToday ? 'var(--accent)' : 'var(--text-muted)',
           textTransform: 'uppercase',
           lineHeight: 1,
           marginBottom: '3px',
@@ -73,31 +73,36 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
           fontFamily: "'Barlow Condensed', system-ui, sans-serif",
           fontSize: '18px',
           fontWeight: 700,
-          color: isToday ? '#0057ff' : 'var(--text-primary)',
+          color: isToday ? 'var(--accent)' : 'var(--text-primary)',
           lineHeight: 1,
         }}>
           {dayNum}
         </div>
       </div>
 
-      {/* Workout cards */}
-      <div style={{
-        flex: 1,
-        padding: '6px 5px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-        overflowY: 'auto',
-      }}>
+      {/* Workout cards — clickable area */}
+      <div
+        style={{
+          flex: 1,
+          padding: '6px 5px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          overflowY: 'auto',
+          cursor: 'pointer',
+        }}
+        onClick={() => onAddWorkout(date)}
+      >
         {workouts.map(workout => (
-          <WorkoutCard
-            key={workout.id}
-            workout={workout}
-            template={getTemplate(workout)}
-            onRemove={onRemove}
-            onReschedule={onReschedule}
-            displayName={getDisplayName ? getDisplayName(workout) : undefined}
-          />
+          <div key={workout.id} onClick={e => e.stopPropagation()}>
+            <WorkoutCard
+              workout={workout}
+              template={getTemplate(workout)}
+              onRemove={onRemove}
+              onReschedule={onReschedule}
+              displayName={getDisplayName ? getDisplayName(workout) : undefined}
+            />
+          </div>
         ))}
       </div>
 
@@ -108,7 +113,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
         style={{
           margin: '0 5px 5px',
           padding: '5px',
-          border: `1px dashed ${hovering ? '#a0b8ff' : '#d4d0c8'}`,
+          border: `1px dashed ${hovering ? 'var(--accent)' : 'var(--border-strong)'}`,
           borderRadius: '4px',
           background: 'transparent',
           cursor: 'pointer',
@@ -117,7 +122,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, onR
           fontWeight: 700,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          color: hovering ? '#0057ff' : '#ccc',
+          color: hovering ? 'var(--accent)' : 'var(--text-secondary)',
           transition: 'color 0.1s, border-color 0.1s',
           flexShrink: 0,
         }}

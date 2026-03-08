@@ -36,7 +36,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
             fontWeight: 700,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
-            color: '#aaa',
+            color: 'var(--text-muted)',
             textAlign: 'center',
           }}>
             {day}
@@ -70,7 +70,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
                 fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                 fontSize: '14px',
                 fontWeight: isToday ? 700 : 500,
-                color: isToday ? '#0057ff' : isOutside ? 'var(--text-muted)' : 'var(--text-secondary)',
+                color: isToday ? 'var(--accent)' : isOutside ? 'var(--text-muted)' : 'var(--text-secondary)',
                 textAlign: 'right',
                 paddingRight: '3px',
                 marginBottom: '4px',
@@ -102,7 +102,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
                     fontSize: '11px',
                     fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                     fontWeight: 600,
-                    color: '#ddd',
+                    color: 'var(--text-secondary)',
                     letterSpacing: '0.05em',
                   }}
                 >+</button>

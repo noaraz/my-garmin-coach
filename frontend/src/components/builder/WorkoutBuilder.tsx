@@ -1,19 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
-import type { BuilderStep, StepType } from '../../api/types'
+import type { BuilderStep, StepType, PaceZone } from '../../api/types'
 import { makeStep, makeRepeatGroup } from '../../utils/stepDefaults'
-import { createTemplate } from '../../api/client'
+import { createTemplate, fetchPaceZones } from '../../api/client'
 import { scheduleWorkout } from '../../api/client'
 import { StepTimeline } from './StepTimeline'
 import { StepPalette } from './StepPalette'
 import { StepConfigPanel } from './StepConfigPanel'
 import { WorkoutSummary } from './WorkoutSummary'
+import { generateDescription, generateWorkoutDetails } from '../../utils/generateDescription'
 
-export function WorkoutBuilder() {
-  const [steps, setSteps] = useState<BuilderStep[]>([])
-  const [name, setName] = useState('New Workout')
+interface WorkoutBuilderProps {
+  initialName?: string
+  initialSteps?: BuilderStep[]
+  initialDescription?: string
+}
+
+export function WorkoutBuilder({ initialName, initialSteps, initialDescription }: WorkoutBuilderProps) {
+  const [steps, setSteps] = useState<BuilderStep[]>(initialSteps ?? [])
+  const [name, setName] = useState(initialName ?? 'New Workout')
+  const [description, setDescription] = useState(initialDescription ?? '')
+  const [isDescriptionEdited, setIsDescriptionEdited] = useState(false)
   const [scheduleDate, setScheduleDate] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [paceZones, setPaceZones] = useState<PaceZone[]>([])
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+
+  // Fetch pace zones on mount
+  useEffect(() => {
+    fetchPaceZones().then(setPaceZones).catch(() => {})
+  }, [])
+
+  // Auto-fill description from steps when steps change — but only if not manually edited
+  useEffect(() => {
+    if (!isDescriptionEdited) {
+      setDescription(generateDescription(steps))
+    }
+  }, [steps, isDescriptionEdited])
 
   const handleAddStep = (type: StepType) => {
     const step = makeStep(type)
@@ -44,21 +68,43 @@ export function WorkoutBuilder() {
   }
 
   const handleSaveToLibrary = async () => {
-    await createTemplate({
-      name,
-      sport_type: 'running',
-      steps,
-    })
+    setSaveStatus('saving')
+    try {
+      await createTemplate({
+        name,
+        description,
+        sport_type: 'running',
+        steps,
+      })
+      setSaveStatus('success')
+      setSaveMessage('Saved to library')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch {
+      setSaveStatus('error')
+      setSaveMessage('Failed to save')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    }
   }
 
   const handleSaveAndSchedule = async () => {
-    const template = await createTemplate({
-      name,
-      sport_type: 'running',
-      steps,
-    })
-    if (scheduleDate) {
-      await scheduleWorkout({ template_id: template.id, date: scheduleDate })
+    setSaveStatus('saving')
+    try {
+      const template = await createTemplate({
+        name,
+        description,
+        sport_type: 'running',
+        steps,
+      })
+      if (scheduleDate) {
+        await scheduleWorkout({ template_id: template.id, date: scheduleDate })
+      }
+      setSaveStatus('success')
+      setSaveMessage('Saved & scheduled')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch {
+      setSaveStatus('error')
+      setSaveMessage('Failed to save')
+      setTimeout(() => setSaveStatus('idle'), 3000)
     }
   }
 
@@ -89,8 +135,8 @@ export function WorkoutBuilder() {
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     border: primary ? 'none' : '1px solid var(--border-strong)',
-    background: primary ? '#0057ff' : 'transparent',
-    color: primary ? '#fff' : 'var(--text-secondary)',
+    background: primary ? 'var(--accent)' : 'transparent',
+    color: primary ? 'var(--text-on-accent)' : 'var(--text-secondary)',
   })
 
   const labelStyle: React.CSSProperties = {
@@ -125,7 +171,7 @@ export function WorkoutBuilder() {
         }}>Design structured training sessions</div>
       </div>
 
-      {/* Top bar: name + save */}
+      {/* Top bar: name + description + save */}
       <div style={{
         display: 'flex',
         alignItems: 'flex-end',
@@ -147,6 +193,26 @@ export function WorkoutBuilder() {
             onChange={(e) => setName(e.target.value)}
             style={inputStyle}
           />
+          <div style={{ marginTop: '8px' }}>
+            <div style={labelStyle}>Description</div>
+            <textarea
+              aria-label="description"
+              value={description}
+              onChange={(e) => {
+                setIsDescriptionEdited(true)
+                setDescription(e.target.value)
+              }}
+              rows={2}
+              style={{
+                ...inputStyle,
+                width: '100%',
+                resize: 'vertical',
+                marginTop: '4px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '11px',
+              }}
+            />
+          </div>
         </div>
         <div>
           <div style={labelStyle}>Schedule Date</div>
@@ -159,13 +225,25 @@ export function WorkoutBuilder() {
             style={{ ...inputStyle, width: '160px' }}
           />
         </div>
-        <div style={{ display: 'flex', gap: '8px', paddingBottom: '1px' }}>
-          <button aria-label="Save to Library" onClick={handleSaveToLibrary} style={btnStyle(false)}>
-            Save to Library
-          </button>
-          <button aria-label="Save & Schedule" onClick={handleSaveAndSchedule} style={btnStyle(true)}>
-            Save &amp; Schedule
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '1px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button aria-label="Save to Library" onClick={handleSaveToLibrary} style={btnStyle(false)}
+              disabled={saveStatus === 'saving'}>
+              Save to Library
+            </button>
+            <button aria-label="Save & Schedule" onClick={handleSaveAndSchedule} style={btnStyle(true)}
+              disabled={saveStatus === 'saving'}>
+              Save &amp; Schedule
+            </button>
+          </div>
+          <div role="status" style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '10px',
+            color: saveStatus === 'error' ? 'var(--color-zone-5)' : saveStatus === 'success' ? 'var(--color-zone-2)' : 'var(--text-muted)',
+            minHeight: '14px',
+          }}>
+            {saveStatus !== 'idle' ? saveMessage : ''}
+          </div>
         </div>
       </div>
 
@@ -205,6 +283,28 @@ export function WorkoutBuilder() {
           </div>
         )}
       </div>
+
+      {/* Workout Details section */}
+      {steps.length > 0 && paceZones.length > 0 && (
+        <div style={{
+          marginTop: '12px',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '6px',
+          padding: '14px 20px',
+        }}>
+          <div style={{ ...labelStyle, marginBottom: '8px' }}>Workout Details</div>
+          <pre style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+          }}>
+            {generateWorkoutDetails(steps, paceZones)}
+          </pre>
+        </div>
+      )}
 
       {/* Config panel — shown when step selected */}
       {selectedStep && selectedIndex >= 0 && (

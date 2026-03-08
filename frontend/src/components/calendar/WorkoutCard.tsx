@@ -40,12 +40,19 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+function zoneStripeColor(sportType: string | undefined): string {
+  if (sportType === 'running') return 'var(--color-zone-1)'
+  if (sportType === 'cycling') return 'var(--color-zone-2)'
+  return 'var(--zone-default)'
+}
+
 export function WorkoutCard({ workout, template, onRemove, onReschedule, displayName }: WorkoutCardProps) {
   // Use refs for keyboard drag state to avoid stale closures
   const isDraggingRef = useRef(false)
   const pendingDateRef = useRef<string>(workout.date)
   const [keyboardDragging, setKeyboardDragging] = useState(false)
   const [pendingDate, setPendingDate] = useState<string>(workout.date)
+  const [removeHover, setRemoveHover] = useState(false)
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: workout.id,
@@ -54,12 +61,6 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined
-
-  const zoneStripeColor = (sportType: string | undefined) => {
-    if (sportType === 'running') return 'bg-blue-500'
-    if (sportType === 'cycling') return 'bg-green-500'
-    return 'bg-gray-400'
-  }
 
   // Keyboard-accessible drag handler using refs for latest values
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -125,9 +126,9 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
         position: 'relative',
         display: 'flex',
         alignItems: 'stretch',
-        background: '#1c1c1e',
+        background: 'var(--card-bg)',
         borderRadius: '5px',
-        border: '1px solid #2a2a2c',
+        border: '1px solid var(--border)',
         userSelect: 'none',
         boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
         opacity: isDragging ? 0.5 : 1,
@@ -152,7 +153,7 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
           background: 'transparent',
           border: 'none',
           cursor: 'grab',
-          color: '#3a3a3c',
+          color: 'var(--text-muted)',
           fontSize: '11px',
           flexShrink: 0,
           touchAction: 'none',
@@ -167,7 +168,7 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
           fontSize: '12px',
           fontWeight: 600,
           letterSpacing: '0.02em',
-          color: '#e8e8e8',
+          color: 'var(--text-primary)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -179,18 +180,33 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '9px',
-            color: '#555',
+            color: 'var(--text-muted)',
             marginTop: '2px',
             lineHeight: 1,
           }}>
             {formatDuration(template.estimated_duration_sec)}
           </div>
         )}
+        {template?.description && (
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: 'var(--text-muted)',
+            marginTop: '2px',
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '160px',
+          }}>
+            {template.description}
+          </div>
+        )}
         {keyboardDragging && pendingDate && (
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '9px',
-            color: '#0057ff',
+            color: 'var(--accent)',
             marginTop: '2px',
           }}>
             → {pendingDate}
@@ -211,9 +227,13 @@ export function WorkoutCard({ workout, template, onRemove, onReschedule, display
         <button
           onClick={() => onRemove(workout.id)}
           aria-label="Remove workout"
+          title="Remove workout"
+          onMouseEnter={() => setRemoveHover(true)}
+          onMouseLeave={() => setRemoveHover(false)}
           style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: '#2a2a2c', fontSize: '8px', padding: 0, lineHeight: 1,
+            color: removeHover ? 'var(--color-zone-5)' : 'var(--text-muted)',
+            fontSize: '11px', padding: '0 3px', lineHeight: 1,
           }}
         >✕</button>
       </div>
