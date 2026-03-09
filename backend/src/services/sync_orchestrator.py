@@ -11,8 +11,8 @@ class SyncOrchestrator:
 
     Args:
         sync_service: An instance of GarminSyncService (or compatible mock).
-        formatter:    Callable that accepts (workout_name, steps) and returns
-                      a Garmin-formatted workout dict.
+        formatter:    Callable that accepts (workout_name, steps, description)
+                      and returns a Garmin-formatted workout dict.
         resolver:     Callable that accepts (steps, ...) and returns resolved
                       step dicts ready for formatting.
     """
@@ -66,9 +66,10 @@ class SyncOrchestrator:
         """Push and schedule every workout in *workouts*.
 
         Each element of *workouts* is expected to have at least:
-            - ``name``  (str) — workout display name
-            - ``steps`` (list) — raw or resolved step dicts
-            - ``date``  (str) — calendar date YYYY-MM-DD
+            - ``name``        (str) — workout display name
+            - ``steps``       (list) — raw or resolved step dicts
+            - ``date``        (str) — calendar date YYYY-MM-DD
+            - ``description`` (str, optional) — notes shown in Garmin Connect
 
         Returns:
             A dict with ``synced`` and ``failed`` counts.
@@ -79,7 +80,9 @@ class SyncOrchestrator:
         for workout in workouts:
             try:
                 formatted = self._formatter(
-                    workout.get("name", ""), workout.get("steps", [])
+                    workout.get("name", ""),
+                    workout.get("steps", []),
+                    workout.get("description", ""),
                 )
                 garmin_id: str = self._sync_service.push_workout(formatted)
                 date = workout.get("date", "")

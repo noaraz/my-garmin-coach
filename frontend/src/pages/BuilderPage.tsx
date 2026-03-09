@@ -10,13 +10,15 @@ export function BuilderPage() {
   const templateId = searchParams.get('id')
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     if (!templateId) return
     setLoading(true)
+    setFetchError(false)
     fetchWorkoutTemplate(Number(templateId))
       .then(setTemplate)
-      .catch(() => {})
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false))
   }, [templateId])
 
@@ -29,6 +31,19 @@ export function BuilderPage() {
         fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
       }}>
         Loading…
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100%', color: 'var(--color-error)',
+        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
+      }}>
+        Failed to load workout
       </div>
     )
   }

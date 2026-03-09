@@ -82,9 +82,9 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   }, [])
 
   const handleSyncAll = () => {
-    setSyncing(true)
     if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current)
     syncDebounceRef.current = setTimeout(async () => {
+      setSyncing(true)
       try {
         await syncAllWorkouts()
       } finally {
