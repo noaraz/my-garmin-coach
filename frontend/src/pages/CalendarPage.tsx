@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { addDays, addMonths, subDays, subMonths } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
 import { fetchWorkoutTemplates } from '../api/client'
@@ -17,6 +17,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Compute range for calendar hook
   const weekStart = getWeekStart(currentDate)
@@ -74,8 +76,22 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     }
   }
 
-  const handleSyncAll = async () => {
-    await syncAllWorkouts()
+  // Clear debounce timer on unmount
+  useEffect(() => () => {
+    if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current)
+  }, [])
+
+  const handleSyncAll = () => {
+    setSyncing(true)
+    if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current)
+    syncDebounceRef.current = setTimeout(async () => {
+      try {
+        await syncAllWorkouts()
+      } finally {
+        setSyncing(false)
+        syncDebounceRef.current = null
+      }
+    }, 2000)
   }
 
   const displayDateLabel = () => {
@@ -172,7 +188,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         <div style={{ marginLeft: 'auto' }}>
           <button
             onClick={handleSyncAll}
-            aria-label="Sync All"
+            disabled={syncing}
+            aria-label={syncing ? 'Syncing…' : 'Sync All'}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -187,14 +204,19 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               fontWeight: 700,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              cursor: 'pointer',
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              opacity: syncing ? 0.75 : 1,
+              transition: 'opacity 0.15s',
             }}
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className={syncing ? 'sync-spinning' : undefined}
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
               <polyline points="1 4 1 10 7 10"/>
               <path d="M3.51 15a9 9 0 1 0 .49-3.63"/>
             </svg>
-            Sync All
+            {syncing ? 'Syncing…' : 'Sync All'}
           </button>
         </div>
       </div>

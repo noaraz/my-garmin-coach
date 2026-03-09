@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { BuilderStep, StepType, PaceZone } from '../../api/types'
 import { makeStep, makeRepeatGroup } from '../../utils/stepDefaults'
-import { createTemplate, fetchPaceZones } from '../../api/client'
-import { scheduleWorkout } from '../../api/client'
+import { createTemplate, updateTemplate, fetchPaceZones, scheduleWorkout } from '../../api/client'
 import { StepTimeline } from './StepTimeline'
 import { StepPalette } from './StepPalette'
 import { StepConfigPanel } from './StepConfigPanel'
@@ -14,9 +13,10 @@ interface WorkoutBuilderProps {
   initialName?: string
   initialSteps?: BuilderStep[]
   initialDescription?: string
+  initialId?: number
 }
 
-export function WorkoutBuilder({ initialName, initialSteps, initialDescription }: WorkoutBuilderProps) {
+export function WorkoutBuilder({ initialName, initialSteps, initialDescription, initialId }: WorkoutBuilderProps) {
   const [steps, setSteps] = useState<BuilderStep[]>(initialSteps ?? [])
   const [name, setName] = useState(initialName ?? 'New Workout')
   const [description, setDescription] = useState(initialDescription ?? '')
@@ -70,12 +70,11 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription }
   const handleSaveToLibrary = async () => {
     setSaveStatus('saving')
     try {
-      await createTemplate({
-        name,
-        description,
-        sport_type: 'running',
-        steps,
-      })
+      if (initialId != null) {
+        await updateTemplate(initialId, { name, description, steps })
+      } else {
+        await createTemplate({ name, description, sport_type: 'running', steps })
+      }
       setSaveStatus('success')
       setSaveMessage('Saved to library')
       setTimeout(() => setSaveStatus('idle'), 2000)
@@ -89,12 +88,9 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription }
   const handleSaveAndSchedule = async () => {
     setSaveStatus('saving')
     try {
-      const template = await createTemplate({
-        name,
-        description,
-        sport_type: 'running',
-        steps,
-      })
+      const template = initialId != null
+        ? await updateTemplate(initialId, { name, description, steps })
+        : await createTemplate({ name, description, sport_type: 'running', steps })
       if (scheduleDate) {
         await scheduleWorkout({ template_id: template.id, date: scheduleDate })
       }

@@ -3,8 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WorkoutBuilder } from '../components/builder/WorkoutBuilder'
 
-const { mockCreateTemplate, mockScheduleWorkout } = vi.hoisted(() => ({
+const { mockCreateTemplate, mockUpdateTemplate, mockScheduleWorkout } = vi.hoisted(() => ({
   mockCreateTemplate: vi.fn(),
+  mockUpdateTemplate: vi.fn(),
   mockScheduleWorkout: vi.fn(),
 }))
 
@@ -13,12 +14,20 @@ vi.mock('../api/client', async (importOriginal) => {
   return {
     ...actual,
     createTemplate: mockCreateTemplate,
+    updateTemplate: mockUpdateTemplate,
     scheduleWorkout: mockScheduleWorkout,
   }
 })
 
+const fakeTemplate = (id: number, name = 'My Workout') => ({
+  id, name, steps: null, sport_type: 'running' as const,
+  estimated_duration_sec: null, estimated_distance_m: null,
+  description: null, tags: null, created_at: '', updated_at: '',
+})
+
 beforeEach(() => {
   mockCreateTemplate.mockReset()
+  mockUpdateTemplate.mockReset()
   mockScheduleWorkout.mockReset()
 })
 
@@ -180,6 +189,52 @@ describe('test_save_and_schedule', () => {
     await waitFor(() => {
       expect(mockCreateTemplate).toHaveBeenCalled()
       expect(mockScheduleWorkout).toHaveBeenCalledWith({ template_id: 99, date: '2026-03-10' })
+    })
+  })
+})
+
+describe('test_edit_mode_save_uses_update', () => {
+  it('when initialId is set, Save to Library calls updateTemplate not createTemplate', async () => {
+    const user = userEvent.setup()
+    mockUpdateTemplate.mockResolvedValue(fakeTemplate(42, 'My Workout'))
+    render(<WorkoutBuilder initialId={42} initialName="My Workout" />)
+    await user.click(screen.getByRole('button', { name: /warmup/i }))
+    await user.click(screen.getByRole('button', { name: /save to library/i }))
+    await waitFor(() => {
+      expect(mockUpdateTemplate).toHaveBeenCalledWith(42, expect.objectContaining({ name: 'My Workout' }))
+      expect(mockCreateTemplate).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('test_edit_mode_save_and_schedule_uses_update', () => {
+  it('when initialId is set, Save & Schedule calls updateTemplate then scheduleWorkout', async () => {
+    const user = userEvent.setup()
+    mockUpdateTemplate.mockResolvedValue(fakeTemplate(7, 'W'))
+    mockScheduleWorkout.mockResolvedValue({ id: 10, date: '2026-03-15', workout_template_id: 7, sync_status: 'pending', completed: false, resolved_steps: null, garmin_workout_id: null, notes: null, created_at: '', updated_at: '' })
+    render(<WorkoutBuilder initialId={7} initialName="W" />)
+    await user.click(screen.getByRole('button', { name: /warmup/i }))
+    const dateInput = screen.getByLabelText(/schedule date/i)
+    await user.type(dateInput, '2026-03-15')
+    await user.click(screen.getByRole('button', { name: /save.*schedule/i }))
+    await waitFor(() => {
+      expect(mockUpdateTemplate).toHaveBeenCalledWith(7, expect.objectContaining({ name: 'W' }))
+      expect(mockCreateTemplate).not.toHaveBeenCalled()
+      expect(mockScheduleWorkout).toHaveBeenCalledWith({ template_id: 7, date: '2026-03-15' })
+    })
+  })
+})
+
+describe('test_create_mode_still_uses_create', () => {
+  it('without initialId, Save to Library calls createTemplate not updateTemplate', async () => {
+    const user = userEvent.setup()
+    mockCreateTemplate.mockResolvedValue(fakeTemplate(1, 'New'))
+    render(<WorkoutBuilder />)
+    await user.click(screen.getByRole('button', { name: /warmup/i }))
+    await user.click(screen.getByRole('button', { name: /save to library/i }))
+    await waitFor(() => {
+      expect(mockCreateTemplate).toHaveBeenCalled()
+      expect(mockUpdateTemplate).not.toHaveBeenCalled()
     })
   })
 })

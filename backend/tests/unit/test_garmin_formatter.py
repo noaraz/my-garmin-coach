@@ -263,3 +263,27 @@ class TestUnknownTargetTypeRaises:
         # Act & Assert
         with pytest.raises(FormatterError, match="Unknown target type"):
             format_step(step, step_order=1)
+
+
+class TestWorkoutDescription:
+    _step = {
+        "step_type": "active",
+        "end_condition": "time",
+        "end_condition_value": 600,
+        "target_type": "open",
+    }
+
+    def test_description_included_when_provided(self) -> None:
+        """format_workout includes 'description' key when workout_description given."""
+        result = format_workout("Easy Run", [self._step], workout_description="10m@Z2, 5m@Z4")
+        assert result["description"] == "10m@Z2, 5m@Z4"
+
+    def test_description_empty_string_by_default(self) -> None:
+        """format_workout defaults to empty string description when not provided."""
+        result = format_workout("Easy Run", [self._step])
+        assert result["description"] == ""
+
+    def test_description_does_not_affect_workout_name(self) -> None:
+        """Providing description does not change workoutName."""
+        result = format_workout("My Workout", [self._step], workout_description="notes here")
+        assert result["workoutName"] == "My Workout"

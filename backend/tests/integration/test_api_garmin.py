@@ -23,7 +23,7 @@ class TestGarminConnect:
         """POST /garmin/connect with valid garth login sets connected=True."""
         # Arrange
         mock_garth_client = MagicMock()
-        mock_garth_client.dump.return_value = '{"oauth_token": "tok123"}'
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok123"}'
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth:
             mock_garth.Client.return_value = mock_garth_client
@@ -44,7 +44,7 @@ class TestGarminConnect:
         """POST /garmin/connect creates an AthleteProfile if the user has none."""
         # Arrange — no profile seeded
         mock_garth_client = MagicMock()
-        mock_garth_client.dump.return_value = '{"oauth_token": "tok123"}'
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok123"}'
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth:
             mock_garth.Client.return_value = mock_garth_client
@@ -79,7 +79,7 @@ class TestGarminConnect:
         original_id = profile.id
 
         mock_garth_client = MagicMock()
-        mock_garth_client.dump.return_value = '{"oauth_token": "tok"}'
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth:
             mock_garth.Client.return_value = mock_garth_client

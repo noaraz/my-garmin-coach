@@ -42,6 +42,7 @@ export function BuilderPage() {
       initialName={template?.name}
       initialSteps={initialSteps}
       initialDescription={template?.description ?? undefined}
+      initialId={templateId ? Number(templateId) : undefined}
     />
   )
 }

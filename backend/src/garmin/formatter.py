@@ -122,12 +122,14 @@ def _format_repeat_group(
 def format_workout(
     workout_name: str,
     steps: list[dict[str, Any]],
+    workout_description: str = "",
 ) -> dict[str, Any]:
     """Format a complete workout into Garmin Connect's JSON structure.
 
     Args:
-        workout_name: Display name of the workout.
-        steps: Ordered list of internal step dicts (see format_step).
+        workout_name:        Display name of the workout.
+        steps:               Ordered list of internal step dicts (see format_step).
+        workout_description: Optional notes/description shown in Garmin Connect.
 
     Returns:
         A dict matching the Garmin Workout JSON schema ready for the API.
@@ -145,6 +147,7 @@ def format_workout(
 
     return {
         "workoutName": workout_name,
+        "description": workout_description,
         "sportType": dict(SPORT_TYPE),
         "workoutSegments": [
             {

@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "/Applications/Docker.app/Contents/Resources/bin/docker",
-      "runtimeArgs": ["compose", "up", "--build"],
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "PATH=\"/Applications/Docker.app/Contents/Resources/bin:$PATH\" /Applications/Docker.app/Contents/Resources/bin/docker compose up --build"],
       "port": 8000
     },
     {

@@ -36,21 +36,27 @@ class SyncOrchestrator:
         resolved_steps: list[Any],
         workout_name: str,
         date: str,
+        workout_description: str = "",
     ) -> str:
         """Resolve, format, push and schedule a single workout.
 
         Args:
-            resolved_steps: Pre-resolved step dicts (already zone-expanded).
-            workout_name:   Display name for the Garmin workout.
-            date:           Calendar date string (YYYY-MM-DD).
+            resolved_steps:      Pre-resolved step dicts (already zone-expanded).
+            workout_name:        Display name for the Garmin workout.
+            date:                Calendar date string (YYYY-MM-DD).
+            workout_description: Optional notes shown in Garmin Connect.
 
         Returns:
             The Garmin workout ID assigned after the push.
         """
-        formatted = self._formatter(workout_name, resolved_steps)
+        formatted = self._formatter(workout_name, resolved_steps, workout_description)
         garmin_id: str = self._sync_service.push_workout(formatted)
         self._sync_service.schedule_workout(garmin_id, date)
         return garmin_id
+
+    def delete_workout(self, garmin_workout_id: str) -> None:
+        """Permanently remove a workout from Garmin Connect."""
+        self._sync_service.delete_workout(garmin_workout_id)
 
     # ------------------------------------------------------------------
     # Bulk resync

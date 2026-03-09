@@ -136,7 +136,7 @@ async def test_connect_encrypts_token(
     """POST /garmin/connect stores an encrypted (not plaintext) token in DB."""
     # Arrange — mock garth so no real Garmin call happens
     mock_garth_client = MagicMock()
-    mock_garth_client.dump.return_value = '{"oauth_token": "garmin_tok", "oauth_token_secret": "secret_val"}'
+    mock_garth_client.dumps.return_value = '{"oauth_token": "garmin_tok", "oauth_token_secret": "secret_val"}'
 
     with patch("src.api.routers.garmin_connect.garth") as mock_garth_module:
         mock_garth_module.Client.return_value = mock_garth_client
@@ -171,7 +171,7 @@ async def test_status_connected(
 ) -> None:
     """After connect, GET /garmin/status returns connected=true."""
     mock_garth_client = MagicMock()
-    mock_garth_client.dump.return_value = '{"oauth_token": "tok"}'
+    mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
     with patch("src.api.routers.garmin_connect.garth") as mock_garth_module:
         mock_garth_module.Client.return_value = mock_garth_client
@@ -202,7 +202,7 @@ async def test_disconnect_removes(
     """POST /garmin/disconnect clears token and sets connected=false."""
     # Arrange — connect first
     mock_garth_client = MagicMock()
-    mock_garth_client.dump.return_value = '{"oauth_token": "tok"}'
+    mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
     with patch("src.api.routers.garmin_connect.garth") as mock_garth_module:
         mock_garth_module.Client.return_value = mock_garth_client
@@ -310,7 +310,7 @@ async def test_connect_creates_profile_when_none_exists(
     """POST /garmin/connect creates AthleteProfile when user has none yet."""
     # Arrange — no profile seeded for this user
     mock_garth_client = MagicMock()
-    mock_garth_client.dump.return_value = '{"oauth_token": "tok"}'
+    mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
     with patch("src.api.routers.garmin_connect.garth") as mock_garth_module:
         mock_garth_module.Client.return_value = mock_garth_client

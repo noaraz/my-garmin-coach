@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-09 (Calendar card click-to-edit + zone auto-sync + Garmin delete-on-unschedule)
+Last updated: 2026-03-09 (workout_description in Garmin payload, builder edit mode, debounced sync, garth API fix)
 
 ## Current Focus: Mobile Responsive + E2E Tests
 
@@ -106,6 +106,11 @@ Last updated: 2026-03-09 (Calendar card click-to-edit + zone auto-sync + Garmin 
 | Post-ship: Zone/profile change → auto re-sync modified Garmin workouts | ✅ |
 | Post-ship: Cascade date filter fix (get_all_incomplete, user_id on ScheduledWorkout) | ✅ |
 | Post-ship: Calendar workout card click → navigate to /builder?id= | ✅ |
+| Post-ship: workout_description forwarded through formatter → Garmin payload | ✅ |
+| Post-ship: SyncOrchestrator.delete_workout() method | ✅ |
+| Post-ship: garth client.dumps() API fix | ✅ |
+| Post-ship: WorkoutBuilder edit mode (initialId prop + updateTemplate) | ✅ |
+| Post-ship: Calendar sync button debounce + spinner animation | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment
