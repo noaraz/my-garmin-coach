@@ -91,7 +91,7 @@ class TestConnectGarmin:
         mock_session.exec = AsyncMock(return_value=mock_exec_result)
 
         mock_garth_client = MagicMock()
-        mock_garth_client.dump.return_value = '{"oauth_token": "tok"}'
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
@@ -145,7 +145,7 @@ class TestConnectGarmin:
         mock_session.exec = AsyncMock(return_value=mock_exec_result)
 
         mock_garth_client = MagicMock()
-        mock_garth_client.dump.return_value = '{"oauth_token": "garmin_tok"}'
+        mock_garth_client.dumps.return_value = '{"oauth_token": "garmin_tok"}'
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:

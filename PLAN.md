@@ -66,6 +66,7 @@ and `CLAUDE.md` (patterns, gotchas) in `docs/features/<name>/`.
 | 7 | Workout Builder | `docs/features/workout-builder/` | database-api, calendar |
 | 8 | Auth | `docs/features/auth/` | database-api |
 | — | Polish + Deploy | in infrastructure/ | all above |
+| — | **DB Migrations (Alembic)** | `features/infrastructure/` | auth (required before Render deploy) |
 
 Features 2–4 are pure logic with zero I/O. Feature 5 adds persistence.
 Features 6–7 are frontend. Feature 8 is auth. Deploy after auth.

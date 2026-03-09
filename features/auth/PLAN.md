@@ -48,7 +48,11 @@ Track progress in **STATUS.md**.
 - [x] Add registration page (with invite code field)
 - [x] Add auth context/provider to React app
 - [x] Add auth header to all API client calls
-- [x] Add "Connect Garmin" button to settings page
+- [x] Settings page (`/settings`) with Garmin Connect section
+  - Always shows connection status (red/green dot badge)
+  - Not connected: email + password form → `POST /api/v1/garmin/connect`
+  - Connected: info text + Disconnect button → `POST /api/v1/garmin/disconnect`
+  - Status polled on mount via `GET /api/v1/garmin/status`
 
 ---
 
@@ -120,4 +124,17 @@ backend/src/auth/
 
 backend/src/api/routers/
   auth.py, garmin_connect.py
+
+frontend/src/pages/
+  LoginPage.tsx, RegisterPage.tsx, SettingsPage.tsx
+
+frontend/src/contexts/
+  AuthContext.tsx
+
+frontend/src/components/auth/
+  ProtectedRoute.tsx
+
+frontend/src/api/
+  client.ts  (getGarminStatus, connectGarmin, disconnectGarmin, loginUser, registerUser)
+  types.ts   (GarminStatusResponse)
 ```

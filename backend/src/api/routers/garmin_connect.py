@@ -48,7 +48,7 @@ async def connect_garmin(
     try:
         client = garth.Client()
         client.login(request.email, request.password)
-        token_json: str = client.dump()
+        token_json: str = client.dumps()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Garmin authentication failed: {exc}") from exc
     finally:

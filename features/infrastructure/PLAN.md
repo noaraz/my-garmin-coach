@@ -29,7 +29,35 @@ Track progress in **STATUS.md**.
 - [ ] Verify: `docker compose -f docker-compose.prod.yml up --build` serves full app
 - [ ] Add FastAPI StaticFiles mount for React build
 
+### Database Migrations (required before Render deploy)
+- [ ] Add Alembic to `backend/pyproject.toml` dev dependencies
+- [ ] Run `alembic init alembic` inside the backend container
+- [ ] Configure `alembic/env.py` to use the async SQLite URL and import all SQLModel models
+- [ ] Generate initial migration: `alembic revision --autogenerate -m "initial schema"`
+- [ ] Apply to local Docker volume DB: `alembic upgrade head`
+- [ ] Apply to Render DB (SSH or Render console) before first deploy: `alembic upgrade head`
+- [ ] Verify: future column additions create a new migration instead of manual ALTER TABLE
+
+> **Why this matters**: SQLModel creates tables only on first run (`create_all`). It never alters
+> existing tables. Tests use in-memory SQLite (fresh schema each run) so schema drift between code
+> and the live Docker-volume DB is completely invisible to CI. The live DB must be migrated manually
+> (or via Alembic) before any deploy that adds columns.
+>
+> **What was done manually (2026-03-09)** — the following ALTER TABLE statements were applied to
+> the local Docker volume DB as a stopgap before Alembic is set up:
+> ```sql
+> ALTER TABLE athleteprofile ADD COLUMN user_id INTEGER REFERENCES user(id);
+> ALTER TABLE athleteprofile ADD COLUMN garmin_oauth_token_encrypted TEXT;
+> ALTER TABLE athleteprofile ADD COLUMN garmin_connected BOOLEAN DEFAULT 0;
+> ALTER TABLE workouttemplate ADD COLUMN user_id INTEGER REFERENCES user(id);
+> ALTER TABLE hrzone ADD COLUMN user_id INTEGER REFERENCES user(id);
+> ALTER TABLE pacezone ADD COLUMN user_id INTEGER REFERENCES user(id);
+> ALTER TABLE scheduledworkout ADD COLUMN user_id INTEGER REFERENCES user(id);
+> ```
+> The **Render DB will need the same statements** applied before the first auth-era deploy.
+
 ### Render Deployment (after auth is done)
+- [ ] Run DB migration on Render DB before deploying (see Database Migrations above)
 - [ ] Push to GitHub with `Dockerfile.prod` at root
 - [ ] Create Render Web Service (Docker, free tier)
 - [ ] Set environment variables in Render dashboard

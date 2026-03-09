@@ -3,15 +3,16 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "/Applications/Docker.app/Contents/Resources/bin/docker",
-      "runtimeArgs": ["compose", "up", "--build"],
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "PATH=\"/Applications/Docker.app/Contents/Resources/bin:$PATH\" /Applications/Docker.app/Contents/Resources/bin/docker compose up --build"],
       "port": 8000
     },
     {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
-      "port": 5173
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "PATH=\"/opt/homebrew/bin:$PATH\" npm --prefix frontend run dev"],
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }
