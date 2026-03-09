@@ -47,7 +47,7 @@ async def put_hr_zones(
     """
     profile = await get_or_create_profile(session, user_id=current_user.id)
     zones_data = [z.model_dump() for z in body]
-    zones = await set_hr_zones(session, profile.id, zones_data)
+    zones = await set_hr_zones(session, profile.id, current_user.id, zones_data)
     if garmin is not None:
         await sync_modified_workouts(session, garmin, current_user)
     return [HRZoneRead.model_validate(z) for z in zones]

@@ -185,11 +185,12 @@ class TestHRZonesAPI:
         await session.commit()
         await session.refresh(template)
 
-        # Schedule a future workout (date in future)
+        # Schedule a future workout (date in future) — must match test user (id=1)
         scheduled = ScheduledWorkout(
             date=date(2027, 1, 1),
             workout_template_id=template.id,
             sync_status="synced",
+            user_id=1,
         )
         session.add(scheduled)
         await session.commit()

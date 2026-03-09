@@ -110,11 +110,11 @@ export function SettingsPage() {
                   width: '8px',
                   height: '8px',
                   borderRadius: '50%',
-                  background: connectionState === 'connected' ? '#22c55e' : '#ef4444',
+                  background: connectionState === 'connected' ? 'var(--color-success)' : 'var(--color-error)',
                   flexShrink: 0,
                   boxShadow: connectionState === 'connected'
-                    ? '0 0 0 3px rgba(34,197,94,0.18)'
-                    : '0 0 0 3px rgba(239,68,68,0.18)',
+                    ? '0 0 0 3px var(--color-success-glow)'
+                    : '0 0 0 3px var(--color-error-glow)',
                 }} />
                 <span style={{
                   fontSize: '13px',
@@ -122,7 +122,7 @@ export function SettingsPage() {
                   fontWeight: 700,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  color: connectionState === 'connected' ? '#22c55e' : 'var(--text-secondary)',
+                  color: connectionState === 'connected' ? 'var(--color-success)' : 'var(--text-secondary)',
                 }}>
                   {connectionState === 'connected' ? 'Connected' : 'Not connected'}
                 </span>
@@ -135,11 +135,11 @@ export function SettingsPage() {
             <div style={{
               marginBottom: '14px',
               padding: '9px 11px',
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.3)',
+              background: 'var(--color-error-bg)',
+              border: '1px solid var(--color-error-border)',
               borderRadius: '5px',
               fontSize: '12px',
-              color: '#ef4444',
+              color: 'var(--color-error)',
               fontFamily: "'Barlow', system-ui, sans-serif",
             }}>
               {error}
@@ -149,11 +149,11 @@ export function SettingsPage() {
             <div style={{
               marginBottom: '14px',
               padding: '9px 11px',
-              background: 'rgba(34,197,94,0.08)',
-              border: '1px solid rgba(34,197,94,0.3)',
+              background: 'var(--color-success-bg)',
+              border: '1px solid var(--color-success-border)',
               borderRadius: '5px',
               fontSize: '12px',
-              color: '#22c55e',
+              color: 'var(--color-success)',
               fontFamily: "'Barlow', system-ui, sans-serif",
             }}>
               {successMsg}
@@ -286,8 +286,8 @@ export function SettingsPage() {
                 style={{
                   padding: '8px 16px',
                   background: 'transparent',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: 'var(--color-error)',
+                  border: '1px solid var(--color-error-border-weak)',
                   borderRadius: '5px',
                   fontSize: '11px',
                   fontWeight: 700,

@@ -33,9 +33,9 @@ class ScheduledWorkoutRepository(BaseRepository[ScheduledWorkout]):
         return list(result.all())
 
     async def get_all_incomplete(
-        self, session: AsyncSession
+        self, session: AsyncSession, user_id: int
     ) -> list[ScheduledWorkout]:
-        """Return every non-completed ScheduledWorkout regardless of date.
+        """Return every non-completed ScheduledWorkout for the given user.
 
         Used by zone/template cascades so that already-synced workouts in the
         past (e.g. scheduled for today or yesterday) are also re-queued when
@@ -44,22 +44,26 @@ class ScheduledWorkoutRepository(BaseRepository[ScheduledWorkout]):
         result = await session.exec(
             select(ScheduledWorkout).where(
                 ScheduledWorkout.completed == False,  # noqa: E712
+                ScheduledWorkout.user_id == user_id,
             )
         )
         return list(result.all())
 
     async def get_by_status(
-        self, session: AsyncSession, statuses: tuple[str, ...]
+        self, session: AsyncSession, statuses: tuple[str, ...], user_id: int
     ) -> list[ScheduledWorkout]:
         result = await session.exec(
             select(ScheduledWorkout).where(
-                ScheduledWorkout.sync_status.in_(statuses)  # type: ignore[attr-defined]
+                ScheduledWorkout.sync_status.in_(statuses),  # type: ignore[attr-defined]
+                ScheduledWorkout.user_id == user_id,
             )
         )
         return list(result.all())
 
-    async def get_all(self, session: AsyncSession) -> list[ScheduledWorkout]:
-        result = await session.exec(select(ScheduledWorkout))
+    async def get_all(self, session: AsyncSession, user_id: int) -> list[ScheduledWorkout]:
+        result = await session.exec(
+            select(ScheduledWorkout).where(ScheduledWorkout.user_id == user_id)
+        )
         return list(result.all())
 
 

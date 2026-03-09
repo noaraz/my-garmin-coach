@@ -183,7 +183,7 @@ class TestRecalculateHRZones:
     async def test_triggers_cascade_re_resolve(self) -> None:
         # Arrange
         service = ZoneService()
-        profile = AthleteProfile(id=1, name="Runner", lthr=162)
+        profile = AthleteProfile(id=1, user_id=1, name="Runner", lthr=162)
         mock_session = _make_session()
 
         with patch("src.services.zone_service.hr_zone_repository") as mock_hr_repo, \
@@ -196,8 +196,8 @@ class TestRecalculateHRZones:
             # Act
             await service.recalculate_hr_zones(mock_session, profile)
 
-        # Assert
-        mock_cascade.assert_awaited_once_with(mock_session, 1)
+        # Assert — cascade receives (session, profile_id, user_id)
+        mock_cascade.assert_awaited_once_with(mock_session, 1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ class TestRecalculatePaceZones:
     async def test_triggers_cascade_re_resolve(self) -> None:
         # Arrange
         service = ZoneService()
-        profile = AthleteProfile(id=1, name="Runner", threshold_pace=270.0)
+        profile = AthleteProfile(id=1, user_id=1, name="Runner", threshold_pace=270.0)
         mock_session = _make_session()
 
         with patch("src.services.zone_service.pace_zone_repository") as mock_pace_repo, \
@@ -292,8 +292,8 @@ class TestRecalculatePaceZones:
             # Act
             await service.recalculate_pace_zones(mock_session, profile)
 
-        # Assert
-        mock_cascade.assert_awaited_once_with(mock_session, 1)
+        # Assert — cascade receives (session, profile_id, user_id)
+        mock_cascade.assert_awaited_once_with(mock_session, 1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +327,7 @@ class TestSetHRZones:
             mock_pace_repo.get_by_profile = AsyncMock(return_value=[])
 
             # Act
-            result = await service.set_hr_zones(mock_session, profile_id=1, zones_data=zones_data)
+            result = await service.set_hr_zones(mock_session, profile_id=1, user_id=1, zones_data=zones_data)
 
         # Assert
         assert len(result) == 5
@@ -359,7 +359,7 @@ class TestSetHRZones:
             mock_pace_repo.get_by_profile = AsyncMock(return_value=[])
 
             # Act
-            result = await service.set_hr_zones(mock_session, profile_id=1, zones_data=zones_data)
+            result = await service.set_hr_zones(mock_session, profile_id=1, user_id=1, zones_data=zones_data)
 
         # Assert
         assert result[0].calculation_method == "custom"
@@ -387,10 +387,10 @@ class TestSetHRZones:
             mock_pace_repo.get_by_profile = AsyncMock(return_value=[])
 
             # Act
-            await service.set_hr_zones(mock_session, profile_id=1, zones_data=zones_data)
+            await service.set_hr_zones(mock_session, profile_id=1, user_id=1, zones_data=zones_data)
 
-        # Assert
-        mock_cascade.assert_awaited_once_with(mock_session, 1)
+        # Assert — cascade receives (session, profile_id, user_id)
+        mock_cascade.assert_awaited_once_with(mock_session, 1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ class TestCascadeReResolve:
             mock_pace.get_by_profile = AsyncMock(return_value=[])
             mock_cal.get_all_incomplete = AsyncMock(return_value=[sw])
 
-            await service._cascade_re_resolve(session, profile_id=1)
+            await service._cascade_re_resolve(session, profile_id=1, user_id=1)
 
         assert sw.sync_status == "modified"
 
@@ -472,7 +472,7 @@ class TestCascadeReResolve:
             mock_pace.get_by_profile = AsyncMock(return_value=[])
             mock_cal.get_all_incomplete = AsyncMock(return_value=[sw])
 
-            await service._cascade_re_resolve(session, profile_id=1)
+            await service._cascade_re_resolve(session, profile_id=1, user_id=1)
 
         # Builder steps can't be resolved by the old resolver, but the workout
         # must still be marked modified so the next sync re-translates it.

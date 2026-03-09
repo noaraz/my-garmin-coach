@@ -139,7 +139,7 @@ async def sync_modified_workouts(
     try:
         hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
         workouts = await scheduled_workout_repository.get_by_status(
-            session, ("modified", "failed")
+            session, ("modified", "failed"), current_user.id
         )
         for w in workouts:
             await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map)
@@ -305,7 +305,7 @@ async def sync_all(
         Counts of workouts that were successfully synced or failed.
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
-    workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES)
+    workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     results = [
         await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map)
         for w in workouts
@@ -357,5 +357,5 @@ async def sync_status(
     Returns:
         List of items with id, date, sync_status, and garmin_workout_id.
     """
-    workouts = await scheduled_workout_repository.get_all(session)
+    workouts = await scheduled_workout_repository.get_all(session, current_user.id)
     return [SyncStatusItem.model_validate(w) for w in workouts]

@@ -47,7 +47,7 @@ class ZoneService:
             new_zones.append(hr_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile.id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id)
         return new_zones
 
     async def recalculate_pace_zones(
@@ -78,11 +78,11 @@ class ZoneService:
             new_zones.append(pace_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile.id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id)
         return new_zones
 
     async def set_hr_zones(
-        self, session: AsyncSession, profile_id: int, zones_data: list[dict]
+        self, session: AsyncSession, profile_id: int, user_id: int, zones_data: list[dict]
     ) -> list[HRZone]:
         """Replace all HR zones for a profile with custom values."""
         await hr_zone_repository.delete_by_profile(session, profile_id)
@@ -103,10 +103,10 @@ class ZoneService:
             new_zones.append(hr_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile_id)
+        await self._cascade_re_resolve(session, profile_id, user_id)
         return new_zones
 
-    async def _cascade_re_resolve(self, session: AsyncSession, profile_id: int) -> None:
+    async def _cascade_re_resolve(self, session: AsyncSession, profile_id: int, user_id: int) -> None:
         """Re-resolve all unfinished ScheduledWorkouts after zone change.
 
         Includes past workouts (not just future ones) so that a workout scheduled
@@ -127,7 +127,7 @@ class ZoneService:
             z.zone_number: (z.lower_pace, z.upper_pace) for z in pace_zones_db
         }
 
-        future_workouts = await scheduled_workout_repository.get_all_incomplete(session)
+        future_workouts = await scheduled_workout_repository.get_all_incomplete(session, user_id)
 
         for sw in future_workouts:
             if sw.workout_template_id is None:
@@ -183,6 +183,6 @@ async def recalculate_pace_zones(
 
 
 async def set_hr_zones(
-    session: AsyncSession, profile_id: int, zones_data: list[dict]
+    session: AsyncSession, profile_id: int, user_id: int, zones_data: list[dict]
 ) -> list[HRZone]:
-    return await zone_service.set_hr_zones(session, profile_id, zones_data)
+    return await zone_service.set_hr_zones(session, profile_id, user_id, zones_data)
