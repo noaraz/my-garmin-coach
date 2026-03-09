@@ -105,7 +105,9 @@ await session.delete(obj)
 - **Table creation**: `async with engine.begin() as conn: await conn.run_sync(SQLModel.metadata.create_all)`
 - **`expire_on_commit=False`**: Required on `sessionmaker` for async — avoids lazy-load errors after commit.
 - **JSON columns**: Store WorkoutStep lists as JSON text. Use Pydantic for serialization.
-- **Zone cascade**: Most complex flow. `recalculate_hr_zones` → `_cascade_re_resolve` → re-resolve all future workouts → mark `sync_status='modified'`.
+- **Zone cascade**: Most complex flow. `recalculate_hr_zones` → `_cascade_re_resolve` → re-resolve **all incomplete** workouts (not just future ones) → mark `sync_status='modified'`.
+- **Cascade date filter gotcha**: Never use `date >= today` in zone or template cascades. Use `get_all_incomplete()` (no date filter, only `completed == False`). A workout scheduled for yesterday that is already "synced" must still be re-marked "modified" when zones change — otherwise `sync_all` finds nothing to push.
+- **`user_id` on ScheduledWorkout**: Must be set at creation via `user_id=profile.user_id`. Without it, user-scoped queries silently miss the workout.
 - **Thin routers**: Validate input, `await` service calls, return response model. No business logic in routers.
 - **API prefix**: All routes under `/api/v1/`. Health check at `/api/v1/health`.
 - **CORS**: Configured in `create_app()` via `CORSMiddleware`. Origins read from `Settings.cors_origins`.
