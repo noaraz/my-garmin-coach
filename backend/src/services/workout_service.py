@@ -7,7 +7,7 @@ from typing import Any
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.db.models import WorkoutTemplate
+from src.db.models import ScheduledWorkout, WorkoutTemplate
 from src.repositories.workouts import workout_template_repository
 
 
@@ -61,6 +61,29 @@ class WorkoutService:
 
         template.updated_at = datetime.utcnow()
         session.add(template)
+
+        # Cascade: any non-completed scheduled workout linked to this template may
+        # now be stale (name, description, steps, or any other field may have
+        # changed).  Include past workouts too — if the only scheduled workout
+        # is from yesterday, skipping it would leave sync returning 0.
+        # - Clear resolved_steps so the next sync re-translates from fresh template.
+        # - Flip sync_status "synced" → "modified" so Sync All re-pushes to Garmin.
+        #   Workouts already in "pending" / "modified" / "failed" are picked up by
+        #   the next sync regardless, so their status is left unchanged.
+        linked_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.workout_template_id == template_id,
+                ScheduledWorkout.completed == False,  # noqa: E712
+            )
+        )
+        now = datetime.utcnow()
+        for sw in linked_result.all():
+            sw.resolved_steps = None
+            if sw.sync_status == "synced":
+                sw.sync_status = "modified"
+            sw.updated_at = now
+            session.add(sw)
+
         await session.commit()
         await session.refresh(template)
         return template

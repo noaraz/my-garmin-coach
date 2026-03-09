@@ -96,6 +96,10 @@ export interface SyncAllResponse {
   failed: number
 }
 
+export interface GarminStatusResponse {
+  connected: boolean
+}
+
 // Local builder types (not from API — these live only in the frontend)
 export type StepType = 'warmup' | 'interval' | 'recovery' | 'cooldown'
 

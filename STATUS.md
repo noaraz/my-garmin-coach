@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-09 (Auth + Deployment shipped — JWT login, invite system, Garmin token encryption, 258 backend tests green, 91% coverage)
+Last updated: 2026-03-09 (Calendar card click-to-edit + zone auto-sync + Garmin delete-on-unschedule)
 
 ## Current Focus: Mobile Responsive + E2E Tests
 
@@ -102,6 +102,10 @@ Last updated: 2026-03-09 (Auth + Deployment shipped — JWT login, invite system
 | Post-ship: description stacking (per comma-segment) | ✅ |
 | Post-ship: workoutStats.ts shared utils + 41 new edge-case tests | ✅ |
 | Post-ship: vite proxy localhost fallback for outside-Docker dev | ✅ |
+| Post-ship: Garmin delete-on-unschedule (optional dep pattern) | ✅ |
+| Post-ship: Zone/profile change → auto re-sync modified Garmin workouts | ✅ |
+| Post-ship: Cascade date filter fix (get_all_incomplete, user_id on ScheduledWorkout) | ✅ |
+| Post-ship: Calendar workout card click → navigate to /builder?id= | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment
@@ -115,6 +119,7 @@ Last updated: 2026-03-09 (Auth + Deployment shipped — JWT login, invite system
 | Garmin token encryption | ✅ |
 | Invite code system | ✅ |
 | Frontend: AuthContext + login/register pages + protected routes | ✅ |
+| Frontend: Settings page + Garmin Connect UI | ✅ |
 | Deploy to Render | ✅ |
 
 ---
@@ -129,3 +134,4 @@ Last updated: 2026-03-09 (Auth + Deployment shipped — JWT login, invite system
 - Dockerfile uses non-root `appuser`; dev hot-reload is via compose `command:` override only
 - `pct_max_hr` / `pct_hrr` methods prefer `ZoneConfig.max_value` when set, fall back to `threshold`
 - `scripts/try_it.py` provides an end-to-end local demo: `docker compose exec backend python scripts/try_it.py`
+- **DB migration gotcha**: Docker volume DB needs manual ALTER TABLE when new columns are added (no Alembic yet). Tests use in-memory DBs so they won't catch stale-schema issues. Must also run migration on Render DB before deploying schema changes.

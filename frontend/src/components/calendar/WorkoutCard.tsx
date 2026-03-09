@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { ScheduledWorkout, WorkoutTemplate, SyncStatus } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 
@@ -38,7 +39,14 @@ function zoneStripeColor(sportType: string | undefined): string {
 
 export function WorkoutCard({ workout, template, onRemove, displayName }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
+  const navigate = useNavigate()
   const stripeColor = zoneStripeColor(template?.sport_type)
+
+  const handleCardClick = () => {
+    if (workout.workout_template_id != null) {
+      navigate(`/builder?id=${workout.workout_template_id}`)
+    }
+  }
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
@@ -47,6 +55,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
 
   return (
     <div
+      onClick={handleCardClick}
       style={{
         position: 'relative',
         display: 'flex',
@@ -57,6 +66,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         userSelect: 'none',
         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
         overflow: 'hidden',
+        cursor: workout.workout_template_id != null ? 'pointer' : 'default',
       }}
       data-testid="workout-card"
     >
@@ -146,7 +156,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           {syncStatusLabel(workout.sync_status)}
         </span>
         <button
-          onClick={() => onRemove(workout.id)}
+          onClick={(e) => { e.stopPropagation(); onRemove(workout.id) }}
           aria-label="Remove workout"
           title="Remove workout"
           onMouseEnter={() => setRemoveHover(true)}

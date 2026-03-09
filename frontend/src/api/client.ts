@@ -5,6 +5,7 @@ import type {
   WorkoutTemplate, WorkoutTemplateCreate,
   ScheduledWorkout, ScheduleCreate,
   SyncAllResponse, SyncStatusItem,
+  GarminStatusResponse,
 } from './types'
 
 const BASE = '/api/v1'
@@ -40,7 +41,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     } catch {
       message = await res.text()
     }
-    throw new Error(message)
+    throw new Error(`${res.status}: ${message}`)
   }
   if (res.status === 204) return undefined as T
   return res.json()
@@ -107,3 +108,15 @@ export const registerUser = (email: string, password: string, invite_code: strin
 
 export const fetchMe = () =>
   request<{ id: number; email: string; is_active: boolean }>('/auth/me')
+
+export const getGarminStatus = () =>
+  request<GarminStatusResponse>('/garmin/status')
+
+export const connectGarmin = (email: string, password: string) =>
+  request<GarminStatusResponse>('/garmin/connect', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+
+export const disconnectGarmin = () =>
+  request<GarminStatusResponse>('/garmin/disconnect', { method: 'POST' })

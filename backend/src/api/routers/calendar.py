@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
+from src.api.routers.sync import get_optional_garmin_sync_service
 from src.api.schemas import RescheduleUpdate, ScheduleCreate, ScheduledWorkoutRead
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.services.calendar_service import get_range, reschedule, schedule, unschedule
 from src.services.profile_service import get_or_create_profile
+from src.services.sync_orchestrator import SyncOrchestrator
 
 router = APIRouter(prefix="/api/v1/calendar", tags=["calendar"])
 
@@ -62,10 +64,20 @@ async def delete_schedule(
     scheduled_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    garmin: SyncOrchestrator | None = Depends(get_optional_garmin_sync_service),
 ) -> Response:
-    """Delete a scheduled workout."""
+    """Delete a scheduled workout.
+
+    If the workout was previously synced to Garmin, the corresponding Garmin
+    workout is also deleted (best-effort — local deletion always succeeds even
+    if the Garmin call fails).
+    """
     try:
-        await unschedule(session, scheduled_id)
+        await unschedule(
+            session,
+            scheduled_id,
+            garmin_deleter=garmin.delete_workout if garmin is not None else None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return Response(status_code=204)

@@ -8,6 +8,7 @@ import { CalendarPage } from './pages/CalendarPage'
 import { ZonesPage } from './pages/ZonesPage'
 import { BuilderPage } from './pages/BuilderPage'
 import { LibraryPage } from './pages/LibraryPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 
@@ -63,6 +64,18 @@ function App() {
                   <ErrorBoundary>
                     <AppShell>
                       <LibraryPage />
+                    </AppShell>
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <AppShell>
+                      <SettingsPage />
                     </AppShell>
                   </ErrorBoundary>
                 </ProtectedRoute>

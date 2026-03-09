@@ -391,3 +391,91 @@ class TestSetHRZones:
 
         # Assert
         mock_cascade.assert_awaited_once_with(mock_session, 1)
+
+
+# ---------------------------------------------------------------------------
+# _cascade_re_resolve — marks modified even for builder-format steps
+# ---------------------------------------------------------------------------
+
+
+class TestCascadeReResolve:
+    async def test_cascade_marks_modified_when_resolver_format_succeeds(self) -> None:
+        """Resolver-format steps → resolved_steps updated + status = modified."""
+        import json
+        from datetime import date
+
+        from src.db.models import ScheduledWorkout, WorkoutTemplate
+
+        service = ZoneService()
+        session = _make_session()
+
+        template = WorkoutTemplate(
+            id=1, name="T", sport_type="running",
+            steps=json.dumps([{
+                "order": 1, "step_type": "active", "duration_type": "time",
+                "duration_value": 600, "end_condition": "time",
+                "end_condition_value": 600, "target_type": "open",
+            }]),
+        )
+        sw = ScheduledWorkout(
+            id=10, date=date(2099, 1, 1), workout_template_id=1,
+            sync_status="synced", resolved_steps=None,
+        )
+
+        session.get = AsyncMock(return_value=template)
+
+        with (
+            patch("src.services.zone_service.hr_zone_repository") as mock_hr,
+            patch("src.services.zone_service.pace_zone_repository") as mock_pace,
+            patch("src.repositories.calendar.scheduled_workout_repository") as mock_cal,
+        ):
+            mock_hr.get_by_profile = AsyncMock(return_value=[])
+            mock_pace.get_by_profile = AsyncMock(return_value=[])
+            mock_cal.get_all_incomplete = AsyncMock(return_value=[sw])
+
+            await service._cascade_re_resolve(session, profile_id=1)
+
+        assert sw.sync_status == "modified"
+
+    async def test_cascade_marks_modified_for_builder_format_steps(self) -> None:
+        """Builder-format steps fail resolver validation but workout is still marked modified."""
+        import json
+        from datetime import date
+
+        from src.db.models import ScheduledWorkout, WorkoutTemplate
+
+        service = ZoneService()
+        session = _make_session()
+
+        # Builder-format step: uses 'duration_sec'/'zone' keys, no 'order' field.
+        template = WorkoutTemplate(
+            id=2, name="Builder", sport_type="running",
+            steps=json.dumps([{
+                "id": "abc", "type": "interval",
+                "duration_type": "time", "target_type": "pace_zone",
+                "duration_sec": 300, "zone": 4,
+            }]),
+        )
+        sw = ScheduledWorkout(
+            id=20, date=date(2099, 6, 1), workout_template_id=2,
+            sync_status="synced", resolved_steps=None,
+        )
+
+        session.get = AsyncMock(return_value=template)
+
+        with (
+            patch("src.services.zone_service.hr_zone_repository") as mock_hr,
+            patch("src.services.zone_service.pace_zone_repository") as mock_pace,
+            patch("src.repositories.calendar.scheduled_workout_repository") as mock_cal,
+        ):
+            mock_hr.get_by_profile = AsyncMock(return_value=[])
+            mock_pace.get_by_profile = AsyncMock(return_value=[])
+            mock_cal.get_all_incomplete = AsyncMock(return_value=[sw])
+
+            await service._cascade_re_resolve(session, profile_id=1)
+
+        # Builder steps can't be resolved by the old resolver, but the workout
+        # must still be marked modified so the next sync re-translates it.
+        assert sw.sync_status == "modified"
+        # resolved_steps stays None — sync fallback will handle it
+        assert sw.resolved_steps is None

@@ -185,6 +185,16 @@ Project slash commands in `.claude/commands/`:
 - **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
 - **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.
 
+## Settings / Garmin Connect UI (added 2026-03-09)
+
+- **Route**: `/settings` → `SettingsPage.tsx` — protected, wrapped in AppShell + ErrorBoundary
+- **Sidebar**: Settings nav item with gear icon — last in nav list
+- **Garmin status**: `getGarminStatus()` called on mount; shows green dot "Connected" or red dot "Not connected" at all times
+- **Connect form**: email + password inputs → `connectGarmin(email, password)` → token encrypted by backend, credentials never stored
+- **Disconnect**: `disconnectGarmin()` → backend clears encrypted token + `garmin_connected = False`
+- **API functions**: `getGarminStatus`, `connectGarmin`, `disconnectGarmin` in `frontend/src/api/client.ts`
+- **Type**: `GarminStatusResponse { connected: boolean }` in `frontend/src/api/types.ts`
+
 ## Frontend Patterns (added 2026-03-08)
 
 - **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
@@ -303,6 +313,39 @@ vi.mock('../api/client', async (importOriginal) => {
 ### `findByText` vs `findAllByText` when content repeats
 If multiple workouts map to the same template, the same duration text appears multiple times.
 `findByText('15:00')` throws "Found multiple elements" — use `findAllByText('15:00')` instead.
+
+### `useNavigate` requires a Router context in tests (added 2026-03-09)
+Any component that calls `useNavigate()` will crash tests with *"useNavigate() may be used only in the context of a Router component."* Wrap renders in `MemoryRouter`:
+
+```typescript
+import { MemoryRouter } from 'react-router-dom'
+
+// ✅ Correct — create a renderPage helper
+const renderPage = (props: { initialDate?: Date } = {}) =>
+  render(<MemoryRouter><CalendarPage {...props} /></MemoryRouter>)
+
+// ❌ Wrong — bare render breaks when any child uses useNavigate
+render(<CalendarPage />)
+```
+
+Add this wrapper whenever a component or any of its children uses `useNavigate`, `useParams`, `useLocation`, etc.
+
+## FastAPI Optional Dependency Pattern (added 2026-03-09)
+
+Use `try/except` inside a dependency to make an integration optional — returns `None` instead of raising HTTP 403 when the service isn't configured:
+
+```python
+async def get_optional_garmin_sync_service(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SyncOrchestrator | None:
+    try:
+        return await _get_garmin_sync_service(current_user=current_user, session=session)
+    except HTTPException:
+        return None
+```
+
+Callers check `if garmin is not None:` before using. Keeps Garmin logic out of the service layer and makes all Garmin calls best-effort without breaking the primary operation.
 
 ## generateDescription Pattern (added 2026-03-09)
 
