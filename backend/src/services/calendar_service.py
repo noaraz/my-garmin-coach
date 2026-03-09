@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import date, datetime
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,22 +12,111 @@ from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.repositories.workouts import workout_template_repository
 
 
+# Maps the builder's step type to the formatter's step_type key.
+# The builder uses "interval"; the formatter uses "active".
+_STEP_TYPE_MAP: dict[str, str] = {
+    "warmup": "warmup",
+    "interval": "active",
+    "active": "active",
+    "recovery": "recovery",
+    "rest": "rest",
+    "cooldown": "cooldown",
+    "repeat": "repeat",
+}
+
+
+def _builder_steps_to_formatter(
+    raw_steps: list[dict],
+    hr_zone_map: dict[int, tuple[float, float]],
+    pace_zone_map: dict[int, tuple[float, float]],
+) -> list[dict]:
+    """Translate builder-format steps to formatter-ready dicts.
+
+    The builder stores steps with keys like ``duration_sec`` and ``zone``.
+    The Garmin formatter expects ``step_type``, ``end_condition``,
+    ``end_condition_value``, ``target_type``, ``target_value_one/two``.
+
+    Zone targets fall back to ``"open"`` when the user has no zones configured.
+    """
+    result: list[dict] = []
+    for step in raw_steps:
+        raw_type = step.get("type", "active")
+        step_type = _STEP_TYPE_MAP.get(raw_type, "active")
+
+        if step_type == "repeat":
+            result.append({
+                "step_type": "repeat",
+                "repeat_count": step.get("repeat_count", 1),
+                "steps": _builder_steps_to_formatter(
+                    step.get("steps", []), hr_zone_map, pace_zone_map
+                ),
+            })
+            continue
+
+        # End condition — accept both builder keys (duration_sec) and resolver
+        # keys (duration_value / duration_unit) so both stored formats work.
+        duration_type = step.get("duration_type", "time")
+        if duration_type == "time":
+            end_condition = "time"
+            end_condition_value = step.get("duration_sec") or step.get("duration_value")
+        elif duration_type == "distance":
+            end_condition = "distance"
+            end_condition_value = (
+                step.get("duration_distance_m")
+                or step.get("duration_m")
+                or step.get("duration_value")
+            )
+        else:
+            end_condition = "lap_button"
+            end_condition_value = None
+
+        # Target — accept both builder keys (zone) and resolver keys (target_zone).
+        # Falls back to open when zone lookup fails.
+        target_type = step.get("target_type", "open")
+        zone = step.get("zone") or step.get("target_zone")
+        target_value_one = 0.0
+        target_value_two = 0.0
+
+        if target_type == "hr_zone" and zone and zone in hr_zone_map:
+            target_value_one, target_value_two = hr_zone_map[zone]
+        elif target_type == "pace_zone" and zone and zone in pace_zone_map:
+            target_value_one, target_value_two = pace_zone_map[zone]
+        else:
+            target_type = "open"
+
+        result.append({
+            "step_type": step_type,
+            "end_condition": end_condition,
+            "end_condition_value": end_condition_value,
+            "target_type": target_type,
+            "target_value_one": target_value_one,
+            "target_value_two": target_value_two,
+        })
+    return result
+
+
+def resolve_builder_steps(
+    template: WorkoutTemplate,
+    hr_zone_map: dict[int, tuple[float, float]],
+    pace_zone_map: dict[int, tuple[float, float]],
+) -> list[dict]:
+    """Return formatter-ready step dicts for a template.  Empty list if no steps."""
+    if not template.steps:
+        return []
+    raw_steps = json.loads(template.steps)
+    if not raw_steps:
+        return []
+    return _builder_steps_to_formatter(raw_steps, hr_zone_map, pace_zone_map)
+
+
 def _resolve_template_steps(
     template: WorkoutTemplate,
     hr_zone_map: dict[int, tuple[float, float]],
     pace_zone_map: dict[int, tuple[float, float]],
 ) -> str | None:
-    """Resolve a template's steps JSON to a resolved steps JSON string."""
-    if not template.steps:
-        return None
-
-    from src.workout_resolver.models import WorkoutStep
-    from src.workout_resolver.resolver import resolve_workout
-
-    raw_steps = json.loads(template.steps)
-    steps = [WorkoutStep.model_validate(s) for s in raw_steps]
-    resolved = resolve_workout(steps, hr_zones=hr_zone_map, pace_zones=pace_zone_map)
-    return json.dumps([r.model_dump() for r in resolved])
+    """Translate a template's builder-format steps to formatter-ready JSON."""
+    steps = resolve_builder_steps(template, hr_zone_map, pace_zone_map)
+    return json.dumps(steps) if steps else None
 
 
 class CalendarService:
@@ -63,6 +153,7 @@ class CalendarService:
             pass
 
         scheduled = ScheduledWorkout(
+            user_id=profile.user_id,
             date=workout_date,
             workout_template_id=template_id,
             resolved_steps=resolved_steps_json,
@@ -90,11 +181,28 @@ class CalendarService:
         await session.refresh(scheduled)
         return scheduled
 
-    async def unschedule(self, session: AsyncSession, scheduled_id: int) -> None:
-        """Delete a ScheduledWorkout by id. Raises ValueError if not found."""
+    async def unschedule(
+        self,
+        session: AsyncSession,
+        scheduled_id: int,
+        garmin_deleter: Callable[[str], None] | None = None,
+    ) -> None:
+        """Delete a ScheduledWorkout by id. Raises ValueError if not found.
+
+        If *garmin_deleter* is provided and the workout has a garmin_workout_id,
+        the corresponding Garmin workout is deleted first (best-effort — a
+        failure does not prevent the local record from being removed).
+        """
         scheduled = await scheduled_workout_repository.get(session, scheduled_id)
         if scheduled is None:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
+
+        if garmin_deleter is not None and scheduled.garmin_workout_id:
+            try:
+                garmin_deleter(scheduled.garmin_workout_id)
+            except Exception:  # noqa: BLE001
+                pass  # best-effort; local delete always proceeds
+
         await scheduled_workout_repository.delete(session, scheduled)
 
 
@@ -126,5 +234,9 @@ async def reschedule(
     return await calendar_service.reschedule(session, scheduled_id, new_date)
 
 
-async def unschedule(session: AsyncSession, scheduled_id: int) -> None:
-    return await calendar_service.unschedule(session, scheduled_id)
+async def unschedule(
+    session: AsyncSession,
+    scheduled_id: int,
+    garmin_deleter: Callable[[str], None] | None = None,
+) -> None:
+    return await calendar_service.unschedule(session, scheduled_id, garmin_deleter=garmin_deleter)

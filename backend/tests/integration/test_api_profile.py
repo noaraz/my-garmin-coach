@@ -9,8 +9,8 @@ from src.db.models import AthleteProfile, HRZone
 
 class TestProfileAPI:
     async def test_get_profile(self, client: AsyncClient, session: AsyncSession) -> None:
-        # Arrange — seed a profile
-        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162)
+        # Arrange — seed a profile owned by the mock test user (id=1)
+        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162, user_id=1)
         session.add(profile)
         await session.commit()
 
@@ -25,8 +25,8 @@ class TestProfileAPI:
         assert data["lthr"] == 162
 
     async def test_update_profile(self, client: AsyncClient, session: AsyncSession) -> None:
-        # Arrange — seed a profile
-        profile = AthleteProfile(name="Runner", max_hr=180)
+        # Arrange — seed a profile owned by the mock test user (id=1)
+        profile = AthleteProfile(name="Runner", max_hr=180, user_id=1)
         session.add(profile)
         await session.commit()
 
@@ -42,8 +42,8 @@ class TestProfileAPI:
     async def test_update_lthr_triggers_recalc(
         self, client: AsyncClient, session: AsyncSession
     ) -> None:
-        # Arrange — seed a profile with LTHR
-        profile = AthleteProfile(name="Runner", max_hr=185, lthr=155)
+        # Arrange — seed a profile with LTHR owned by the mock test user (id=1)
+        profile = AthleteProfile(name="Runner", max_hr=185, lthr=155, user_id=1)
         session.add(profile)
         await session.commit()
         await session.refresh(profile)

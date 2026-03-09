@@ -1,7 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { CalendarPage } from '../pages/CalendarPage'
+
+const renderPage = (props: { initialDate?: Date } = {}) =>
+  render(<MemoryRouter><CalendarPage {...props} /></MemoryRouter>)
 
 const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates } = vi.hoisted(() => {
   const defaultTemplates = [
@@ -52,7 +56,7 @@ beforeEach(() => {
 
 describe('test_week_view_7_days', () => {
   it('render → 7 columns', () => {
-    render(<CalendarPage />)
+    renderPage()
     const columns = screen.getAllByTestId('day-column')
     expect(columns).toHaveLength(7)
   })
@@ -61,7 +65,7 @@ describe('test_week_view_7_days', () => {
 describe('test_month_view_correct_days', () => {
   it('March 2026 → 31 day cells not outside month', async () => {
     const user = userEvent.setup()
-    render(<CalendarPage initialDate={new Date('2026-03-01')} />)
+    renderPage({ initialDate: new Date('2026-03-01') })
     const monthBtn = screen.getByRole('button', { name: /month/i })
     await user.click(monthBtn)
     const dayCells = screen.getAllByTestId('month-day-cell')
@@ -72,7 +76,7 @@ describe('test_month_view_correct_days', () => {
 
 describe('test_workouts_on_dates', () => {
   it('3 workouts → 3 cards', () => {
-    render(<CalendarPage />)
+    renderPage()
     const cards = screen.getAllByTestId('workout-card')
     expect(cards).toHaveLength(3)
   })
@@ -80,7 +84,7 @@ describe('test_workouts_on_dates', () => {
 
 describe('test_card_name_duration', () => {
   it('card → name and clock duration', async () => {
-    render(<CalendarPage />)
+    renderPage()
     const nameEl = await screen.findByText('Easy Run')
     const card = nameEl.closest('[data-testid="workout-card"]') as HTMLElement
     // 2700s = 45:00 in clock format
@@ -90,7 +94,7 @@ describe('test_card_name_duration', () => {
 
 describe('test_card_sync_status', () => {
   it('synced workout → green sync icon', () => {
-    render(<CalendarPage />)
+    renderPage()
     const syncedIcon = screen.getAllByTestId('workout-card')
       .flatMap(c => Array.from(c.querySelectorAll('[data-sync="synced"]')))
     expect(syncedIcon.length).toBeGreaterThan(0)
@@ -101,7 +105,7 @@ describe('test_card_sync_status', () => {
 describe('test_click_day_opens_picker', () => {
   it('click empty day → picker modal opens', async () => {
     const user = userEvent.setup()
-    render(<CalendarPage />)
+    renderPage()
     const addBtn = screen.getAllByRole('button', { name: /add workout/i })[0]
     await user.click(addBtn)
     expect(screen.getByRole('dialog', { name: /pick a workout/i })).toBeInTheDocument()
@@ -111,7 +115,7 @@ describe('test_click_day_opens_picker', () => {
 describe('test_toggle_week_month', () => {
   it('toggle → view switches', async () => {
     const user = userEvent.setup()
-    render(<CalendarPage />)
+    renderPage()
     expect(screen.getAllByTestId('day-column')).toHaveLength(7)
     await user.click(screen.getByRole('button', { name: /month/i }))
     expect(screen.queryAllByTestId('day-column')).toHaveLength(0)
@@ -122,7 +126,7 @@ describe('test_toggle_week_month', () => {
 describe('test_navigate_prev_next', () => {
   it('next arrow → dates shift forward', async () => {
     const user = userEvent.setup()
-    render(<CalendarPage />)
+    renderPage()
     const headers = screen.getAllByTestId('day-header')
     const firstDateBefore = headers[0].textContent
     await user.click(screen.getByRole('button', { name: /next/i }))
@@ -132,12 +136,23 @@ describe('test_navigate_prev_next', () => {
 })
 
 describe('test_sync_all_button', () => {
-  it('click sync all → syncAllWorkouts called', async () => {
-    const user = userEvent.setup()
+  // Fake timers scoped to this describe block; always restored in afterEach.
+  // Use fireEvent (not userEvent) for clicks — userEvent uses internal timers
+  // that hang when vi.useFakeTimers() is active.
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('click sync all → spinner shown immediately, syncAllWorkouts called after 2000ms', async () => {
     mockSyncAll.mockResolvedValue(undefined)
-    render(<CalendarPage />)
-    const syncBtn = screen.getByRole('button', { name: /sync all/i })
-    await user.click(syncBtn)
+    renderPage()
+    // Synchronous click — no userEvent timer issues
+    fireEvent.click(screen.getByRole('button', { name: /sync all/i }))
+    // Spinner state: label switches and button is disabled
+    expect(screen.getByRole('button', { name: /syncing/i })).toBeDisabled()
+    // API must not be called yet — debounce is still pending
+    expect(mockSyncAll).not.toHaveBeenCalled()
+    // Advance past the 2000ms debounce window; wrap in act so React flushes state updates
+    await act(() => vi.advanceTimersByTimeAsync(2000))
     expect(mockSyncAll).toHaveBeenCalledTimes(1)
   })
 })
@@ -159,7 +174,7 @@ describe('test_card_duration_from_steps_fallback', () => {
         sport_type: 'running', description: null, tags: null,
         steps: null, created_at: '', updated_at: '' },
     ])
-    render(<CalendarPage />)
+    renderPage()
     // workouts id:1 and id:3 both map to template id:1 → two "15:00" cards
     const clocks = await screen.findAllByText('15:00')
     expect(clocks.length).toBeGreaterThan(0)
@@ -176,7 +191,7 @@ describe('test_card_no_summary_when_no_data', () => {
         sport_type: 'running', description: null, tags: null,
         steps: null, created_at: '', updated_at: '' },
     ])
-    render(<CalendarPage />)
+    renderPage()
     await screen.findByText('Easy Run')
     const cards = screen.getAllByTestId('workout-card')
     cards.forEach(card => {

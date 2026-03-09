@@ -1,12 +1,31 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncGenerator
 from datetime import date
+from unittest.mock import MagicMock
 
-from httpx import AsyncClient
+import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from src.api.app import create_app
+from src.api.dependencies import get_session
+from src.api.routers.sync import get_optional_garmin_sync_service
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.db.models import AthleteProfile, HRZone, ScheduledWorkout, WorkoutTemplate
+from src.services.calendar_service import CalendarService
+
+# ---------------------------------------------------------------------------
+# Shared auth stub (mirrors the integration conftest pattern)
+# ---------------------------------------------------------------------------
+
+_TEST_USER = User(id=1, email="test@example.com", password_hash="x", is_active=True)
+
+
+async def _mock_get_current_user() -> User:
+    return _TEST_USER
 
 
 class TestCalendarAPI:
@@ -35,7 +54,7 @@ class TestCalendarAPI:
         from src.zone_engine.hr_zones import HRZoneCalculator
         from src.zone_engine.models import ZoneConfig
 
-        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162)
+        profile = AthleteProfile(name="Runner", max_hr=185, lthr=162, user_id=1)
         session.add(profile)
         await session.commit()
         await session.refresh(profile)
@@ -164,5 +183,286 @@ class TestCalendarAPI:
         assert len(resolved) == 1
         # The zone-referenced step should have absolute HR targets
         step = resolved[0]
-        assert step["target_low"] is not None
-        assert step["target_high"] is not None
+        assert step["target_value_one"] is not None
+        assert step["target_value_two"] is not None
+
+    async def test_schedule_invalid_template_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Arrange — no template with id=9999 exists
+        profile = AthleteProfile(name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act
+        response = await client.post(
+            "/api/v1/calendar",
+            json={"template_id": 9999, "date": "2026-03-15"},
+        )
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_reschedule_nonexistent_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Act — try to reschedule a workout that doesn't exist
+        response = await client.patch(
+            "/api/v1/calendar/9999", json={"date": "2026-03-20"}
+        )
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_unschedule_nonexistent_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Act — try to delete a workout that doesn't exist
+        response = await client.delete("/api/v1/calendar/9999")
+
+        # Assert
+        assert response.status_code == 404
+
+    async def test_schedule_template_without_steps_sets_null_resolved(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Arrange — template with no steps
+        template = WorkoutTemplate(name="Empty", sport_type="running", steps=None)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        profile = AthleteProfile(name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act
+        response = await client.post(
+            "/api/v1/calendar",
+            json={"template_id": template.id, "date": "2026-03-15"},
+        )
+
+        # Assert
+        assert response.status_code == 201
+        data = response.json()
+        assert data["resolved_steps"] is None
+
+
+class TestCalendarServiceUnit:
+    """Unit tests for CalendarService that target uncovered service branches."""
+
+    async def test_schedule_raises_value_error_for_missing_template(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+        profile = AthleteProfile(id=1, name="Runner", user_id=1)
+        session.add(profile)
+        await session.commit()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="WorkoutTemplate 9999 not found"):
+            await service.schedule(session, 9999, date(2026, 3, 15), profile)
+
+    async def test_reschedule_raises_value_error_for_missing_scheduled(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
+            await service.reschedule(session, 9999, date(2026, 3, 20))
+
+    async def test_unschedule_raises_value_error_for_missing_scheduled(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        service = CalendarService()
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
+            await service.unschedule(session, 9999)
+
+    async def test_unschedule_with_garmin_id_calls_deleter(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running")
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 15),
+            workout_template_id=template.id,
+            garmin_workout_id="garmin-xyz-999",
+            sync_status="synced",
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        service = CalendarService()
+        deleter = MagicMock()
+
+        # Act
+        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+
+        # Assert — deleter called with the Garmin ID and local record removed
+        deleter.assert_called_once_with("garmin-xyz-999")
+        deleted = await session.get(ScheduledWorkout, sw.id)
+        assert deleted is None
+
+    async def test_unschedule_without_garmin_id_skips_deleter(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running")
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 15),
+            workout_template_id=template.id,
+            garmin_workout_id=None,
+            sync_status="pending",
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        service = CalendarService()
+        deleter = MagicMock()
+
+        # Act
+        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+
+        # Assert — no Garmin ID → deleter never called; local record still removed
+        deleter.assert_not_called()
+        deleted = await session.get(ScheduledWorkout, sw.id)
+        assert deleted is None
+
+    async def test_unschedule_garmin_failure_still_deletes_locally(
+        self, session: AsyncSession
+    ) -> None:
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running")
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 15),
+            workout_template_id=template.id,
+            garmin_workout_id="garmin-failing-id",
+            sync_status="synced",
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        service = CalendarService()
+        deleter = MagicMock(side_effect=RuntimeError("Garmin API unreachable"))
+
+        # Act — must not raise despite Garmin failure
+        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+
+        # Assert — local record deleted despite Garmin failure
+        deleted = await session.get(ScheduledWorkout, sw.id)
+        assert deleted is None
+
+
+class TestCalendarGarminCascade:
+    """Integration tests: DELETE /calendar/{id} → Garmin delete cascade via API."""
+
+    @pytest.fixture
+    def mock_garmin(self) -> MagicMock:
+        svc = MagicMock()
+        svc.delete_workout.return_value = None
+        return svc
+
+    @pytest.fixture
+    async def garmin_client(
+        self, session: AsyncSession, mock_garmin: MagicMock
+    ) -> AsyncGenerator[AsyncClient, None]:
+        app = create_app()
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[get_optional_garmin_sync_service] = (
+            lambda: mock_garmin
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            yield ac
+
+        app.dependency_overrides.clear()
+
+    async def test_delete_synced_workout_calls_garmin_delete(
+        self,
+        garmin_client: AsyncClient,
+        mock_garmin: MagicMock,
+        session: AsyncSession,
+    ) -> None:
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running")
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 15),
+            workout_template_id=template.id,
+            garmin_workout_id="garmin-abc-123",
+            sync_status="synced",
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        # Act
+        response = await garmin_client.delete(f"/api/v1/calendar/{sw.id}")
+
+        # Assert
+        assert response.status_code == 204
+        mock_garmin.delete_workout.assert_called_once_with("garmin-abc-123")
+        deleted = await session.get(ScheduledWorkout, sw.id)
+        assert deleted is None
+
+    async def test_delete_pending_workout_skips_garmin_delete(
+        self,
+        garmin_client: AsyncClient,
+        mock_garmin: MagicMock,
+        session: AsyncSession,
+    ) -> None:
+        # Arrange — workout was never synced (no garmin_workout_id)
+        template = WorkoutTemplate(name="Run", sport_type="running")
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 15),
+            workout_template_id=template.id,
+            garmin_workout_id=None,
+            sync_status="pending",
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        # Act
+        response = await garmin_client.delete(f"/api/v1/calendar/{sw.id}")
+
+        # Assert
+        assert response.status_code == 204
+        mock_garmin.delete_workout.assert_not_called()
+        deleted = await session.get(ScheduledWorkout, sw.id)
+        assert deleted is None

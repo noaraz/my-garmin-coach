@@ -6,8 +6,10 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////data/garmincoach.db
-      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
       - GARMINCOACH_SECRET_KEY=${GARMINCOACH_SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:80}
+      - ENVIRONMENT=production
     volumes:
       - backend_data:/data
     expose:

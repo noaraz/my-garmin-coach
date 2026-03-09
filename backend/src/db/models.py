@@ -17,6 +17,11 @@ class AthleteProfile(SQLModel, table=True):
     resting_hr: Optional[int] = Field(default=None)
     lthr: Optional[int] = Field(default=None)
     threshold_pace: Optional[float] = Field(default=None)  # sec/km
+    # Auth / per-user fields
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    # Garmin token storage (Fernet encrypted)
+    garmin_oauth_token_encrypted: Optional[str] = Field(default=None)
+    garmin_connected: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -28,6 +33,7 @@ class HRZone(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     profile_id: int = Field(foreign_key="athleteprofile.id")
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     zone_number: int  # 1–5
     name: str
     lower_bpm: float
@@ -44,6 +50,7 @@ class PaceZone(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     profile_id: int = Field(foreign_key="athleteprofile.id")
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     zone_number: int  # 1–5
     name: str
     lower_pace: float  # sec/km (slower boundary)
@@ -59,6 +66,7 @@ class WorkoutTemplate(SQLModel, table=True):
     __tablename__ = "workouttemplate"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     name: str
     description: Optional[str] = Field(default=None)
     sport_type: str = Field(default="running")
@@ -76,6 +84,7 @@ class ScheduledWorkout(SQLModel, table=True):
     __tablename__ = "scheduledworkout"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     date: date
     workout_template_id: Optional[int] = Field(
         default=None, foreign_key="workouttemplate.id"

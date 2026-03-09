@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -47,7 +47,7 @@ class ZoneService:
             new_zones.append(hr_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile.id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id)
         return new_zones
 
     async def recalculate_pace_zones(
@@ -78,11 +78,11 @@ class ZoneService:
             new_zones.append(pace_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile.id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id)
         return new_zones
 
     async def set_hr_zones(
-        self, session: AsyncSession, profile_id: int, zones_data: list[dict]
+        self, session: AsyncSession, profile_id: int, user_id: int, zones_data: list[dict]
     ) -> list[HRZone]:
         """Replace all HR zones for a profile with custom values."""
         await hr_zone_repository.delete_by_profile(session, profile_id)
@@ -103,17 +103,19 @@ class ZoneService:
             new_zones.append(hr_zone)
         await session.commit()
 
-        await self._cascade_re_resolve(session, profile_id)
+        await self._cascade_re_resolve(session, profile_id, user_id)
         return new_zones
 
-    async def _cascade_re_resolve(self, session: AsyncSession, profile_id: int) -> None:
-        """Re-resolve all future unfinished ScheduledWorkouts after zone change."""
+    async def _cascade_re_resolve(self, session: AsyncSession, profile_id: int, user_id: int) -> None:
+        """Re-resolve all unfinished ScheduledWorkouts after zone change.
+
+        Includes past workouts (not just future ones) so that a workout scheduled
+        for today or yesterday is also re-queued.  Completed workouts are excluded.
+        """
         from src.db.models import WorkoutTemplate
         from src.repositories.calendar import scheduled_workout_repository
         from src.workout_resolver.models import WorkoutStep
         from src.workout_resolver.resolver import resolve_workout
-
-        today = date.today()
 
         hr_zones_db = await hr_zone_repository.get_by_profile(session, profile_id)
         pace_zones_db = await pace_zone_repository.get_by_profile(session, profile_id)
@@ -125,7 +127,7 @@ class ZoneService:
             z.zone_number: (z.lower_pace, z.upper_pace) for z in pace_zones_db
         }
 
-        future_workouts = await scheduled_workout_repository.get_future_incomplete(session, today)
+        future_workouts = await scheduled_workout_repository.get_all_incomplete(session, user_id)
 
         for sw in future_workouts:
             if sw.workout_template_id is None:
@@ -141,11 +143,16 @@ class ZoneService:
                     steps, hr_zones=hr_zone_map, pace_zones=pace_zone_map
                 )
                 sw.resolved_steps = json.dumps([r.model_dump() for r in resolved])
-                sw.sync_status = "modified"
-                sw.updated_at = datetime.utcnow()
-                session.add(sw)
             except Exception:  # noqa: BLE001
-                pass
+                # Builder-format steps can't be validated by WorkoutStep.
+                # Leave resolved_steps as None so the sync fallback re-translates
+                # them on-the-fly using the freshly calculated zone maps.
+                sw.resolved_steps = None
+
+            # Always mark modified so the next sync re-pushes with fresh zone maps.
+            sw.sync_status = "modified"
+            sw.updated_at = datetime.utcnow()
+            session.add(sw)
 
         await session.commit()
 
@@ -176,6 +183,6 @@ async def recalculate_pace_zones(
 
 
 async def set_hr_zones(
-    session: AsyncSession, profile_id: int, zones_data: list[dict]
+    session: AsyncSession, profile_id: int, user_id: int, zones_data: list[dict]
 ) -> list[HRZone]:
-    return await zone_service.set_hr_zones(session, profile_id, zones_data)
+    return await zone_service.set_hr_zones(session, profile_id, user_id, zones_data)

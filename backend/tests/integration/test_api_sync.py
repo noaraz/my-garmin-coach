@@ -9,7 +9,10 @@ from httpx import ASGITransport, AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
-from src.api.dependencies import get_session, get_sync_service
+from src.api.dependencies import get_session
+from src.api.routers.sync import _get_garmin_sync_service
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.db.models import ScheduledWorkout
 
 
@@ -27,18 +30,26 @@ def mock_sync_service_fixture() -> MagicMock:
     return svc
 
 
+_TEST_USER = User(id=1, email="test@example.com", password_hash="x", is_active=True)
+
+
+async def _mock_get_current_user() -> User:
+    return _TEST_USER
+
+
 @pytest.fixture(name="client")
 async def client_fixture(
     session: AsyncSession, mock_sync_service: MagicMock
 ) -> AsyncGenerator[AsyncClient, None]:
-    """AsyncClient with DB and sync service both overridden."""
+    """AsyncClient with DB, sync service, and auth all overridden."""
     app = create_app()
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
     app.dependency_overrides[get_session] = override_session
-    app.dependency_overrides[get_sync_service] = lambda: mock_sync_service
+    app.dependency_overrides[_get_garmin_sync_service] = lambda: mock_sync_service
+    app.dependency_overrides[get_current_user] = _mock_get_current_user
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -59,6 +70,7 @@ async def _make_scheduled_workout(
         date=date(2026, 3, 10),
         sync_status=sync_status,
         garmin_workout_id=garmin_workout_id,
+        user_id=1,  # must match _TEST_USER.id for user-scoped queries
     )
     session.add(sw)
     await session.commit()
@@ -139,6 +151,52 @@ class TestSyncSingle:
         await session.refresh(sw)
         assert sw.sync_status == "synced"
         assert sw.garmin_workout_id == "garmin-persisted"
+
+    async def test_sync_single_resync_deletes_old_garmin_workout(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Re-syncing an already-synced workout deletes the old Garmin workout first."""
+        # Arrange — workout already has a Garmin ID from a previous sync
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="old-garmin-id"
+        )
+        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+
+        # Act
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        # Assert — old workout deleted, new one created
+        assert response.status_code == 200
+        mock_sync_service.delete_workout.assert_called_once_with("old-garmin-id")
+        mock_sync_service.sync_workout.assert_called_once()
+        body = response.json()
+        assert body["garmin_workout_id"] == "new-garmin-id"
+
+    async def test_sync_single_resync_continues_when_delete_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Re-sync still creates the new workout even if deleting the old one fails."""
+        # Arrange
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.delete_workout.side_effect = Exception("Garmin delete failed")
+        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+
+        # Act
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        # Assert — sync still succeeds despite delete failure
+        assert response.status_code == 200
+        body = response.json()
+        assert body["sync_status"] == "synced"
+        assert body["garmin_workout_id"] == "fresh-garmin-id"
 
 
 # ---------------------------------------------------------------------------

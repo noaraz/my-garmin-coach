@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 const CalendarIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -34,6 +35,13 @@ const LibraryIcon = () => (
   </svg>
 )
 
+const SettingsIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+)
+
 /* Sidebar is intentionally always dark — uses its own palette, not theme tokens */
 const SIDE_BG    = '#18181c'
 const SIDE_BORD  = '#2a2a30'
@@ -43,6 +51,8 @@ const SIDE_ICON_INACTIVE = '#6a6a78'
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const navStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -147,7 +157,64 @@ export function Sidebar() {
             </span>
           )}
         </NavLink>
+        <NavLink to="/settings" style={({ isActive }) => navStyle(isActive)}>
+          {({ isActive }) => (
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+              <SettingsIcon />
+              Settings
+            </span>
+          )}
+        </NavLink>
       </nav>
+
+      {/* User info + logout */}
+      {user && (
+        <div style={{
+          padding: '10px 14px',
+          borderTop: `1px solid ${SIDE_BORD}`,
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: SIDE_LOGO_SUB,
+            letterSpacing: '0.04em',
+            marginBottom: '7px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap' as const,
+          }}>
+            {user.email}
+          </div>
+          <button
+            aria-label="Log out"
+            onClick={() => { logout(); navigate('/login') }}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${SIDE_BORD}`,
+              cursor: 'pointer',
+              color: SIDE_ICON_INACTIVE,
+              padding: '4px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Log out
+          </button>
+        </div>
+      )}
 
       {/* Theme toggle + version */}
       <div style={{

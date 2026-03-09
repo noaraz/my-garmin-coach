@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: garmincoach
+    runtime: docker
+    dockerfilePath: ./Dockerfile.prod
+    plan: free
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GARMINCOACH_SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: https://garmincoach.onrender.com
+    disk:
+      name: garmincoach-data
+      mountPath: /data
+      sizeGB: 1

@@ -5,18 +5,43 @@ import type {
   WorkoutTemplate, WorkoutTemplateCreate,
   ScheduledWorkout, ScheduleCreate,
   SyncAllResponse, SyncStatusItem,
+  GarminStatusResponse,
 } from './types'
 
 const BASE = '/api/v1'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('access_token')
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
     ...options,
   })
+
+  if (res.status === 401) {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    // Only redirect if this was an authenticated request (token expired / revoked).
+    // Auth endpoints (login, register) have no token — let the error propagate so
+    // the form can display "Invalid credentials" instead of silently reloading.
+    if (token) {
+      window.location.href = '/login'
+      return undefined as T
+    }
+  }
+
   if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`${res.status}: ${detail}`)
+    let message: string
+    try {
+      const body = await res.json() as { detail?: string }
+      message = body.detail ?? JSON.stringify(body)
+    } catch {
+      message = await res.text()
+    }
+    throw new Error(`${res.status}: ${message}`)
   }
   if (res.status === 204) return undefined as T
   return res.json()
@@ -68,3 +93,30 @@ export const syncOne = (id: number) =>
   request<SyncStatusItem>(`/sync/${id}`, { method: 'POST' })
 export const fetchSyncStatus = () =>
   request<SyncStatusItem[]>('/sync/status')
+
+export const loginUser = (email: string, password: string) =>
+  request<{ access_token: string; refresh_token: string; token_type: string }>(
+    '/auth/login',
+    { method: 'POST', body: JSON.stringify({ email, password }) }
+  )
+
+export const registerUser = (email: string, password: string, invite_code: string) =>
+  request<{ id: number; email: string }>(
+    '/auth/register',
+    { method: 'POST', body: JSON.stringify({ email, password, invite_code }) }
+  )
+
+export const fetchMe = () =>
+  request<{ id: number; email: string; is_active: boolean }>('/auth/me')
+
+export const getGarminStatus = () =>
+  request<GarminStatusResponse>('/garmin/status')
+
+export const connectGarmin = (email: string, password: string) =>
+  request<GarminStatusResponse>('/garmin/connect', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+
+export const disconnectGarmin = () =>
+  request<GarminStatusResponse>('/garmin/disconnect', { method: 'POST' })
