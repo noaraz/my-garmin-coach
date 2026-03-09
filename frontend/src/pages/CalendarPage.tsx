@@ -82,6 +82,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   }, [])
 
   const handleSyncAll = () => {
+    // setSyncing fires immediately (before the debounce) so the button gives
+    // instant visual feedback on click. The actual API call is delayed 2s so
+    // rapid clicks coalesce into a single request. This is intentional — do
+    // not move setSyncing(true) inside the setTimeout.
     setSyncing(true)
     if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current)
     syncDebounceRef.current = setTimeout(async () => {
