@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  security-and-tests:
+    name: Security review & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history required for secret scanning
+
+      # --- Python setup ---
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies + security tools
+        working-directory: backend
+        run: pip install -e ".[dev]" bandit pip-audit
+
+      # --- Node setup ---
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # --- Tests ---
+      - name: Backend tests
+        working-directory: backend
+        run: pytest tests/ -v
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: npm run test:run
+
+      - name: Frontend build check
+        working-directory: frontend
+        run: npm run build
+
+      # --- Security checks ---
+      - name: Python SAST (bandit)
+        working-directory: backend
+        run: bandit -r src/ -ll -q
+        # -ll = medium severity and above; -q = quiet (summary only)
+
+      - name: Python dependency CVE audit (pip-audit)
+        working-directory: backend
+        run: pip-audit
+
+      - name: Frontend dependency audit
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Scan git history for secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: security-and-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          make_latest: true

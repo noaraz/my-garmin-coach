@@ -7,6 +7,7 @@ using Garmin watches. Visual calendar, drag-and-drop workout builder, zone manag
 and sync to Garmin Connect.
 
 Track progress in **STATUS.md**. Update it after completing each task.
+Release process in **RELEASING.md** — versioning, GitHub tags, Render deploy workflow.
 
 ---
 

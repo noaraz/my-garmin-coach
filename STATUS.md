@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-09 (workout_description in Garmin payload, builder edit mode, debounced sync, garth API fix)
+Last updated: 2026-03-10 (Security fixes: ownership checks + exception leakage)
 
-## Current Focus: Mobile Responsive + E2E Tests
+## Current Focus: Render Deploy
 
 ---
 
@@ -15,6 +15,17 @@ Last updated: 2026-03-09 (workout_description in Garmin payload, builder edit mo
 | .env.example + .gitignore | ✅ |
 | docker compose up works | ✅ |
 | pytest runs in container | ✅ |
+| Add alembic to pyproject.toml dev deps | ✅ |
+| alembic init + configure env.py (models + sync URL) | ✅ |
+| Generate initial migration (autogenerate) | ✅ |
+| Apply migration to local Docker volume DB | ✅ |
+| GitHub Actions: CI workflow (tests on push/PR) | ✅ |
+| GitHub Actions: Release workflow (security gate on tag) | ✅ |
+| Security review + fixes (ownership checks, exception leakage) | ✅ |
+| First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
+| Stamp alembic head on Render after first startup | ⬜ |
+| Verify Render: login + profile + Garmin connect | ⬜ |
+| Tag v1.0.0 + create GitHub Release | ⬜ |
 
 ### Zone Engine
 | Task | Status |
@@ -125,7 +136,7 @@ Last updated: 2026-03-09 (workout_description in Garmin payload, builder edit mo
 | Invite code system | ✅ |
 | Frontend: AuthContext + login/register pages + protected routes | ✅ |
 | Frontend: Settings page + Garmin Connect UI | ✅ |
-| Deploy to Render | ✅ |
+| Deploy to Render | ⬜ |
 
 ---
 
@@ -139,4 +150,4 @@ Last updated: 2026-03-09 (workout_description in Garmin payload, builder edit mo
 - Dockerfile uses non-root `appuser`; dev hot-reload is via compose `command:` override only
 - `pct_max_hr` / `pct_hrr` methods prefer `ZoneConfig.max_value` when set, fall back to `threshold`
 - `scripts/try_it.py` provides an end-to-end local demo: `docker compose exec backend python scripts/try_it.py`
-- **DB migration gotcha**: Docker volume DB needs manual ALTER TABLE when new columns are added (no Alembic yet). Tests use in-memory DBs so they won't catch stale-schema issues. Must also run migration on Render DB before deploying schema changes.
+- **DB migrations**: Managed by Alembic (in `backend/alembic/`). Tests use in-memory DBs so schema drift is invisible to CI. For schema changes: `alembic revision --autogenerate -m "desc"` → apply locally → apply on Render before deploying.

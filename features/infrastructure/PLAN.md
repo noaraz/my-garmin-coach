@@ -29,40 +29,45 @@ Track progress in **STATUS.md**.
 - [ ] Verify: `docker compose -f docker-compose.prod.yml up --build` serves full app
 - [ ] Add FastAPI StaticFiles mount for React build
 
-### Database Migrations (required before Render deploy)
-- [ ] Add Alembic to `backend/pyproject.toml` dev dependencies
-- [ ] Run `alembic init alembic` inside the backend container
-- [ ] Configure `alembic/env.py` to use the async SQLite URL and import all SQLModel models
-- [ ] Generate initial migration: `alembic revision --autogenerate -m "initial schema"`
-- [ ] Apply to local Docker volume DB: `alembic upgrade head`
-- [ ] Apply to Render DB (SSH or Render console) before first deploy: `alembic upgrade head`
-- [ ] Verify: future column additions create a new migration instead of manual ALTER TABLE
+### Database Migrations ✅ Done (2026-03-09)
+- [x] Add Alembic to `backend/pyproject.toml` dev dependencies
+- [x] Run `alembic init alembic` inside the backend container
+- [x] Configure `alembic/env.py`: import all models, set `target_metadata = SQLModel.metadata`, derive sync URL from `DATABASE_URL` env var (strips `+aiosqlite`), set `compare_type=False`
+- [x] Generate initial migration: `alembic revision --autogenerate -m "initial schema"`
+- [x] Stamp local Docker volume DB: `alembic stamp head` (tables already existed from `create_all()` + manual ALTER TABLE)
+- [x] Verify: `alembic current` → head, `alembic check` → no new operations
 
-> **Why this matters**: SQLModel creates tables only on first run (`create_all`). It never alters
-> existing tables. Tests use in-memory SQLite (fresh schema each run) so schema drift between code
-> and the live Docker-volume DB is completely invisible to CI. The live DB must be migrated manually
-> (or via Alembic) before any deploy that adds columns.
->
-> **What was done manually (2026-03-09)** — the following ALTER TABLE statements were applied to
-> the local Docker volume DB as a stopgap before Alembic is set up:
-> ```sql
-> ALTER TABLE athleteprofile ADD COLUMN user_id INTEGER REFERENCES user(id);
-> ALTER TABLE athleteprofile ADD COLUMN garmin_oauth_token_encrypted TEXT;
-> ALTER TABLE athleteprofile ADD COLUMN garmin_connected BOOLEAN DEFAULT 0;
-> ALTER TABLE workouttemplate ADD COLUMN user_id INTEGER REFERENCES user(id);
-> ALTER TABLE hrzone ADD COLUMN user_id INTEGER REFERENCES user(id);
-> ALTER TABLE pacezone ADD COLUMN user_id INTEGER REFERENCES user(id);
-> ALTER TABLE scheduledworkout ADD COLUMN user_id INTEGER REFERENCES user(id);
-> ```
-> The **Render DB will need the same statements** applied before the first auth-era deploy.
+> **Going forward**: for any schema change, run `alembic revision --autogenerate -m "desc"` locally,
+> review the generated file, apply locally (`alembic upgrade head`), then apply on Render via shell
+> before deploying the code change.
 
-### Render Deployment (after auth is done)
-- [ ] Run DB migration on Render DB before deploying (see Database Migrations above)
-- [ ] Push to GitHub with `Dockerfile.prod` at root
-- [ ] Create Render Web Service (Docker, free tier)
-- [ ] Set environment variables in Render dashboard
-- [ ] Configure persistent disk at `/data` (1 GB)
-- [ ] Verify: app accessible at `https://your-app.onrender.com`
+> **First Render deploy**: Render starts with an empty DB. `create_all()` in `app.py` runs on startup
+> and creates all tables. Immediately after, run `alembic stamp head` via Render shell to sync
+> Alembic's revision tracking with the freshly-created schema. No migration file needs to run.
+
+### Security Review (before Render deploy)
+- [ ] Run `/code-review` on the full codebase (auth routes, token handling, Garmin OAuth, CORS)
+- [ ] Verify: no secrets in code or git history
+- [ ] Verify: JWT expiry + refresh flow is correct
+- [ ] Verify: Garmin tokens are encrypted at rest (Fernet), never logged
+- [ ] Verify: all routes require auth except `/api/health`, `/api/v1/auth/login`, `/api/v1/auth/register`
+- [ ] Verify: invite-only registration is enforced
+- [ ] Verify: CORS origins locked to production domain in `render.yaml`
+
+### Render Deployment (first deploy)
+- [ ] Push all local changes to GitHub (including `backend/alembic/`)
+- [ ] Go to render.com → New Web Service → connect GitHub repo
+- [ ] Render auto-detects `render.yaml` — no manual env var setup needed (JWT_SECRET + GARMINCOACH_SECRET_KEY auto-generated, disk provisioned)
+- [ ] Wait for first build + deploy to complete
+- [ ] Immediately run in Render shell: `cd /app && python -m alembic stamp head`
+- [ ] Verify: `https://garmincoach.onrender.com` loads login page
+- [ ] Verify: register (with invite code) + login works
+- [ ] Verify: Garmin connect flow works end-to-end
+
+### Release Management
+See **`RELEASING.md`** at the repo root — versioning scheme, full workflow, GitHub Release commands.
+
+- [ ] After Render deploy is verified: follow `RELEASING.md` to tag `v1.0.0` and create GitHub Release
 
 ---
 
