@@ -6,6 +6,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from src.api.routers.auth import router as auth_router
 from src.api.routers.calendar import router as calendar_router
@@ -16,6 +19,15 @@ from src.api.routers.workouts import router as workouts_router
 from src.api.routers.zones import router as zones_router
 from src.core.config import get_settings
 from src.db.database import create_db_and_tables
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: object) -> Response:
+        response: Response = await call_next(request)  # type: ignore[arg-type]
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
 
 @asynccontextmanager
@@ -29,6 +41,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     application = FastAPI(title="GarminCoach", lifespan=lifespan)
 
+    application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
