@@ -331,7 +331,7 @@ async def sync_single(
         HTTPException 404: if no ScheduledWorkout with the given id exists.
     """
     workout = await scheduled_workout_repository.get(session, workout_id)
-    if workout is None:
+    if workout is None or workout.user_id != current_user.id:
         raise HTTPException(status_code=404, detail=f"Workout {workout_id} not found")
 
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)

@@ -43,7 +43,7 @@ class TestCalendarAPI:
             }
         ]
         template = WorkoutTemplate(
-            name="Easy Run", sport_type="running", steps=json.dumps(steps)
+            name="Easy Run", sport_type="running", steps=json.dumps(steps), user_id=1
         )
         session.add(template)
         await session.commit()
@@ -97,13 +97,13 @@ class TestCalendarAPI:
 
     async def test_get_range(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
 
         for d in [date(2026, 3, 8), date(2026, 3, 10), date(2026, 3, 20)]:
-            session.add(ScheduledWorkout(date=d, workout_template_id=template.id))
+            session.add(ScheduledWorkout(date=d, workout_template_id=template.id, user_id=1))
         await session.commit()
 
         # Act
@@ -117,13 +117,13 @@ class TestCalendarAPI:
 
     async def test_reschedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
 
         scheduled = ScheduledWorkout(
-            date=date(2026, 3, 10), workout_template_id=template.id
+            date=date(2026, 3, 10), workout_template_id=template.id, user_id=1
         )
         session.add(scheduled)
         await session.commit()
@@ -141,13 +141,13 @@ class TestCalendarAPI:
 
     async def test_unschedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
 
         scheduled = ScheduledWorkout(
-            date=date(2026, 3, 10), workout_template_id=template.id
+            date=date(2026, 3, 10), workout_template_id=template.id, user_id=1
         )
         session.add(scheduled)
         await session.commit()
@@ -227,7 +227,7 @@ class TestCalendarAPI:
         self, client: AsyncClient, session: AsyncSession
     ) -> None:
         # Arrange — template with no steps
-        template = WorkoutTemplate(name="Empty", sport_type="running", steps=None)
+        template = WorkoutTemplate(name="Empty", sport_type="running", steps=None, user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -272,7 +272,7 @@ class TestCalendarServiceUnit:
 
         # Act / Assert
         with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
-            await service.reschedule(session, 9999, date(2026, 3, 20))
+            await service.reschedule(session, 9999, date(2026, 3, 20), user_id=1)
 
     async def test_unschedule_raises_value_error_for_missing_scheduled(
         self, session: AsyncSession
@@ -282,13 +282,13 @@ class TestCalendarServiceUnit:
 
         # Act / Assert
         with pytest.raises(ValueError, match="ScheduledWorkout 9999 not found"):
-            await service.unschedule(session, 9999)
+            await service.unschedule(session, 9999, user_id=1)
 
     async def test_unschedule_with_garmin_id_calls_deleter(
         self, session: AsyncSession
     ) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -298,6 +298,7 @@ class TestCalendarServiceUnit:
             workout_template_id=template.id,
             garmin_workout_id="garmin-xyz-999",
             sync_status="synced",
+            user_id=1,
         )
         session.add(sw)
         await session.commit()
@@ -307,7 +308,7 @@ class TestCalendarServiceUnit:
         deleter = MagicMock()
 
         # Act
-        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+        await service.unschedule(session, sw.id, user_id=1, garmin_deleter=deleter)
 
         # Assert — deleter called with the Garmin ID and local record removed
         deleter.assert_called_once_with("garmin-xyz-999")
@@ -318,7 +319,7 @@ class TestCalendarServiceUnit:
         self, session: AsyncSession
     ) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -328,6 +329,7 @@ class TestCalendarServiceUnit:
             workout_template_id=template.id,
             garmin_workout_id=None,
             sync_status="pending",
+            user_id=1,
         )
         session.add(sw)
         await session.commit()
@@ -337,7 +339,7 @@ class TestCalendarServiceUnit:
         deleter = MagicMock()
 
         # Act
-        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+        await service.unschedule(session, sw.id, user_id=1, garmin_deleter=deleter)
 
         # Assert — no Garmin ID → deleter never called; local record still removed
         deleter.assert_not_called()
@@ -348,7 +350,7 @@ class TestCalendarServiceUnit:
         self, session: AsyncSession
     ) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -358,6 +360,7 @@ class TestCalendarServiceUnit:
             workout_template_id=template.id,
             garmin_workout_id="garmin-failing-id",
             sync_status="synced",
+            user_id=1,
         )
         session.add(sw)
         await session.commit()
@@ -367,7 +370,7 @@ class TestCalendarServiceUnit:
         deleter = MagicMock(side_effect=RuntimeError("Garmin API unreachable"))
 
         # Act — must not raise despite Garmin failure
-        await service.unschedule(session, sw.id, garmin_deleter=deleter)
+        await service.unschedule(session, sw.id, user_id=1, garmin_deleter=deleter)
 
         # Assert — local record deleted despite Garmin failure
         deleted = await session.get(ScheduledWorkout, sw.id)
@@ -412,7 +415,7 @@ class TestCalendarGarminCascade:
         session: AsyncSession,
     ) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -422,6 +425,7 @@ class TestCalendarGarminCascade:
             workout_template_id=template.id,
             garmin_workout_id="garmin-abc-123",
             sync_status="synced",
+            user_id=1,
         )
         session.add(sw)
         await session.commit()
@@ -443,7 +447,7 @@ class TestCalendarGarminCascade:
         session: AsyncSession,
     ) -> None:
         # Arrange — workout was never synced (no garmin_workout_id)
-        template = WorkoutTemplate(name="Run", sport_type="running")
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -453,6 +457,7 @@ class TestCalendarGarminCascade:
             workout_template_id=template.id,
             garmin_workout_id=None,
             sync_status="pending",
+            user_id=1,
         )
         session.add(sw)
         await session.commit()

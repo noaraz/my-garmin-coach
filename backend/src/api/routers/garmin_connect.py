@@ -50,7 +50,7 @@ async def connect_garmin(
         client.login(request.email, request.password)
         token_json: str = client.dumps()
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Garmin authentication failed: {exc}") from exc
+        raise HTTPException(status_code=400, detail="Garmin authentication failed. Check your email and password.") from exc
     finally:
         # Discard credentials immediately
         del request

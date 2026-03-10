@@ -58,7 +58,7 @@ class TestWorkoutsAPI:
 
     async def test_update(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = WorkoutTemplate(name="Old Name", sport_type="running")
+        template = WorkoutTemplate(name="Old Name", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -77,7 +77,7 @@ class TestWorkoutsAPI:
 
     async def test_delete(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
-        template = WorkoutTemplate(name="To Delete", sport_type="running")
+        template = WorkoutTemplate(name="To Delete", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -95,7 +95,7 @@ class TestWorkoutsAPI:
     ) -> None:
         """PUT /workouts/{id} → linked future synced workout becomes modified."""
         # Arrange
-        template = WorkoutTemplate(name="Speed Work", sport_type="running")
+        template = WorkoutTemplate(name="Speed Work", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -134,7 +134,7 @@ class TestWorkoutsAPI:
         the only scheduled workout happens to be from the day before.
         """
         # Arrange
-        template = WorkoutTemplate(name="Easy Run", sport_type="running")
+        template = WorkoutTemplate(name="Easy Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)
@@ -166,7 +166,7 @@ class TestWorkoutsAPI:
     ) -> None:
         """PUT /workouts/{id} → pending future workout stays pending; resolved_steps cleared."""
         # Arrange
-        template = WorkoutTemplate(name="Tempo", sport_type="running")
+        template = WorkoutTemplate(name="Tempo", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
         await session.refresh(template)

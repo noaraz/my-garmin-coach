@@ -40,7 +40,7 @@ async def get_calendar_range(
     current_user: User = Depends(get_current_user),
 ) -> list[ScheduledWorkoutRead]:
     """Return scheduled workouts within the given date range."""
-    workouts = await get_range(session, start, end)
+    workouts = await get_range(session, start, end, current_user.id)
     return [ScheduledWorkoutRead.model_validate(w) for w in workouts]
 
 
@@ -53,7 +53,7 @@ async def patch_reschedule(
 ) -> ScheduledWorkoutRead:
     """Move a scheduled workout to a new date."""
     try:
-        sw = await reschedule(session, scheduled_id, body.date)
+        sw = await reschedule(session, scheduled_id, body.date, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return ScheduledWorkoutRead.model_validate(sw)
@@ -76,6 +76,7 @@ async def delete_schedule(
         await unschedule(
             session,
             scheduled_id,
+            current_user.id,
             garmin_deleter=garmin.delete_workout if garmin is not None else None,
         )
     except ValueError as e:

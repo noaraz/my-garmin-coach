@@ -133,7 +133,7 @@ class CalendarService:
         Raises ValueError if the template is not found.
         """
         template = await workout_template_repository.get(session, template_id)
-        if template is None:
+        if template is None or template.user_id != profile.user_id:
             raise ValueError(f"WorkoutTemplate {template_id} not found")
 
         hr_zones = await hr_zone_repository.get_by_profile(session, profile.id)
@@ -162,16 +162,16 @@ class CalendarService:
         return await scheduled_workout_repository.create(session, scheduled)
 
     async def get_range(
-        self, session: AsyncSession, start: date, end: date
+        self, session: AsyncSession, start: date, end: date, user_id: int
     ) -> list[ScheduledWorkout]:
-        return await scheduled_workout_repository.get_range(session, start, end)
+        return await scheduled_workout_repository.get_range(session, start, end, user_id)
 
     async def reschedule(
-        self, session: AsyncSession, scheduled_id: int, new_date: date
+        self, session: AsyncSession, scheduled_id: int, new_date: date, user_id: int
     ) -> ScheduledWorkout:
-        """Move a ScheduledWorkout to a new date. Raises ValueError if not found."""
+        """Move a ScheduledWorkout to a new date. Raises ValueError if not found or not owned."""
         scheduled = await scheduled_workout_repository.get(session, scheduled_id)
-        if scheduled is None:
+        if scheduled is None or scheduled.user_id != user_id:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
 
         scheduled.date = new_date
@@ -185,16 +185,17 @@ class CalendarService:
         self,
         session: AsyncSession,
         scheduled_id: int,
+        user_id: int,
         garmin_deleter: Callable[[str], None] | None = None,
     ) -> None:
-        """Delete a ScheduledWorkout by id. Raises ValueError if not found.
+        """Delete a ScheduledWorkout by id. Raises ValueError if not found or not owned.
 
         If *garmin_deleter* is provided and the workout has a garmin_workout_id,
         the corresponding Garmin workout is deleted first (best-effort — a
         failure does not prevent the local record from being removed).
         """
         scheduled = await scheduled_workout_repository.get(session, scheduled_id)
-        if scheduled is None:
+        if scheduled is None or scheduled.user_id != user_id:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
 
         if garmin_deleter is not None and scheduled.garmin_workout_id:
@@ -223,20 +224,21 @@ async def schedule(
 
 
 async def get_range(
-    session: AsyncSession, start: date, end: date
+    session: AsyncSession, start: date, end: date, user_id: int
 ) -> list[ScheduledWorkout]:
-    return await calendar_service.get_range(session, start, end)
+    return await calendar_service.get_range(session, start, end, user_id)
 
 
 async def reschedule(
-    session: AsyncSession, scheduled_id: int, new_date: date
+    session: AsyncSession, scheduled_id: int, new_date: date, user_id: int
 ) -> ScheduledWorkout:
-    return await calendar_service.reschedule(session, scheduled_id, new_date)
+    return await calendar_service.reschedule(session, scheduled_id, new_date, user_id)
 
 
 async def unschedule(
     session: AsyncSession,
     scheduled_id: int,
+    user_id: int,
     garmin_deleter: Callable[[str], None] | None = None,
 ) -> None:
-    return await calendar_service.unschedule(session, scheduled_id, garmin_deleter=garmin_deleter)
+    return await calendar_service.unschedule(session, scheduled_id, user_id, garmin_deleter=garmin_deleter)

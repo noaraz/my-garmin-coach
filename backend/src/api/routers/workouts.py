@@ -47,7 +47,7 @@ async def get_workout(
 ) -> WorkoutTemplateRead:
     """Get a single workout template by id."""
     template = await get_template(session, template_id)
-    if template is None:
+    if template is None or template.user_id != current_user.id:
         raise HTTPException(status_code=404, detail=f"WorkoutTemplate {template_id} not found")
     return WorkoutTemplateRead.model_validate(template)
 
@@ -60,6 +60,9 @@ async def put_workout(
     current_user: User = Depends(get_current_user),
 ) -> WorkoutTemplateRead:
     """Update a workout template by id."""
+    existing = await get_template(session, template_id)
+    if existing is None or existing.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail=f"WorkoutTemplate {template_id} not found")
     try:
         template = await update_template(session, template_id, body.model_dump())
     except ValueError as e:
@@ -74,6 +77,9 @@ async def delete_workout(
     current_user: User = Depends(get_current_user),
 ) -> Response:
     """Delete a workout template by id."""
+    existing = await get_template(session, template_id)
+    if existing is None or existing.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail=f"WorkoutTemplate {template_id} not found")
     try:
         await delete_template(session, template_id)
     except ValueError as e:
