@@ -1,19 +1,29 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 def derive_fernet_key(user_id: int, secret: str) -> Fernet:
-    """Derive a per-user Fernet cipher from the server secret and user id.
+    """Derive a per-user Fernet cipher from the master secret and user id.
 
-    Uses SHA-256 to produce a deterministic 32-byte key, then base64url-encodes
-    it so Fernet can consume it.
+    Uses HKDF (RFC 5869) — the correct primitive for deriving a key from a
+    high-entropy master secret.  Per-user isolation is achieved via the salt
+    (user_id bytes) and domain separation via the info field.
+
+    NOTE: changing this function invalidates all existing encrypted tokens in
+    the DB.  Any connected Garmin accounts must reconnect after deployment.
     """
-    raw = hashlib.sha256(f"{secret}:{user_id}".encode()).digest()
-    key = base64.urlsafe_b64encode(raw)
+    kdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=str(user_id).encode(),    # per-user salt — isolates derived keys
+        info=b"garmincoach-token-v1",  # domain separation / context binding
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(secret.encode()))
     return Fernet(key)
 
 
