@@ -17,6 +17,11 @@ export function LoginPage() {
     setIsSubmitting(true)
     try {
       await login(email, password)
+      // Credential Management API — tells Chrome/Edge to prompt "Save password?"
+      // Silently skipped in Safari (uses form submit heuristic instead) and Firefox
+      type PwCredCtor = new (data: { id: string; password: string }) => Credential
+      const PwCred = (window as Window & { PasswordCredential?: PwCredCtor }).PasswordCredential
+      if (PwCred) void navigator.credentials.store(new PwCred({ id: email, password }))
       navigate('/calendar')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -87,7 +92,7 @@ export function LoginPage() {
             margin: '0 0 20px',
           }}>Sign In</h1>
 
-          <form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit} noValidate action="." method="post">
             <div style={{ marginBottom: '14px' }}>
               <label
                 htmlFor="email"
@@ -106,6 +111,7 @@ export function LoginPage() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -144,6 +150,7 @@ export function LoginPage() {
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
