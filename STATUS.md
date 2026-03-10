@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-10 (Security fixes: ownership checks + exception leakage)
+Last updated: 2026-03-10 (Pre-deploy hardening: HTTP headers, HKDF encryption, password manager)
 
 ## Current Focus: Render Deploy
 
@@ -22,6 +22,7 @@ Last updated: 2026-03-10 (Security fixes: ownership checks + exception leakage)
 | GitHub Actions: CI workflow (tests on push/PR) | ✅ |
 | GitHub Actions: Release workflow (security gate on tag) | ✅ |
 | Security review + fixes (ownership checks, exception leakage) | ✅ |
+| HTTP security headers (nginx CSP/HSTS/X-Frame + FastAPI middleware) | ✅ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
 | Stamp alembic head on Render after first startup | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |
@@ -133,9 +134,11 @@ Last updated: 2026-03-10 (Security fixes: ownership checks + exception leakage)
 | user_id FK migration | ✅ |
 | Tests: test_garmin_connect_flow.py | ✅ |
 | Garmin token encryption | ✅ |
+| HKDF key derivation for Garmin token encryption (replaces SHA-256) | ✅ |
 | Invite code system | ✅ |
 | Frontend: AuthContext + login/register pages + protected routes | ✅ |
 | Frontend: Settings page + Garmin Connect UI | ✅ |
+| Password manager support (name/autocomplete/action + Credential Management API) | ✅ |
 | Deploy to Render | ⬜ |
 
 ---
@@ -151,3 +154,4 @@ Last updated: 2026-03-10 (Security fixes: ownership checks + exception leakage)
 - `pct_max_hr` / `pct_hrr` methods prefer `ZoneConfig.max_value` when set, fall back to `threshold`
 - `scripts/try_it.py` provides an end-to-end local demo: `docker compose exec backend python scripts/try_it.py`
 - **DB migrations**: Managed by Alembic (in `backend/alembic/`). Tests use in-memory DBs so schema drift is invisible to CI. For schema changes: `alembic revision --autogenerate -m "desc"` → apply locally → apply on Render before deploying.
+- **HKDF breaking change**: Garmin token encryption switched from SHA-256 to HKDF. Any existing encrypted tokens in the DB are invalidated — connected Garmin accounts must reconnect after deployment.
