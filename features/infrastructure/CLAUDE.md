@@ -27,52 +27,44 @@ GARMIN_TOKENS_DIR        # /data/garmin-tokens
 > **Note:** CORS is configured in `create_app()` via `CORSMiddleware` (not Nginx). Origins come from
 > `src/core/config.py` `Settings.cors_origins` (default: localhost:5173 and localhost:3000).
 
-## Database Schema Migrations — Critical Pre-Render Step
+## Database Schema Migrations
 
-### The problem
-SQLModel calls `SQLModel.metadata.create_all()` on startup. This creates tables that don't exist
-yet, but **never alters existing tables**. Tests use in-memory SQLite (always fresh schema) so
-drift between the live DB and the current models is invisible to the test suite.
+### How it works (as of 2026-03-11)
 
-### What happened (2026-03-09)
-The Docker-volume DB was created before the auth feature added `user_id`,
-`garmin_oauth_token_encrypted`, and `garmin_connected` columns. The backend 500-errored on
-Garmin connect. Fixed by running manual `ALTER TABLE` inside the container:
+Alembic is the **sole schema authority** for production. `Dockerfile.prod` CMD:
 
-```bash
-docker compose exec backend python - <<'EOF'
-import sqlite3, os
-db_path = "/data/garmincoach.db"
-conn = sqlite3.connect(db_path)
-cur = conn.cursor()
-stmts = [
-    "ALTER TABLE athleteprofile ADD COLUMN user_id INTEGER REFERENCES user(id)",
-    "ALTER TABLE athleteprofile ADD COLUMN garmin_oauth_token_encrypted TEXT",
-    "ALTER TABLE athleteprofile ADD COLUMN garmin_connected BOOLEAN DEFAULT 0",
-    "ALTER TABLE workouttemplate ADD COLUMN user_id INTEGER REFERENCES user(id)",
-    "ALTER TABLE hrzone ADD COLUMN user_id INTEGER REFERENCES user(id)",
-    "ALTER TABLE pacezone ADD COLUMN user_id INTEGER REFERENCES user(id)",
-    "ALTER TABLE scheduledworkout ADD COLUMN user_id INTEGER REFERENCES user(id)",
-]
-for s in stmts:
-    try:
-        cur.execute(s)
-        print(f"OK: {s}")
-    except Exception as e:
-        print(f"SKIP ({e}): {s}")
-conn.commit()
-conn.close()
-EOF
+```
+alembic upgrade head && uvicorn src.api.app:app ...
 ```
 
-### Before Render deploy — run the same statements on the Render DB
-The Render persistent disk DB has the old schema too. Options:
-1. SSH into Render instance and run the script above (pointing at the Render `/data` path)
-2. Or set up Alembic first (see PLAN.md) and run `alembic upgrade head` instead
+- On first deploy (empty DB): alembic creates all 7 tables via the initial migration
+- On subsequent deploys: alembic applies any new migration files, then uvicorn starts
+- `alembic` must be in **main** `[project.dependencies]` — not dev-only — so it's installed in the prod image
 
-### Long-term fix: Alembic
-See `Database Migrations` section in PLAN.md. Until Alembic is set up, every new column requires
-a manual ALTER TABLE on both the local Docker volume DB and the Render DB.
+### Schema change workflow
+
+```bash
+# 1. Modify the SQLModel in src/
+# 2. Generate migration (run inside container or with empty-DB test image)
+docker compose exec backend alembic revision --autogenerate -m "describe change"
+# 3. IMPORTANT: add 'import sqlmodel' to the generated file if it uses AutoString
+#    Alembic autogenerate omits this import — migration will NameError without it
+# 4. Review the generated file in backend/alembic/versions/
+# 5. Apply locally
+docker compose exec backend alembic upgrade head
+# 6. Commit the migration file with the model change
+# 7. Next deploy applies it automatically (alembic runs before uvicorn)
+```
+
+### Known issues (tracked in STATUS.md)
+
+1. **`create_db_and_tables()` still runs in lifespan** — `app.py` calls `SQLModel.metadata.create_all()` on startup. Since alembic runs first, this is always a no-op on an existing DB. But it means alembic is not strictly the sole schema manager. Remove when convenient.
+
+2. **`InviteCode` missing from `env.py` imports** — `alembic/env.py` imports `AthleteProfile, HRZone, PaceZone, WorkoutTemplate, ScheduledWorkout, User` but not `InviteCode`. The comment says "Import all models so autogenerate detects them." Future `alembic revision --autogenerate` runs will miss changes to `InviteCode`. Fix: `from src.auth.models import User, InviteCode`.
+
+### Local DB state
+
+The local Docker-volume DB (`backend_data:/data/garmincoach.db`) was stamped at head after manual `ALTER TABLE` statements were run during the auth feature. It is in sync with the current schema.
 
 ---
 

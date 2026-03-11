@@ -29,21 +29,30 @@ Track progress in **STATUS.md**.
 - [ ] Verify: `docker compose -f docker-compose.prod.yml up --build` serves full app
 - [ ] Add FastAPI StaticFiles mount for React build
 
-### Database Migrations ✅ Done (2026-03-09)
-- [x] Add Alembic to `backend/pyproject.toml` dev dependencies
+### Database Migrations ✅ Done (2026-03-11)
+- [x] Add Alembic to `backend/pyproject.toml` **main** dependencies (not dev-only — needed in prod container)
 - [x] Run `alembic init alembic` inside the backend container
 - [x] Configure `alembic/env.py`: import all models, set `target_metadata = SQLModel.metadata`, derive sync URL from `DATABASE_URL` env var (strips `+aiosqlite`), set `compare_type=False`
-- [x] Generate initial migration: `alembic revision --autogenerate -m "initial schema"`
-- [x] Stamp local Docker volume DB: `alembic stamp head` (tables already existed from `create_all()` + manual ALTER TABLE)
-- [x] Verify: `alembic current` → head, `alembic check` → no new operations
+- [x] Generate initial migration from empty DB: `alembic revision --autogenerate -m "initial schema"` — creates all 7 tables from scratch
+- [x] Add `import sqlmodel` to the generated migration file (alembic autogenerate omits this import)
+- [x] Dockerfile.prod CMD runs `alembic upgrade head` before uvicorn starts — alembic is sole schema authority on first deploy
+- [x] Stamp local Docker volume DB: `alembic stamp head` (local DB already had tables from `create_all()`)
+
+> **First Render deploy**: DB is empty. `alembic upgrade head` in the container CMD creates all tables
+> via the initial migration. `create_all()` in the lifespan then runs but is a no-op (tables exist).
+> No manual stamping needed — alembic already recorded the revision in `alembic_version`.
 
 > **Going forward**: for any schema change, run `alembic revision --autogenerate -m "desc"` locally,
-> review the generated file, apply locally (`alembic upgrade head`), then apply on Render via shell
-> before deploying the code change.
+> review the generated file, add `import sqlmodel` if the file uses `sqlmodel.sql.sqltypes.AutoString`,
+> apply locally (`alembic upgrade head`), commit migration file, then the next deploy applies it automatically.
 
-> **First Render deploy**: Render starts with an empty DB. `create_all()` in `app.py` runs on startup
-> and creates all tables. Immediately after, run `alembic stamp head` via Render shell to sync
-> Alembic's revision tracking with the freshly-created schema. No migration file needs to run.
+> **Known issue**: `create_db_and_tables()` in `app.py` lifespan still calls `SQLModel.metadata.create_all()`.
+> This is a no-op when alembic has already created tables, but it means alembic is not the *sole* schema
+> authority. Should be removed in a future cleanup (see STATUS.md).
+
+> **Known issue**: `InviteCode` model is missing from `alembic/env.py` imports. The comment says
+> "Import all models so autogenerate detects them" but `InviteCode` is omitted. Add
+> `from src.auth.models import User, InviteCode` to fix future autogenerate accuracy (see STATUS.md).
 
 ### Security Review (before Render deploy)
 - [ ] Run `/code-review` on the full codebase (auth routes, token handling, Garmin OAuth, CORS)
@@ -55,13 +64,33 @@ Track progress in **STATUS.md**.
 - [ ] Verify: CORS origins locked to production domain in `render.yaml`
 
 ### Render Deployment (first deploy)
-- [ ] Push all local changes to GitHub (including `backend/alembic/`)
 - [ ] Go to render.com → New Web Service → connect GitHub repo
-- [ ] Render auto-detects `render.yaml` — no manual env var setup needed (JWT_SECRET + GARMINCOACH_SECRET_KEY auto-generated, disk provisioned)
-- [ ] Wait for first build + deploy to complete
-- [ ] Immediately run in Render shell: `cd /app && python -m alembic stamp head`
+- [ ] Render auto-detects `render.yaml` — no manual env var setup needed (JWT_SECRET + GARMINCOACH_SECRET_KEY auto-generated, disk provisioned, autoDeploy: false)
+- [ ] Push `v0.1.0` tag → CI gate → approve in GitHub → Render deploy hook fires automatically
+- [ ] Container starts: `alembic upgrade head` creates all tables, then uvicorn starts
+- [ ] Create admin user via Render Shell (first-time only):
+  ```bash
+  # In Render Shell at /app:
+  python3 - <<'EOF'
+  import asyncio, os
+  from sqlmodel.ext.asyncio.session import AsyncSession
+  from sqlalchemy.ext.asyncio import create_async_engine
+  from src.auth.models import User
+  from src.auth.utils import get_password_hash
+
+  async def main():
+      engine = create_async_engine(os.environ["DATABASE_URL"])
+      async with AsyncSession(engine) as session:
+          user = User(email="your@email.com", hashed_password=get_password_hash("yourpassword"))
+          session.add(user)
+          await session.commit()
+          print(f"Created: {user.email}")
+
+  asyncio.run(main())
+  EOF
+  ```
 - [ ] Verify: `https://garmincoach.onrender.com` loads login page
-- [ ] Verify: register (with invite code) + login works
+- [ ] Verify: login works
 - [ ] Verify: Garmin connect flow works end-to-end
 
 ### Release Management
@@ -82,12 +111,16 @@ dependencies = [
     "fastapi>=0.104",
     "uvicorn[standard]>=0.24",
     "sqlmodel>=0.0.14",
-    "python-garminconnect>=0.2.19",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "garminconnect>=0.2.19",
     "pydantic>=2.5",
+    "pydantic-settings>=2.0",
     "httpx>=0.25",
     "python-jose[cryptography]>=3.3",
     "passlib[bcrypt]>=1.7",
     "cryptography>=41.0",
+    "alembic>=1.13",   # must be in main deps — used by Dockerfile.prod CMD
 ]
 
 [project.optional-dependencies]
