@@ -5,8 +5,6 @@ import logging
 from datetime import date
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 import garminconnect
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -25,6 +23,8 @@ from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.services.calendar_service import resolve_builder_steps
 from src.services.sync_orchestrator import SyncOrchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
 
