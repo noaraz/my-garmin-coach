@@ -71,6 +71,7 @@ jobs:
     name: Create GitHub Release
     needs: security-and-tests
     runs-on: ubuntu-latest
+    environment: production  # pauses here — requires manual approval in GitHub UI
     permissions:
       contents: write
     steps:
@@ -81,3 +82,11 @@ jobs:
         with:
           generate_release_notes: true
           make_latest: true
+
+  deploy:
+    name: Deploy to Render
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
