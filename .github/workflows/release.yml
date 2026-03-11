@@ -56,7 +56,11 @@ jobs:
 
       - name: Python dependency CVE audit (pip-audit)
         working-directory: backend
-        run: pip-audit
+        run: |
+          # CVE-2024-23342: ecdsa timing attack — no fix version exists.
+          # ecdsa is a transitive dep of python-jose but we use the
+          # python-jose[cryptography] backend so ecdsa is never invoked.
+          pip-audit --ignore-vuln CVE-2024-23342
 
       - name: Frontend dependency audit
         working-directory: frontend
