@@ -162,7 +162,7 @@ export function SettingsPage() {
 
           {/* Not connected — connect form */}
           {connectionState === 'disconnected' && (
-            <form onSubmit={handleConnect} noValidate>
+            <form onSubmit={handleConnect} noValidate action="." method="post">
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-secondary)',
@@ -189,6 +189,7 @@ export function SettingsPage() {
                 </label>
                 <input
                   id="garmin-email"
+                  name="username"
                   type="email"
                   autoComplete="username"
                   value={garminEmail}
@@ -224,8 +225,9 @@ export function SettingsPage() {
                 </label>
                 <input
                   id="garmin-password"
+                  name="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete="off"
                   value={garminPassword}
                   onChange={e => setGarminPassword(e.target.value)}
                   required

@@ -24,6 +24,7 @@ dev = [
     "pytest-cov>=4.1",
     "httpx>=0.25",
     "ruff>=0.1",
+    "alembic>=1.13",
 ]
 
 [tool.pytest.ini_options]

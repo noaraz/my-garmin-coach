@@ -5,7 +5,8 @@
       "name": "backend",
       "runtimeExecutable": "/bin/sh",
       "runtimeArgs": ["-c", "PATH=\"/Applications/Docker.app/Contents/Resources/bin:$PATH\" /Applications/Docker.app/Contents/Resources/bin/docker compose up --build"],
-      "port": 8000
+      "port": 8000,
+      "autoPort": false
     },
     {
       "name": "frontend",

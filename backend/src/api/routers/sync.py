@@ -5,8 +5,6 @@ import logging
 from datetime import date
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 import garminconnect
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -25,6 +23,8 @@ from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.services.calendar_service import resolve_builder_steps
 from src.services.sync_orchestrator import SyncOrchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
 
@@ -331,7 +331,7 @@ async def sync_single(
         HTTPException 404: if no ScheduledWorkout with the given id exists.
     """
     workout = await scheduled_workout_repository.get(session, workout_id)
-    if workout is None:
+    if workout is None or workout.user_id != current_user.id:
         raise HTTPException(status_code=404, detail=f"Workout {workout_id} not found")
 
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)

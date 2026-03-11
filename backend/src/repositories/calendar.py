@@ -11,12 +11,13 @@ from src.repositories.base import BaseRepository
 
 class ScheduledWorkoutRepository(BaseRepository[ScheduledWorkout]):
     async def get_range(
-        self, session: AsyncSession, start: date, end: date
+        self, session: AsyncSession, start: date, end: date, user_id: int
     ) -> list[ScheduledWorkout]:
         result = await session.exec(
             select(ScheduledWorkout).where(
                 ScheduledWorkout.date >= start,
                 ScheduledWorkout.date <= end,
+                ScheduledWorkout.user_id == user_id,
             )
         )
         return list(result.all())

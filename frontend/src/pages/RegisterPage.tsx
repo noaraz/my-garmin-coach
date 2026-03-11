@@ -88,7 +88,7 @@ export function RegisterPage() {
             margin: '0 0 20px',
           }}>Request Access</h1>
 
-          <form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit} noValidate action="." method="post">
             <div style={{ marginBottom: '14px' }}>
               <label
                 htmlFor="email"
@@ -107,6 +107,7 @@ export function RegisterPage() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -145,6 +146,7 @@ export function RegisterPage() {
               </label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="new-password"
                 value={password}
@@ -183,6 +185,7 @@ export function RegisterPage() {
               </label>
               <input
                 id="invite-code"
+                name="invite-code"
                 type="text"
                 autoComplete="off"
                 value={inviteCode}

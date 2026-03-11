@@ -177,6 +177,7 @@ Project slash commands in `.claude/commands/`:
 | Command | Description |
 |---------|-------------|
 | `/ship` | Full ship workflow: tests → code review → fix prompt → local test steps → update docs → open PR |
+| `/release` | Release workflow: pre-flight → tests → security review → version bump → tag → push (triggers GitHub Actions gate) |
 
 ## Workflow Patterns
 
