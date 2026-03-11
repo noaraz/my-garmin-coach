@@ -62,8 +62,8 @@ Ask the user to confirm each item:
 > Before tagging, please confirm:
 > - [ ] All features for this release are merged to `main`
 > - [ ] No secrets are in the code or git history
-> - [ ] If schema changed: Alembic migration created, tested locally, and ready to apply on Render
-> - [ ] Render is up and will auto-deploy when `main` is pushed
+> - [ ] If schema changed: Alembic migration created and committed (`backend/alembic/versions/`)
+> - [ ] `RENDER_DEPLOY_HOOK_URL` secret is set in GitHub → Settings → Secrets → Actions
 
 ---
 
@@ -104,7 +104,41 @@ After pushing, print:
 
 ---
 
-## 7. Update STATUS.md
+## 7. Monitor the Release Pipeline
+
+The tag push from step 6 triggers the Release workflow. The pipeline pauses for your approval after tests:
+
+```
+security-and-tests → [APPROVAL GATE] → create-release → deploy to Render
+```
+
+**What happens:**
+1. Tests + security checks run automatically (~3 min)
+2. GitHub pauses and sends you an email: *"Your workflow is waiting for approval"*
+3. **You review** → go to **GitHub → Actions → Release workflow → Review deployments** → Approve or Reject
+4. If approved: GitHub Release is created, then Render deploy fires
+5. If rejected: pipeline stops — no release, no deploy
+
+Monitor:
+```bash
+gh run list --limit 3
+```
+
+Watch the Render build: **Render Dashboard → garmincoach → Logs**
+
+---
+
+**One-time setup** (only needed once):
+> GitHub repo → **Settings → Environments → New environment** → name it `production`
+> → **Required reviewers** → add yourself → Save
+
+If the deploy hook isn't set up yet:
+> Set `RENDER_DEPLOY_HOOK_URL` in GitHub → Settings → Secrets → Actions.
+> Get the URL from: Render Dashboard → garmincoach → Settings → Deploy Hook.
+
+---
+
+## 8. Update STATUS.md
 
 - Mark `Tag v1.0.0 + create GitHub Release` as ✅
 - Update `Last updated` line
@@ -112,12 +146,33 @@ After pushing, print:
 
 ---
 
-## 8. Post-Release (if first deploy)
+## 9. Post-Deploy Verification
 
-If this is the first Render deploy, remind the user:
+After Render shows the deploy as live:
 
-> After the Render deploy completes, run in the Render shell:
-> ```bash
-> cd /app && python -m alembic stamp head
-> ```
-> See `RELEASING.md` for the full post-deploy checklist.
+> - [ ] Visit `https://garmincoach.onrender.com` — app loads
+> - [ ] Login works
+> - [ ] If first deploy: create admin user via Render Shell (see below)
+> - [ ] If Garmin was connected: reconnect in Settings (HKDF change invalidated old tokens)
+
+**First deploy only** — create admin user in Render Shell:
+```python
+python3 - <<'EOF'
+import asyncio, os
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
+from src.db.models import AthleteProfile
+from src.auth.models import User
+from src.auth.utils import get_password_hash
+
+async def main():
+    engine = create_async_engine(os.environ["DATABASE_URL"])
+    async with AsyncSession(engine) as session:
+        user = User(email="your@email.com", hashed_password=get_password_hash("yourpassword"))
+        session.add(user)
+        await session.commit()
+        print(f"Created: {user.email}")
+
+asyncio.run(main())
+EOF
+```
