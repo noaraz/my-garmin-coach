@@ -82,11 +82,32 @@ Wait for their answer (e.g. `v1.0.0`).
 
 ---
 
-## 6. Tag and Push
+## 6. Release Notes
+
+Ask the user:
+
+> Write a short summary (1 line) and bullet-point release notes for this release.
+> These will appear on the GitHub Release page.
+>
+> Example:
+> ```
+> Summary: First production release
+>
+> - HTTP security headers on API and frontend
+> - HKDF key derivation for Garmin token encryption
+> - Password manager support on login and register forms
+> - Automated release pipeline with approval gate
+> ```
+
+Wait for their notes.
+
+---
+
+## 7. Tag and Push
 
 ```bash
-# Create annotated tag
-git tag -a <VERSION> -m "<one-line release summary>"
+# Create annotated tag — summary on first -m, notes on second -m
+git tag -a <VERSION> -m "<one-line summary>" -m "<bullet notes>"
 
 # Push the tag — this triggers the GitHub Actions security gate
 git push origin <VERSION>
