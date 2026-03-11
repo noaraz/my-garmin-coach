@@ -5,6 +5,8 @@ services:
     dockerfilePath: ./Dockerfile.prod
     plan: free
     autoDeploy: false
+    port: 8000
+    healthCheckPath: /api/v1/health
     envVars:
       - key: JWT_SECRET
         generateValue: true
