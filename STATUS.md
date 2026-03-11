@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-10 (Pre-deploy hardening: HTTP headers, HKDF encryption, password manager)
+Last updated: 2026-03-11 (Alembic fixed + initial migration regenerated; v0.1.0 tag ready to push)
 
-## Current Focus: Render Deploy
+## Current Focus: Render First Deploy
 
 ---
 
@@ -15,18 +15,22 @@ Last updated: 2026-03-10 (Pre-deploy hardening: HTTP headers, HKDF encryption, p
 | .env.example + .gitignore | ✅ |
 | docker compose up works | ✅ |
 | pytest runs in container | ✅ |
-| Add alembic to pyproject.toml dev deps | ✅ |
+| Add alembic to pyproject.toml (main deps, not dev-only) | ✅ |
 | alembic init + configure env.py (models + sync URL) | ✅ |
-| Generate initial migration (autogenerate) | ✅ |
+| Generate initial migration (creates all 7 tables from scratch) | ✅ |
 | Apply migration to local Docker volume DB | ✅ |
+| Dockerfile.prod CMD: alembic upgrade head on startup (before uvicorn) | ✅ |
 | GitHub Actions: CI workflow (tests on push/PR) | ✅ |
-| GitHub Actions: Release workflow (security gate on tag) | ✅ |
+| GitHub Actions: Release workflow with approval gate + Render deploy hook | ✅ |
+| Release notes extracted from tag annotation into GitHub Release | ✅ |
+| pip-audit: document + ignore CVE-2024-23342 (ecdsa, no fix available) | ✅ |
 | Security review + fixes (ownership checks, exception leakage) | ✅ |
 | HTTP security headers (nginx CSP/HSTS/X-Frame + FastAPI middleware) | ✅ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
-| Stamp alembic head on Render after first startup | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |
-| Tag v1.0.0 + create GitHub Release | ⬜ |
+| Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ⬜ |
+| Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
+| Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 
 ### Zone Engine
 | Task | Status |
