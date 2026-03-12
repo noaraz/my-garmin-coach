@@ -92,6 +92,32 @@ rather than `JSON.stringify(body)`, or the UI shows the raw JSON string.
 `localhost` inside the container resolves to the container itself, not the host or the
 backend container.
 
+### Bootstrap endpoint — needed for Render free plan (added 2026-03-12)
+
+**Problem**: Render free plan has no Shell access. `scripts/create_admin.py` requires shell.
+The invite system is a chicken-and-egg: register needs invite code, create invite needs login, login needs a user.
+
+**Solution**: `POST /api/v1/auth/bootstrap`
+- Accepts `{ email, password }` in request body
+- Checks `SELECT COUNT(*) FROM user` — if > 0, returns HTTP 409 (permanently locked)
+- Creates first user + 5 invite codes, returns invite codes in response
+- No auth required (that's the point)
+- Safe: once any user exists, endpoint is a permanent no-op
+
+**Files to touch**:
+- `backend/src/auth/service.py` — add `bootstrap(request, session)` function
+- `backend/src/auth/schemas.py` — add `BootstrapRequest` + `BootstrapResponse`
+- `backend/src/api/routers/auth.py` — add `POST /bootstrap` route
+- `backend/tests/integration/test_api_auth.py` — add tests: success, locked after first user
+
+**Usage after deploy**:
+```bash
+curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "YourPassword123"}'
+# Returns: {"invite_codes": ["abc123", ...]}
+```
+
 ### Admin user creation (scripts)
 ```bash
 docker compose exec backend python - <<'EOF'

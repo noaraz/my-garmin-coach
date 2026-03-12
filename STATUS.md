@@ -31,6 +31,7 @@ Last updated: 2026-03-11 (Alembic fixed + initial migration regenerated; v0.1.0 
 | Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ⬜ |
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
+| Bootstrap endpoint: POST /api/v1/auth/bootstrap — creates first user + 5 invite codes, locked after first user exists (Render free plan has no Shell access) | ⬜ |
 
 ### Zone Engine
 | Task | Status |
