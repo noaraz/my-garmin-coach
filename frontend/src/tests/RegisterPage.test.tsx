@@ -3,14 +3,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
-const mockNavigate = vi.fn()
+const { mockNavigate, mockRegister } = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockRegister: vi.fn(),
+}))
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
-
-const mockRegister = vi.fn()
 
 vi.mock('../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../contexts/AuthContext')>()
