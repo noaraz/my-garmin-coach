@@ -26,8 +26,8 @@ Last updated: 2026-03-11 (Alembic fixed + initial migration regenerated; v0.1.0 
 | pip-audit: document + ignore CVE-2024-23342 (ecdsa, no fix available) | ✅ |
 | Security review + fixes (ownership checks, exception leakage) | ✅ |
 | HTTP security headers (nginx CSP/HSTS/X-Frame + FastAPI middleware) | ✅ |
-| Bootstrap endpoint: `POST /api/v1/auth/bootstrap` — protected by `BOOTSTRAP_SECRET` env var, creates first admin user, 409 after first user | ⬜ |
-| Invite link UX: `/invite` returns full `invite_link` URL; `RegisterPage` hides code field when `?invite=` param present | ⬜ |
+| Bootstrap endpoint: `POST /api/v1/auth/bootstrap` — protected by `BOOTSTRAP_SECRET` env var, creates first admin user, 409 after first user | ✅ |
+| Invite link UX: `/invite` returns full `invite_link` URL; `RegisterPage` hides code field when `?invite=` param present | ✅ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |
 | Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ⬜ |

@@ -38,7 +38,7 @@ async def bootstrap(
         raise HTTPException(
             status_code=503, detail="Bootstrap is not configured."
         )
-    if request.bootstrap_secret != bootstrap_secret:
+    if not secrets.compare_digest(request.bootstrap_secret, bootstrap_secret):
         raise HTTPException(status_code=403, detail="Invalid bootstrap secret.")
 
     users = (await session.exec(select(User))).all()
