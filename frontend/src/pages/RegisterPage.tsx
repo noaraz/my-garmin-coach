@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const inviteFromUrl = searchParams.get('invite') ?? ''
+  const isInviteFromUrl = inviteFromUrl !== ''
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [inviteCode, setInviteCode] = useState(inviteFromUrl)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -167,44 +170,46 @@ export function RegisterPage() {
               />
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="invite-code"
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  color: 'var(--text-secondary)',
-                  marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                }}
-              >
-                Invite Code
-              </label>
-              <input
-                id="invite-code"
-                name="invite-code"
-                type="text"
-                autoComplete="off"
-                value={inviteCode}
-                onChange={e => setInviteCode(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '9px 11px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: '5px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
-                  outline: 'none',
-                  boxSizing: 'border-box' as const,
-                }}
-              />
-            </div>
+            {!isInviteFromUrl && (
+              <div style={{ marginBottom: '20px' }}>
+                <label
+                  htmlFor="invite-code"
+                  style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase' as const,
+                    color: 'var(--text-secondary)',
+                    marginBottom: '6px',
+                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  }}
+                >
+                  Invite Code
+                </label>
+                <input
+                  id="invite-code"
+                  name="invite-code"
+                  type="text"
+                  autoComplete="off"
+                  value={inviteCode}
+                  onChange={e => setInviteCode(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '9px 11px',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--input-border)',
+                    borderRadius: '5px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    outline: 'none',
+                    boxSizing: 'border-box' as const,
+                  }}
+                />
+              </div>
+            )}
 
             {error && (
               <div
