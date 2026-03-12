@@ -121,11 +121,13 @@ curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
   -d '{"email":"you@example.com","password":"YourPass123","bootstrap_secret":"<secret>"}'
 
 # 2. Log in
-TOKEN=$(curl -s -X POST .../api/v1/auth/login \
+TOKEN=$(curl -s -X POST https://garmincoach.onrender.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","password":"YourPass123"}' | jq -r .access_token)
 
-# 3. Generate invite link per friend
-curl -s -X POST .../api/v1/auth/invite -H "Authorization: Bearer $TOKEN"
+# 3. Generate invite link per friend (frontend URL, not API URL)
+curl -s -X POST https://garmincoach.onrender.com/api/v1/auth/invite \
+  -H "Authorization: Bearer $TOKEN"
 # → {"code":"abc123","invite_link":"https://garmincoach.onrender.com/register?invite=abc123"}
 ```
 

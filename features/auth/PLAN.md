@@ -140,7 +140,7 @@ frontend/src/api/
 ```
 
 ### Bootstrap + Invite Link UX
-- [ ] Add `bootstrap_secret` and `app_url` to `Settings` in `backend/src/core/config.py`
+- [ ] Add `bootstrap_secret` and `app_url` to `Settings` in `backend/src/core/config.py`; update `.env.example`
 - [ ] Add `BootstrapRequest`, `BootstrapResponse` schemas; update `InviteResponse` with `invite_link: str | None`
 - [ ] Add `bootstrap()` service function to `auth/service.py`
 - [ ] Update `create_invite()` to return `(InviteCode, invite_link | None)`
