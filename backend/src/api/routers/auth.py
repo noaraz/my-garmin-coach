@@ -60,7 +60,7 @@ async def bootstrap(
 ) -> BootstrapResponse:
     """Create the first admin user. Locked after first user exists."""
     await auth_service.bootstrap(request, session, settings.bootstrap_secret)
-    return BootstrapResponse(message="Bootstrap successful. Admin user created.")
+    return BootstrapResponse(message="Bootstrap successful. You can now log in.")
 
 
 @router.post("/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
