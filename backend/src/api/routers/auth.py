@@ -24,6 +24,17 @@ from src.core.config import Settings, get_settings
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
+@router.post("/bootstrap", response_model=BootstrapResponse, status_code=status.HTTP_201_CREATED)
+async def bootstrap(
+    request: BootstrapRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> BootstrapResponse:
+    """Create the first admin user. Locked after first user exists."""
+    await auth_service.bootstrap(request, session, settings.bootstrap_secret)
+    return BootstrapResponse(message="Bootstrap successful. You can now log in.")
+
+
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: RegisterRequest,
@@ -50,17 +61,6 @@ async def refresh(
 ) -> AccessTokenResponse:
     """Exchange a refresh token for a new access token."""
     return await auth_service.refresh_token(request.refresh_token, session)
-
-
-@router.post("/bootstrap", response_model=BootstrapResponse, status_code=status.HTTP_201_CREATED)
-async def bootstrap(
-    request: BootstrapRequest,
-    session: AsyncSession = Depends(get_session),
-    settings: Settings = Depends(get_settings),
-) -> BootstrapResponse:
-    """Create the first admin user. Locked after first user exists."""
-    await auth_service.bootstrap(request, session, settings.bootstrap_secret)
-    return BootstrapResponse(message="Bootstrap successful. You can now log in.")
 
 
 @router.post("/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)

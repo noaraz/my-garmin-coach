@@ -468,7 +468,6 @@ async def test_bootstrap_creates_admin_user(
     body = resp.json()
     assert "Bootstrap successful" in body["message"]
 
-    from sqlmodel import select
     user = (await auth_session.exec(select(User).where(User.email == "admin@example.com"))).first()
     assert user is not None
 
