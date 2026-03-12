@@ -138,3 +138,14 @@ frontend/src/api/
   client.ts  (getGarminStatus, connectGarmin, disconnectGarmin, loginUser, registerUser)
   types.ts   (GarminStatusResponse)
 ```
+
+### Bootstrap + Invite Link UX
+- [ ] Add `bootstrap_secret` and `app_url` to `Settings` in `backend/src/core/config.py`
+- [ ] Add `BootstrapRequest`, `BootstrapResponse` schemas; update `InviteResponse` with `invite_link: str | None`
+- [ ] Add `bootstrap()` service function to `auth/service.py`
+- [ ] Update `create_invite()` to return `(InviteCode, invite_link | None)`
+- [ ] Add `POST /api/v1/auth/bootstrap` route (protected by `BOOTSTRAP_SECRET` env var)
+- [ ] Update `POST /api/v1/auth/invite` to return `invite_link`
+- [ ] Tests in `test_api_auth.py`: bootstrap success, wrong secret 403, locked 409, unconfigured 503, weak password 422, invite_link present/absent
+- [ ] Frontend: `RegisterPage.tsx` reads `?invite=` from URL, hides invite code field when pre-filled
+- [ ] Frontend: Tests in `frontend/src/tests/RegisterPage.test.tsx`
