@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Garmin token encryption
     garmincoach_secret_key: str = "dev-secret-change-in-prod"
 
+    # Bootstrap / invite links
+    bootstrap_secret: str | None = None
+    app_url: str | None = None
+
     model_config = {"env_file": ".env"}
 
 
