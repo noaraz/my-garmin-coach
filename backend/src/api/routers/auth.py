@@ -9,6 +9,8 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.auth.schemas import (
     AccessTokenResponse,
+    BootstrapRequest,
+    BootstrapResponse,
     InviteResponse,
     LoginRequest,
     RefreshRequest,
@@ -17,6 +19,7 @@ from src.auth.schemas import (
     TokenResponse,
     UserResponse,
 )
+from src.core.config import Settings, get_settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -49,14 +52,26 @@ async def refresh(
     return await auth_service.refresh_token(request.refresh_token, session)
 
 
+@router.post("/bootstrap", response_model=BootstrapResponse, status_code=status.HTTP_201_CREATED)
+async def bootstrap(
+    request: BootstrapRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> BootstrapResponse:
+    """Create the first admin user. Locked after first user exists."""
+    await auth_service.bootstrap(request, session, settings.bootstrap_secret)
+    return BootstrapResponse(message="Bootstrap successful. Admin user created.")
+
+
 @router.post("/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
 async def create_invite(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
 ) -> InviteResponse:
     """Create a new invite code (requires authentication)."""
-    invite = await auth_service.create_invite(current_user, session)
-    return InviteResponse(code=invite.code)
+    invite, invite_link = await auth_service.create_invite(current_user, session, settings.app_url)
+    return InviteResponse(code=invite.code, invite_link=invite_link)
 
 
 @router.get("/me", response_model=UserResponse)

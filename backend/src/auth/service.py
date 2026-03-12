@@ -12,6 +12,7 @@ from src.auth.models import InviteCode, User
 from src.auth.passwords import hash_password, verify_password
 from src.auth.schemas import (
     AccessTokenResponse,
+    BootstrapRequest,
     LoginRequest,
     RegisterRequest,
     TokenResponse,
@@ -19,6 +20,41 @@ from src.auth.schemas import (
 
 _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_MINUTES = 15
+
+
+async def bootstrap(
+    request: BootstrapRequest,
+    session: AsyncSession,
+    bootstrap_secret: str | None,
+) -> User:
+    """Create the first admin user. Locked permanently once any user exists.
+
+    Raises:
+        HTTPException 503 if BOOTSTRAP_SECRET is not configured.
+        HTTPException 403 if provided secret does not match.
+        HTTPException 409 if any user already exists.
+    """
+    if not bootstrap_secret:
+        raise HTTPException(
+            status_code=503, detail="Bootstrap is not configured."
+        )
+    if request.bootstrap_secret != bootstrap_secret:
+        raise HTTPException(status_code=403, detail="Invalid bootstrap secret.")
+
+    users = (await session.exec(select(User))).all()
+    if len(users) > 0:
+        raise HTTPException(
+            status_code=409, detail="App already bootstrapped."
+        )
+
+    user = User(
+        email=request.email,
+        password_hash=hash_password(request.password),
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
 
 
 async def register(
@@ -139,11 +175,21 @@ async def refresh_token(
 async def create_invite(
     created_by_user: User,
     session: AsyncSession,
-) -> InviteCode:
-    """Create a new invite code for the current user."""
+    app_url: str | None = None,
+) -> tuple[InviteCode, str | None]:
+    """Create a new invite code. Returns (invite, invite_link).
+
+    invite_link is None when app_url is not configured.
+    """
     code = secrets.token_urlsafe(16)
     invite = InviteCode(code=code, created_by=created_by_user.id)
     session.add(invite)
     await session.commit()
     await session.refresh(invite)
-    return invite
+
+    invite_link: str | None = None
+    if app_url:
+        base = app_url.rstrip("/")
+        invite_link = f"{base}/register?invite={invite.code}"
+
+    return invite, invite_link

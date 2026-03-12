@@ -373,8 +373,8 @@ class TestCreateInvite:
         await db_session.commit()
         await db_session.refresh(admin)
 
-        # Act — lines 144-149
-        invite = await auth_service.create_invite(admin, db_session)
+        # Act
+        invite, invite_link = await auth_service.create_invite(admin, db_session)
 
         # Assert
         assert invite.id is not None
@@ -382,3 +382,39 @@ class TestCreateInvite:
         assert len(invite.code) > 0
         assert invite.created_by == admin.id
         assert invite.used_by is None
+        assert invite_link is None
+
+    async def test_create_invite_returns_invite_link_when_app_url_set(
+        self, db_session: AsyncSession
+    ) -> None:
+        # Arrange
+        admin = User(email="admin@example.com", password_hash=hash_password("adminpass123"))
+        db_session.add(admin)
+        await db_session.commit()
+        await db_session.refresh(admin)
+
+        # Act
+        invite, invite_link = await auth_service.create_invite(
+            admin, db_session, app_url="https://garmincoach.onrender.com"
+        )
+
+        # Assert
+        assert invite_link == f"https://garmincoach.onrender.com/register?invite={invite.code}"
+
+    async def test_create_invite_strips_trailing_slash_from_app_url(
+        self, db_session: AsyncSession
+    ) -> None:
+        # Arrange
+        admin = User(email="admin@example.com", password_hash=hash_password("adminpass123"))
+        db_session.add(admin)
+        await db_session.commit()
+        await db_session.refresh(admin)
+
+        # Act
+        invite, invite_link = await auth_service.create_invite(
+            admin, db_session, app_url="https://garmincoach.onrender.com/"
+        )
+
+        # Assert — no double slash before /register
+        assert invite_link is not None
+        assert "//" not in invite_link.split("://", 1)[1]
