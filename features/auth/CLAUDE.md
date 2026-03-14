@@ -92,31 +92,56 @@ rather than `JSON.stringify(body)`, or the UI shows the raw JSON string.
 `localhost` inside the container resolves to the container itself, not the host or the
 backend container.
 
-### Bootstrap endpoint — needed for Render free plan (added 2026-03-12)
+### Bootstrap endpoint — `POST /api/v1/auth/bootstrap` (updated 2026-03-12)
 
-**Problem**: Render free plan has no Shell access. `scripts/create_admin.py` requires shell.
-The invite system is a chicken-and-egg: register needs invite code, create invite needs login, login needs a user.
+**Problem**: Render free plan has no Shell access. Invite system is a chicken-and-egg:
+register needs invite code → create invite needs login → login needs a user.
 
-**Solution**: `POST /api/v1/auth/bootstrap`
-- Accepts `{ email, password }` in request body
-- Checks `SELECT COUNT(*) FROM user` — if > 0, returns HTTP 409 (permanently locked)
-- Creates first user + 5 invite codes, returns invite codes in response
-- No auth required (that's the point)
-- Safe: once any user exists, endpoint is a permanent no-op
+**Design**: Endpoint protected by `BOOTSTRAP_SECRET` env var (set in Render before deploy).
+Creates the first admin user only. Invite links are generated separately via `/invite`.
 
-**Files to touch**:
-- `backend/src/auth/service.py` — add `bootstrap(request, session)` function
-- `backend/src/auth/schemas.py` — add `BootstrapRequest` + `BootstrapResponse`
-- `backend/src/api/routers/auth.py` — add `POST /bootstrap` route
-- `backend/tests/integration/test_api_auth.py` — add tests: success, locked after first user
+**Request**: `{ email, password, bootstrap_secret }`
+
+**Behavior**:
+1. `BOOTSTRAP_SECRET` not set → 503 (misconfigured)
+2. Wrong secret → 403
+3. Any user exists → 409 (permanently locked)
+4. Weak password → 422
+5. Creates user → 201 `{ "message": "Bootstrap successful. You can now log in." }`
+
+**New env vars** (add to Render + `.env.example`):
+- `BOOTSTRAP_SECRET` — generate with `openssl rand -hex 32`
+- `APP_URL` — `https://garmincoach.onrender.com` (no trailing slash)
 
 **Usage after deploy**:
 ```bash
+# 1. Bootstrap
 curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "YourPassword123"}'
-# Returns: {"invite_codes": ["abc123", ...]}
+  -d '{"email":"you@example.com","password":"YourPass123","bootstrap_secret":"<secret>"}'
+
+# 2. Log in
+TOKEN=$(curl -s -X POST https://garmincoach.onrender.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"YourPass123"}' | jq -r .access_token)
+
+# 3. Generate invite link per friend (frontend URL, not API URL)
+curl -s -X POST https://garmincoach.onrender.com/api/v1/auth/invite \
+  -H "Authorization: Bearer $TOKEN"
+# → {"code":"abc123","invite_link":"https://garmincoach.onrender.com/register?invite=abc123"}
 ```
+
+### Invite link UX — register page URL param (added 2026-03-12)
+
+`POST /api/v1/auth/invite` now returns `invite_link` (full URL) when `APP_URL` env var is set.
+`invite_link` is `null` when `APP_URL` is not configured.
+
+**RegisterPage.tsx**: reads `?invite=` query param via `useSearchParams()`.
+- Param present → pre-fills invite code in state, **hides the invite code field entirely**
+- Param absent → shows invite code field as before (backward compatible)
+
+Friend experience: click link → enter email + password only → register → done.
+Error UX unchanged: if code is invalid, error message still shows normally.
 
 ### Admin user creation (scripts)
 ```bash

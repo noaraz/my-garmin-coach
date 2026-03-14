@@ -49,6 +49,24 @@ class RegisterResponse(BaseModel):
 
 class InviteResponse(BaseModel):
     code: str
+    invite_link: str | None = None
+
+
+class BootstrapRequest(BaseModel):
+    email: str
+    password: str
+    bootstrap_secret: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+class BootstrapResponse(BaseModel):
+    message: str
 
 
 class GarminConnectRequest(BaseModel):

@@ -433,3 +433,184 @@ async def test_account_lockout(auth_client: AsyncClient, invite_code: str) -> No
     # Assert
     assert resp.status_code == 401
     assert "locked" in resp.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Bootstrap tests
+# ---------------------------------------------------------------------------
+
+
+async def test_bootstrap_creates_admin_user(
+    auth_client: AsyncClient, auth_session: AsyncSession
+) -> None:
+    """Bootstrap creates first user when secret is correct."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+
+    def override_settings() -> Settings:
+        return Settings(bootstrap_secret="test-secret-abc", app_url=None)
+
+    app.dependency_overrides[get_settings] = override_settings
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/v1/auth/bootstrap",
+            json={"email": "admin@example.com", "password": "adminpass1", "bootstrap_secret": "test-secret-abc"},
+        )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "Bootstrap successful" in body["message"]
+
+    user = (await auth_session.exec(select(User).where(User.email == "admin@example.com"))).first()
+    assert user is not None
+
+    app.dependency_overrides.clear()
+
+
+async def test_bootstrap_wrong_secret_returns_403(
+    auth_client: AsyncClient, auth_session: AsyncSession
+) -> None:
+    """Wrong bootstrap_secret returns 403."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+    app.dependency_overrides[get_settings] = lambda: Settings(bootstrap_secret="real-secret")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/auth/bootstrap",
+            json={"email": "a@b.com", "password": "password1", "bootstrap_secret": "wrong-secret"},
+        )
+
+    assert resp.status_code == 403
+    app.dependency_overrides.clear()
+
+
+async def test_bootstrap_locked_after_first_user_returns_409(
+    auth_client: AsyncClient, auth_session: AsyncSession, invite_code: str
+) -> None:
+    """Bootstrap returns 409 when at least one user already exists."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+    app.dependency_overrides[get_settings] = lambda: Settings(bootstrap_secret="test-secret")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/auth/bootstrap",
+            json={"email": "new@admin.com", "password": "password1", "bootstrap_secret": "test-secret"},
+        )
+
+    assert resp.status_code == 409
+    app.dependency_overrides.clear()
+
+
+async def test_bootstrap_missing_secret_env_returns_503(
+    auth_client: AsyncClient, auth_session: AsyncSession
+) -> None:
+    """Bootstrap returns 503 when BOOTSTRAP_SECRET env var is not configured."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+    app.dependency_overrides[get_settings] = lambda: Settings(bootstrap_secret=None)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/auth/bootstrap",
+            json={"email": "a@b.com", "password": "password1", "bootstrap_secret": "any"},
+        )
+
+    assert resp.status_code == 503
+    app.dependency_overrides.clear()
+
+
+async def test_bootstrap_weak_password_returns_422(
+    auth_client: AsyncClient, auth_session: AsyncSession
+) -> None:
+    """Bootstrap rejects passwords shorter than 8 chars."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+    app.dependency_overrides[get_settings] = lambda: Settings(bootstrap_secret="test-secret")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/auth/bootstrap",
+            json={"email": "a@b.com", "password": "short", "bootstrap_secret": "test-secret"},
+        )
+
+    assert resp.status_code == 422
+    app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# Invite link tests
+# ---------------------------------------------------------------------------
+
+
+async def test_invite_response_includes_invite_link(
+    auth_client: AsyncClient, auth_session: AsyncSession, invite_code: str
+) -> None:
+    """POST /invite returns invite_link when APP_URL is set."""
+    from src.core.config import get_settings, Settings
+    from src.api.app import create_app
+    from src.api.dependencies import get_session
+
+    await _register_user(auth_client, "user@example.com", "password123", invite_code)
+    login_resp = await _login_user(auth_client, "user@example.com", "password123")
+    token = login_resp.json()["access_token"]
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: auth_session  # type: ignore[assignment]
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        app_url="https://garmincoach.onrender.com"
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/auth/invite",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "code" in body
+    assert body["invite_link"] == f"https://garmincoach.onrender.com/register?invite={body['code']}"
+    app.dependency_overrides.clear()
+
+
+async def test_invite_response_link_null_without_app_url(
+    auth_client: AsyncClient, invite_code: str
+) -> None:
+    """POST /invite returns invite_link=null when APP_URL is not set."""
+    await _register_user(auth_client, "user@example.com", "password123", invite_code)
+    login_resp = await _login_user(auth_client, "user@example.com", "password123")
+    token = login_resp.json()["access_token"]
+
+    resp = await auth_client.post(
+        "/api/v1/auth/invite",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["invite_link"] is None
