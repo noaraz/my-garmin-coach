@@ -68,7 +68,7 @@ async def reset_admins(
     request: ResetAdminsRequest,
     session: AsyncSession,
 ) -> ResetAdminsResponse:
-    """Delete all admin users and their invite codes.
+    """Delete all users and invite codes (full factory reset).
 
     Raises:
         HTTPException 403 if setup_token is wrong.
@@ -77,26 +77,19 @@ async def reset_admins(
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
         raise HTTPException(status_code=403, detail="Invalid setup token")
 
-    admins = (await session.exec(select(User).where(User.is_admin == True))).all()  # noqa: E712
-    admin_ids = [a.id for a in admins]
+    # Delete all invite codes first (FK constraint)
+    invite_codes = (await session.exec(select(InviteCode))).all()
+    for invite in invite_codes:
+        await session.delete(invite)
+    await session.commit()
 
-    if admin_ids:
-        # Delete invite codes created by admins first (FK constraint)
-        invite_codes = (
-            await session.exec(
-                select(InviteCode).where(InviteCode.created_by.in_(admin_ids))
-            )
-        ).all()
-        for invite in invite_codes:
-            await session.delete(invite)
-        await session.commit()
+    # Delete all users
+    users = (await session.exec(select(User))).all()
+    for user in users:
+        await session.delete(user)
+    await session.commit()
 
-        # Delete admin users
-        for admin in admins:
-            await session.delete(admin)
-        await session.commit()
-
-    return ResetAdminsResponse(deleted=len(admin_ids))
+    return ResetAdminsResponse(deleted=len(users))
 
 
 async def register(

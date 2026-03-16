@@ -45,7 +45,7 @@ export function SetupPage() {
     try {
       const res = await resetAdmins(setupToken)
       setConfirmReset(false)
-      setResetMsg(`Removed ${res.deleted} admin${res.deleted !== 1 ? 's' : ''}. You can now run setup again.`)
+      setResetMsg(`Removed ${res.deleted} user${res.deleted !== 1 ? 's' : ''}. You can now run setup again.`)
     } catch (err) {
       setConfirmReset(false)
       const message = err instanceof Error ? err.message : 'Reset failed'
