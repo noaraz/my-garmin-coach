@@ -13,7 +13,7 @@ function isRepeatGroup(step: BuilderStep): step is RepeatGroup {
 }
 
 const fieldLabel: React.CSSProperties = {
-  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontSize: '10px',
   fontWeight: 700,
   letterSpacing: '0.12em',
@@ -27,7 +27,7 @@ const inputStyle: React.CSSProperties = {
   padding: '5px 8px',
   marginTop: '4px',
   fontSize: '12px',
-  fontFamily: "'Barlow', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
   background: 'var(--input-bg)',
   border: '1px solid var(--input-border)',
   borderRadius: '3px',
@@ -97,7 +97,7 @@ function WorkoutStepPanel({ step, onChange }: { step: WorkoutStep; onChange: (s:
     cursor: 'pointer',
     borderRadius: '3px',
     fontSize: '10px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontWeight: 700,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
@@ -166,7 +166,7 @@ function WorkoutStepPanel({ step, onChange }: { step: WorkoutStep; onChange: (s:
             width: '100%',
             minHeight: '52px',
             resize: 'vertical',
-            fontFamily: "'Barlow', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
             fontSize: '12px',
           }}
         />

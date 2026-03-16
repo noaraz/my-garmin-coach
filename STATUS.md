@@ -130,6 +130,8 @@ Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reli
 | Post-ship: garth client.dumps() API fix | ✅ |
 | Post-ship: WorkoutBuilder edit mode (initialId prop + updateTemplate) | ✅ |
 | Post-ship: Calendar sync button debounce + spinner animation | ✅ |
+| Post-ship: Zone manager Friel-only + threshold guide card | ✅ |
+| Post-ship: App font refresh → IBM Plex Sans family | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment

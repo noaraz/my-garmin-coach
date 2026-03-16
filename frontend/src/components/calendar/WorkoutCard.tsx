@@ -78,7 +78,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
 
         {/* Workout name */}
         <div style={{
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '14px',
           fontWeight: 600,
           letterSpacing: '0.02em',
@@ -102,7 +102,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           }}>
             {hasDuration && (
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
@@ -113,7 +113,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
             )}
             {hasDistance && (
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
@@ -130,7 +130,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '10px',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.4,

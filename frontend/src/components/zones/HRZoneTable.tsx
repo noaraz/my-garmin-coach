@@ -30,7 +30,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
 
   const thStyle: React.CSSProperties = {
     padding: '8px 12px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontSize: '10px',
     fontWeight: 700,
     letterSpacing: '0.12em',
@@ -70,7 +70,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                   flexShrink: 0,
                 }} />
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace",
+                  fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: '11px',
                   fontWeight: 500,
                   color: zoneHex(zone.zone_number),
@@ -78,7 +78,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                 }}>Z{zone.zone_number}</span>
               </div>
             </td>
-            <td style={{ ...tdStyle, fontFamily: "'Barlow', system-ui, sans-serif", fontSize: '13px', color: 'var(--text-primary)' }}>
+            <td style={{ ...tdStyle, fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: '13px', color: 'var(--text-primary)' }}>
               {zone.name}
             </td>
             <td style={tdStyle}>
@@ -97,7 +97,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                     border: '1px solid #0057ff',
                     borderRadius: '3px',
                     padding: '3px 6px',
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: '12px',
                     color: 'var(--text-primary)',
                     outline: 'none',
@@ -108,7 +108,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                   data-testid={`hr-lower-bpm-${zone.zone_number}`}
                   onClick={() => handleCellClick(zone.zone_number, 'lower_bpm')}
                   style={{
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: '12px',
                     color: 'var(--text-secondary)',
                     cursor: 'pointer',
@@ -135,7 +135,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                     border: '1px solid #0057ff',
                     borderRadius: '3px',
                     padding: '3px 6px',
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: '12px',
                     color: 'var(--text-primary)',
                     outline: 'none',
@@ -146,7 +146,7 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
                   data-testid={`hr-upper-bpm-${zone.zone_number}`}
                   onClick={() => handleCellClick(zone.zone_number, 'upper_bpm')}
                   style={{
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: '12px',
                     color: 'var(--text-secondary)',
                     cursor: 'pointer',

@@ -4,7 +4,6 @@ import { useProfile } from '../../hooks/useProfile'
 import { HRZoneTable } from './HRZoneTable'
 import { PaceZoneTable } from './PaceZoneTable'
 import { ThresholdInput } from './ThresholdInput'
-import { MethodSelector } from './MethodSelector'
 import type { HRZone } from '../../api/types'
 
 export function ZoneManager() {
@@ -13,7 +12,6 @@ export function ZoneManager() {
 
   const [lthr, setLthr] = useState<number | null>(null)
   const [thresholdPace, setThresholdPace] = useState<number | null>(null)
-  const [method, setMethod] = useState('coggan')
   const [localZones, setLocalZones] = useState<HRZone[]>([])
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -65,7 +63,7 @@ export function ZoneManager() {
   }
 
   const sectionLabel: React.CSSProperties = {
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontSize: '11px',
     fontWeight: 700,
     letterSpacing: '0.15em',
@@ -76,7 +74,7 @@ export function ZoneManager() {
 
   if (zonesLoading || profileLoading) {
     return (
-      <div style={{ padding: '40px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#aaa' }}>
+      <div style={{ padding: '40px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', color: '#aaa' }}>
         Loading zones…
       </div>
     )
@@ -89,7 +87,7 @@ export function ZoneManager() {
       {/* Page header */}
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '26px',
           fontWeight: 700,
           letterSpacing: '0.02em',
@@ -98,7 +96,7 @@ export function ZoneManager() {
           lineHeight: 1.1,
         }}>Zone Manager</h1>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '9px',
           color: '#bbb',
           marginTop: '4px',
@@ -132,6 +130,73 @@ export function ZoneManager() {
       {/* Thresholds */}
       <section style={{ marginBottom: '28px' }}>
         <div style={sectionLabel}>Thresholds</div>
+        {/* Guide card */}
+        <div style={{
+          background: 'var(--accent-subtle)',
+          border: '1px solid rgba(0,87,255,0.18)',
+          borderRadius: '8px',
+          padding: '16px 18px',
+          marginBottom: '12px',
+        }}>
+          <div style={{
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+            fontSize: '12px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--accent)',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            How to find your thresholds
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div>
+              <div style={{ fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                LTHR — Lactate Threshold HR
+              </div>
+              <div style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: '5px' }}>
+                Run 30 min all-out. Your LTHR ≈ average HR during the last 20 min.
+              </div>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 500 }}>or: </span>
+                average HR from a recent 10K race
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                Threshold Pace
+              </div>
+              <div style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: '5px' }}>
+                Best average pace for a 30-min all-out time trial.
+              </div>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 500 }}>or: </span>
+                your recent 10K race pace (±5 sec/km)
+              </div>
+            </div>
+          </div>
+          <div style={{
+            marginTop: '12px',
+            paddingTop: '10px',
+            borderTop: '1px solid rgba(0,87,255,0.12)',
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: '10px',
+            color: 'var(--text-secondary)',
+          }}>
+            Zones are calculated using the{' '}
+            <a
+              href="https://www.joefrielsblog.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}
+            >
+              Friel method ↗
+            </a>
+          </div>
+        </div>
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '16px 20px' }}>
           <ThresholdInput
             lthr={resolvedLthr}
@@ -147,27 +212,24 @@ export function ZoneManager() {
       <section style={{ marginBottom: '28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div style={sectionLabel}>Heart Rate Zones</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MethodSelector value={method} onChange={setMethod} />
-            <button
-              onClick={handleRecalcHR}
-              style={{
-                padding: '5px 12px',
-                background: 'transparent',
-                border: '1px solid var(--border-strong)',
-                borderRadius: '4px',
-                fontSize: '10px',
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-              }}
-            >
-              Recalculate
-            </button>
-          </div>
+          <button
+            onClick={handleRecalcHR}
+            style={{
+              padding: '5px 12px',
+              background: 'transparent',
+              border: '1px solid var(--border-strong)',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            Recalculate
+          </button>
         </div>
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
           <HRZoneTable zones={displayZones} onZoneChange={handleZoneChange} />

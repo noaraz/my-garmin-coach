@@ -31,7 +31,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
           <div key={day} style={{
             padding: '8px 4px',
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontSize: '10px',
             fontWeight: 700,
             letterSpacing: '0.12em',
@@ -67,7 +67,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
               }}
             >
               <div style={{
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 fontSize: '14px',
                 fontWeight: isToday ? 700 : 500,
                 color: isToday ? 'var(--accent)' : isOutside ? 'var(--text-muted)' : 'var(--text-secondary)',
@@ -100,7 +100,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
                     border: 'none',
                     cursor: 'pointer',
                     fontSize: '11px',
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                     fontWeight: 600,
                     color: 'var(--text-secondary)',
                     letterSpacing: '0.05em',

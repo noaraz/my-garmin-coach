@@ -79,7 +79,7 @@ export function StepBar({ step, index, isSelected = false, onDelete, onClick }: 
         }}
       >
         <span style={{
-          fontFamily: "'Barlow Condensed', monospace",
+          fontFamily: "'IBM Plex Sans Condensed', monospace",
           fontSize: '9px',
           fontWeight: 700,
           color: 'rgba(255,255,255,0.8)',
@@ -100,7 +100,7 @@ export function StepBar({ step, index, isSelected = false, onDelete, onClick }: 
           border: '1px solid var(--border-strong)',
           borderRadius: '2px',
           color: 'var(--text-muted)',
-          fontFamily: "'Barlow Condensed', sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', sans-serif",
           letterSpacing: '0.05em',
           lineHeight: 1.4,
         }}

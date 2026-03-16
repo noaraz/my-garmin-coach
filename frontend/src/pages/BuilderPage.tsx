@@ -27,7 +27,7 @@ export function BuilderPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: '100%', color: 'var(--text-muted)',
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
       }}>
         Loading…
@@ -40,7 +40,7 @@ export function BuilderPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: '100%', color: 'var(--color-error)',
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
       }}>
         Failed to load workout

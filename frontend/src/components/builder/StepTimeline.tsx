@@ -53,7 +53,7 @@ export function StepTimeline({ steps, selectedId, onDelete, onStepChange, onSele
       <div style={{
         color: 'var(--text-muted)',
         fontSize: '11px',
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         letterSpacing: '0.08em',
         padding: '32px',
         textAlign: 'center',

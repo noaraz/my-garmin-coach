@@ -66,7 +66,7 @@ export function LoginPage() {
             </svg>
           </div>
           <div style={{
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontWeight: 700,
             fontSize: '20px',
             letterSpacing: '0.08em',
@@ -83,7 +83,7 @@ export function LoginPage() {
           padding: '28px 24px',
         }}>
           <h1 style={{
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontWeight: 700,
             fontSize: '20px',
             letterSpacing: '0.06em',
@@ -104,7 +104,7 @@ export function LoginPage() {
                   textTransform: 'uppercase' as const,
                   color: 'var(--text-secondary)',
                   marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 }}
               >
                 Email
@@ -125,7 +125,7 @@ export function LoginPage() {
                   borderRadius: '5px',
                   color: 'var(--text-primary)',
                   fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                   outline: 'none',
                   boxSizing: 'border-box' as const,
                 }}
@@ -143,7 +143,7 @@ export function LoginPage() {
                   textTransform: 'uppercase' as const,
                   color: 'var(--text-secondary)',
                   marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 }}
               >
                 Password
@@ -164,7 +164,7 @@ export function LoginPage() {
                   borderRadius: '5px',
                   color: 'var(--text-primary)',
                   fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                   outline: 'none',
                   boxSizing: 'border-box' as const,
                 }}
@@ -182,7 +182,7 @@ export function LoginPage() {
                   borderRadius: '5px',
                   fontSize: '12px',
                   color: '#ef4444',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 }}
               >
                 {error}
@@ -203,7 +203,7 @@ export function LoginPage() {
                 fontWeight: 600,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase' as const,
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 cursor: isSubmitting ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s',
               }}
@@ -218,7 +218,7 @@ export function LoginPage() {
           marginTop: '16px',
           fontSize: '12px',
           color: 'var(--text-muted)',
-          fontFamily: "'Barlow', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
         }}>
           Don't have an account?{' '}
           <Link

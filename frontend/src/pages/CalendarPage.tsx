@@ -132,7 +132,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         >‹</button>
 
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '11px',
           fontWeight: 500,
           color: 'var(--text-secondary)',
@@ -171,7 +171,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               style={{
                 padding: '5px 11px',
                 fontSize: '10px',
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 fontWeight: 700,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
@@ -204,7 +204,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               border: 'none',
               borderRadius: '4px',
               fontSize: '10px',
-              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontWeight: 700,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
@@ -236,7 +236,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             justifyContent: 'center',
             background: 'var(--bg-surface)',
             zIndex: 10,
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontSize: '11px',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',

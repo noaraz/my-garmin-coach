@@ -52,7 +52,7 @@ export function WorkoutLibrary() {
       <div style={{
         padding: '32px',
         color: 'var(--text-muted)',
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '11px',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
@@ -74,7 +74,7 @@ export function WorkoutLibrary() {
       }}>
         <h1 style={{
           margin: 0,
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '20px',
           fontWeight: 700,
           letterSpacing: '0.06em',
@@ -102,7 +102,7 @@ export function WorkoutLibrary() {
               background: 'var(--input-bg)',
               border: '1px solid var(--input-border)',
               color: 'var(--text-primary)',
-              fontFamily: "'Barlow', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               fontSize: '12px',
               outline: 'none',
             }}
@@ -116,7 +116,7 @@ export function WorkoutLibrary() {
           padding: '48px 0',
           textAlign: 'center',
           color: 'var(--text-muted)',
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '11px',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',

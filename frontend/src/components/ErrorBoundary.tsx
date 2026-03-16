@@ -9,7 +9,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return this.props.fallback ?? (
-        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Barlow Condensed', system-ui, sans-serif", fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif", fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Something went wrong. Please reload.
         </div>
       )

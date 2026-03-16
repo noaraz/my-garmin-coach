@@ -48,7 +48,7 @@ export function WorkoutSummary({ steps }: WorkoutSummaryProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span style={{
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '10px',
         fontWeight: 700,
         letterSpacing: '0.12em',
@@ -58,7 +58,7 @@ export function WorkoutSummary({ steps }: WorkoutSummaryProps) {
       <span
         data-testid="total-duration"
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '13px',
           fontWeight: 500,
           color: 'var(--text-secondary)',

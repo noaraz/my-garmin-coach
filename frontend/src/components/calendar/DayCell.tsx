@@ -52,7 +52,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, get
         }}
       >
         <div style={{
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.12em',
@@ -64,7 +64,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, get
           {dayName}
         </div>
         <div style={{
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '22px',
           fontWeight: 700,
           color: isToday ? 'var(--accent)' : 'var(--text-primary)',
@@ -111,7 +111,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, get
           background: 'transparent',
           cursor: 'pointer',
           fontSize: '11px',
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontWeight: 700,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',

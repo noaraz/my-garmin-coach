@@ -112,7 +112,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
     padding: '6px 10px',
     marginTop: '4px',
     fontSize: '13px',
-    fontFamily: "'Barlow', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
     background: 'var(--input-bg)',
     border: '1px solid var(--input-border)',
     borderRadius: '4px',
@@ -126,7 +126,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
     cursor: 'pointer',
     borderRadius: '4px',
     fontSize: '10px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontWeight: 700,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
@@ -136,7 +136,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
   })
 
   const labelStyle: React.CSSProperties = {
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontSize: '10px',
     fontWeight: 700,
     letterSpacing: '0.12em',
@@ -149,7 +149,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
       {/* Page header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '26px',
           fontWeight: 700,
           letterSpacing: '0.02em',
@@ -158,7 +158,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
           lineHeight: 1.1,
         }}>Workout Builder</h1>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '9px',
           color: 'var(--text-muted)',
           marginTop: '4px',
@@ -204,7 +204,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
                 width: '100%',
                 resize: 'vertical',
                 marginTop: '4px',
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '11px',
               }}
             />
@@ -233,7 +233,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
             </button>
           </div>
           <div role="status" style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '10px',
             color: saveStatus === 'error' ? 'var(--color-zone-5)' : saveStatus === 'success' ? 'var(--color-zone-2)' : 'var(--text-muted)',
             minHeight: '14px',
@@ -291,7 +291,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
         }}>
           <div style={{ ...labelStyle, marginBottom: '8px' }}>Workout Details</div>
           <pre style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '11px',
             color: 'var(--text-secondary)',
             margin: 0,
