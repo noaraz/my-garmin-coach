@@ -16,6 +16,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7",
     "cryptography>=41.0",
     "alembic>=1.13",
+    "google-auth>=2.0",
 ]
 
 [project.optional-dependencies]

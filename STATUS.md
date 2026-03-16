@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reliability)
+Last updated: 2026-03-17 (admin bootstrap, invite system, Google OAuth — PR #19 ready to merge)
 
 ## Current Focus: Render First Deploy
 
@@ -27,7 +27,7 @@ Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reli
 | Security review + fixes (ownership checks, exception leakage) | ✅ |
 | HTTP security headers (nginx CSP/HSTS/X-Frame + FastAPI middleware) | ✅ |
 | Fix: SPA routing in production (FastAPI catch-all + NODE_ENV=development in Dockerfile.prod) | ✅ |
-| **Bootstrap endpoint**: POST /api/v1/auth/bootstrap — creates first user + 5 invite codes, locked after first user exists (Render free plan has no Shell access) — see `features/auth/CLAUDE.md` | ⬜ |
+| **Bootstrap endpoint**: POST /api/v1/auth/bootstrap — creates first user + 5 invite codes, locked after first user exists (Render free plan has no Shell access) — see `features/auth/CLAUDE.md` | ✅ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |
 | Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ✅ |
@@ -146,6 +146,15 @@ Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reli
 | Frontend: AuthContext + login/register pages + protected routes | ✅ |
 | Frontend: Settings page + Garmin Connect UI | ✅ |
 | Password manager support (name/autocomplete/action + Credential Management API) | ✅ |
+| **Google OAuth migration**: remove email/password login/register, add POST /auth/google | ✅ |
+| **Google OAuth**: User model — add google_oauth_sub (unique), make password_hash nullable | ✅ |
+| **Google OAuth**: Bootstrap updated — accepts google_access_token instead of email/password | ✅ |
+| **Google OAuth**: Frontend — GoogleLogin button on LoginPage, RegisterPage, SetupPage | ✅ |
+| **Google OAuth**: AuthContext — googleLogin(idToken, inviteCode?) replaces login/register | ✅ |
+| **Google OAuth security**: reject unverified emails (email_verified check); sub-only user lookup (no email takeover) | ✅ |
+| **Admin bootstrap + invite UI**: SetupPage, /setup route, SettingsPage admin section, invite link generation | ✅ |
+| **Reset-admins endpoint**: POST /auth/reset-admins (setup token protected, factory reset) | ✅ |
+| **Code review fixes**: dead schemas removed, tokenUrl fixed, datetime.utcnow → timezone.utc, isTokenExpired missing exp | ✅ |
 | Deploy to Render | ⬜ |
 
 ---

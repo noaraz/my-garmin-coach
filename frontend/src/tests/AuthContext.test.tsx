@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AuthProvider, useAuth } from '../contexts/AuthContext'
 
-const { mockLoginUser } = vi.hoisted(() => ({
-  mockLoginUser: vi.fn().mockResolvedValue({
+const { mockGoogleAuth } = vi.hoisted(() => ({
+  mockGoogleAuth: vi.fn().mockResolvedValue({
     access_token: 'header.eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6OTk5OTk5OTk5OX0.sig',
     refresh_token: 'refresh-token-value',
     token_type: 'bearer',
@@ -12,7 +12,7 @@ const { mockLoginUser } = vi.hoisted(() => ({
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
-  return { ...actual, loginUser: mockLoginUser }
+  return { ...actual, googleAuth: mockGoogleAuth }
 })
 
 // A valid JWT payload: { userId: 1, email: "test@example.com", exp: 9999999999 }
@@ -34,8 +34,8 @@ function AuthConsumer() {
 
 beforeEach(() => {
   localStorage.clear()
-  mockLoginUser.mockReset()
-  mockLoginUser.mockResolvedValue({
+  mockGoogleAuth.mockReset()
+  mockGoogleAuth.mockResolvedValue({
     access_token: VALID_TOKEN,
     refresh_token: 'refresh-token-value',
     token_type: 'bearer',
@@ -52,12 +52,12 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('child')).toBeInTheDocument()
   })
 
-  it('login_stores_tokens_and_sets_user', async () => {
+  it('googleLogin_stores_tokens_and_sets_user', async () => {
     function LoginTrigger() {
-      const { login, user } = useAuth()
+      const { googleLogin, user } = useAuth()
       return (
         <div>
-          <button onClick={() => login('test@example.com', 'pass')}>login</button>
+          <button onClick={() => googleLogin('fake-id-token')}>login</button>
           {user && <span data-testid="email">{user.email}</span>}
         </div>
       )

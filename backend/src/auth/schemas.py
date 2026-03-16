@@ -1,24 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from typing import Optional
 
-
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    invite_code: str
-
-    @field_validator("password")
-    @classmethod
-    def password_min_length(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
+from pydantic import BaseModel
 
 
 class TokenResponse(BaseModel):
@@ -40,15 +24,37 @@ class UserResponse(BaseModel):
     id: int
     email: str
     is_active: bool
-
-
-class RegisterResponse(BaseModel):
-    id: int
-    email: str
+    is_admin: bool
 
 
 class InviteResponse(BaseModel):
     code: str
+
+
+class GoogleAuthRequest(BaseModel):
+    access_token: str
+    invite_code: Optional[str] = None
+
+
+# GoogleAuthResponse reuses TokenResponse (access_token + refresh_token + token_type).
+GoogleAuthResponse = TokenResponse
+
+
+class BootstrapRequest(BaseModel):
+    setup_token: str
+    google_access_token: str
+
+
+class BootstrapResponse(BaseModel):
+    invite_codes: list[str]
+
+
+class ResetAdminsRequest(BaseModel):
+    setup_token: str
+
+
+class ResetAdminsResponse(BaseModel):
+    deleted: int
 
 
 class GarminConnectRequest(BaseModel):

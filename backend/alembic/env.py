@@ -64,6 +64,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=False,  # SQLite type comparison unreliable; avoid false positives
+            render_as_batch=True,  # Required for SQLite ALTER COLUMN support
         )
 
         with context.begin_transaction():
