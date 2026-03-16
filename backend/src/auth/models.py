@@ -7,13 +7,14 @@ from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):
-    """Application user with bcrypt-hashed password."""
+    """Application user — supports password auth and/or Google OAuth."""
 
     __tablename__ = "user"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
-    password_hash: str
+    password_hash: Optional[str] = None
+    google_oauth_sub: Optional[str] = Field(default=None, unique=True)
     is_active: bool = Field(default=True)
     is_admin: bool = Field(default=False)
     failed_login_attempts: int = Field(default=0)

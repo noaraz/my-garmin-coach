@@ -3,9 +3,8 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import HTTPException
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
 from sqlmodel import or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -22,6 +21,20 @@ from src.auth.schemas import (
 )
 from src.core.config import get_settings
 
+_GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+
+async def _google_userinfo(access_token: str) -> dict:
+    """Fetch user info from Google using an OAuth2 access token."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            _GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid Google access token")
+    return resp.json()
+
 
 async def bootstrap(
     request: BootstrapRequest,
@@ -32,8 +45,7 @@ async def bootstrap(
     Raises:
         HTTPException 403 if setup_token is wrong.
         HTTPException 409 if any user already exists.
-        HTTPException 503 if Google OAuth is not configured.
-        HTTPException 401 if the Google ID token is invalid.
+        HTTPException 401 if the Google access token is invalid.
     """
     settings = get_settings()
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
@@ -43,21 +55,10 @@ async def bootstrap(
     if existing is not None:
         raise HTTPException(status_code=409, detail="Admin already exists")
 
-    if not settings.google_client_id:
-        raise HTTPException(status_code=503, detail="Google OAuth not configured")
-
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            request.google_id_token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
-
+    userinfo = await _google_userinfo(request.google_access_token)
     admin = User(
-        email=idinfo["email"],
-        google_oauth_sub=idinfo["sub"],
+        email=userinfo["email"],
+        google_oauth_sub=userinfo["sub"],
         is_admin=True,
     )
     session.add(admin)
@@ -79,25 +80,12 @@ async def google_auth(
     """Authenticate or register a user via Google OAuth.
 
     Raises:
-        HTTPException 503 if Google OAuth is not configured.
-        HTTPException 401 if the Google ID token is invalid.
+        HTTPException 401 if the Google access token is invalid.
         HTTPException 403 if user is unknown and no valid invite code provided.
     """
-    settings = get_settings()
-    if not settings.google_client_id:
-        raise HTTPException(status_code=503, detail="Google OAuth not configured")
-
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            request.id_token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
-
-    google_sub: str = idinfo["sub"]
-    email: str = idinfo["email"]
+    userinfo = await _google_userinfo(request.access_token)
+    google_sub: str = userinfo["sub"]
+    email: str = userinfo["email"]
 
     # Find existing user by google_oauth_sub or email
     user = (

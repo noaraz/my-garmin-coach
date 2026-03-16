@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, field_validator
 
 
@@ -52,17 +54,18 @@ class InviteResponse(BaseModel):
     code: str
 
 
+class GoogleAuthRequest(BaseModel):
+    access_token: str
+    invite_code: Optional[str] = None
+
+
+# GoogleAuthResponse reuses TokenResponse (access_token + refresh_token + token_type).
+GoogleAuthResponse = TokenResponse
+
+
 class BootstrapRequest(BaseModel):
     setup_token: str
-    email: str
-    password: str
-
-    @field_validator("password")
-    @classmethod
-    def password_min_length(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+    google_access_token: str
 
 
 class BootstrapResponse(BaseModel):

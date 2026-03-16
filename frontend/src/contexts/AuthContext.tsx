@@ -11,7 +11,7 @@ interface AuthContextValue {
   user: User | null
   accessToken: string | null
   isAdmin: boolean
-  googleLogin: (idToken: string, inviteCode?: string) => Promise<void>
+  googleLogin: (accessToken: string, inviteCode?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
 }
@@ -87,8 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const googleLogin = async (idToken: string, inviteCode?: string): Promise<void> => {
-    const data = await googleAuth(idToken, inviteCode)
+  const googleLogin = async (accessToken: string, inviteCode?: string): Promise<void> => {
+    const data = await googleAuth(accessToken, inviteCode)
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
     setAccessToken(data.access_token)

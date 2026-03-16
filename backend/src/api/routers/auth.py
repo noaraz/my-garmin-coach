@@ -11,11 +11,10 @@ from src.auth.schemas import (
     AccessTokenResponse,
     BootstrapRequest,
     BootstrapResponse,
+    GoogleAuthRequest,
+    GoogleAuthResponse,
     InviteResponse,
-    LoginRequest,
     RefreshRequest,
-    RegisterRequest,
-    RegisterResponse,
     ResetAdminsRequest,
     ResetAdminsResponse,
     TokenResponse,
@@ -25,23 +24,13 @@ from src.auth.schemas import (
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-async def register(
-    request: RegisterRequest,
+@router.post("/google", response_model=GoogleAuthResponse)
+async def google_auth(
+    request: GoogleAuthRequest,
     session: AsyncSession = Depends(get_session),
-) -> RegisterResponse:
-    """Register a new user using a valid invite code."""
-    user = await auth_service.register(request, session)
-    return RegisterResponse(id=user.id, email=user.email)
-
-
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    request: LoginRequest,
-    session: AsyncSession = Depends(get_session),
-) -> TokenResponse:
-    """Authenticate with email + password and receive JWT tokens."""
-    return await auth_service.login(request, session)
+) -> GoogleAuthResponse:
+    """Authenticate or register via Google OAuth and receive JWT tokens."""
+    return await auth_service.google_auth(request, session)
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)

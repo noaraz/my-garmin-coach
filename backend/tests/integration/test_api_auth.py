@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -13,8 +14,37 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session
+from src.auth.jwt import create_access_token, create_refresh_token
 from src.auth.models import InviteCode, User
-from src.core.config import get_settings
+from src.core.config import Settings, get_settings
+
+# ---------------------------------------------------------------------------
+# Test settings with Google OAuth configured
+# ---------------------------------------------------------------------------
+
+_test_settings = Settings(
+    database_url="sqlite+aiosqlite:///:memory:",
+    google_client_id="test-google-client-id.apps.googleusercontent.com",
+    bootstrap_secret="dev-bootstrap-secret-change-in-prod",
+)
+
+FAKE_GOOGLE_USER_A = {
+    "sub": "google-uid-aaa",
+    "email": "usera@example.com",
+    "email_verified": True,
+}
+
+FAKE_GOOGLE_USER_B = {
+    "sub": "google-uid-bbb",
+    "email": "userb@example.com",
+    "email_verified": True,
+}
+
+FAKE_GOOGLE_ADMIN = {
+    "sub": "google-uid-admin",
+    "email": "admin@example.com",
+    "email_verified": True,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -41,28 +71,29 @@ async def auth_session_fixture() -> AsyncGenerator[AsyncSession, None]:
 async def auth_client_fixture(
     auth_session: AsyncSession,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Plain unauthenticated client wired to auth_session."""
+    """Unauthenticated client wired to auth_session with Google OAuth enabled."""
     app = create_app()
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:
         yield auth_session
 
     app.dependency_overrides[get_session] = override_session
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        yield ac
+
+    with patch("src.auth.service.get_settings", return_value=_test_settings), \
+         patch("src.core.config.get_settings", return_value=_test_settings):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            yield ac
     app.dependency_overrides.clear()
 
 
 @pytest.fixture(name="invite_code")
 async def invite_code_fixture(auth_session: AsyncSession) -> str:
     """Create a first user (admin) and an unused invite code, return the code string."""
-    from src.auth.passwords import hash_password
-
     admin = User(
         email="admin@example.com",
-        password_hash=hash_password("adminpassword"),
+        google_oauth_sub="google-uid-admin",
         is_admin=True,
     )
     auth_session.add(admin)
@@ -76,132 +107,36 @@ async def invite_code_fixture(auth_session: AsyncSession) -> str:
     return "VALID-INVITE-001"
 
 
-async def _register_user(
+async def _google_auth(
     client: AsyncClient,
-    email: str,
-    password: str,
-    invite_code: str,
-) -> dict:
-    """Helper: register a user and return the response body."""
-    resp = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": password, "invite_code": invite_code},
-    )
-    return resp
+    google_idinfo: dict,
+    invite_code: str | None = None,
+) -> object:
+    """Helper: authenticate via Google OAuth (mocking the token verification)."""
+    payload = {"id_token": "fake.google.token"}
+    if invite_code:
+        payload["invite_code"] = invite_code
 
-
-async def _login_user(
-    client: AsyncClient,
-    email: str,
-    password: str,
-) -> dict:
-    """Helper: login and return the response."""
-    resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": email, "password": password},
-    )
+    with patch(
+        "src.auth.service.id_token.verify_oauth2_token",
+        return_value=google_idinfo,
+    ):
+        resp = await client.post("/api/v1/auth/google", json=payload)
     return resp
 
 
 # ---------------------------------------------------------------------------
-# Registration tests
+# Protected route tests (using Google OAuth to obtain tokens)
 # ---------------------------------------------------------------------------
 
 
-async def test_register_new_user(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange / Act
-    resp = await _register_user(auth_client, "user@example.com", "password123", invite_code)
-
-    # Assert
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["email"] == "user@example.com"
-    assert "id" in body
-
-
-async def test_register_duplicate_email(
+async def test_protected_with_token(
     auth_client: AsyncClient, invite_code: str
 ) -> None:
-    # Arrange — first registration
-    await _register_user(auth_client, "dup@example.com", "password123", invite_code)
-
-    # Create a second invite code
-
-    # Act — attempt duplicate
-    resp = await auth_client.post(
-        "/api/v1/auth/register",
-        json={"email": "dup@example.com", "password": "password123", "invite_code": invite_code},
-    )
-
-    # Assert
-    assert resp.status_code == 409
-
-
-async def test_register_invalid_invite(auth_client: AsyncClient) -> None:
-    # Act
-    resp = await _register_user(auth_client, "user@example.com", "password123", "BAD-CODE")
-
-    # Assert
-    assert resp.status_code == 403
-
-
-async def test_register_weak_password(auth_client: AsyncClient, invite_code: str) -> None:
-    # Act
-    resp = await _register_user(auth_client, "user@example.com", "short", invite_code)
-
-    # Assert
-    assert resp.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# Login tests
-# ---------------------------------------------------------------------------
-
-
-async def test_login_success(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-
-    # Act
-    resp = await _login_user(auth_client, "user@example.com", "password123")
-
-    # Assert
+    # Arrange — register via Google OAuth with invite
+    resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
     assert resp.status_code == 200
-    body = resp.json()
-    assert "access_token" in body
-    assert "refresh_token" in body
-    assert body["token_type"] == "bearer"
-
-
-async def test_login_wrong_password(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-
-    # Act
-    resp = await _login_user(auth_client, "user@example.com", "wrongpassword")
-
-    # Assert
-    assert resp.status_code == 401
-
-
-async def test_login_nonexistent_user(auth_client: AsyncClient) -> None:
-    # Act
-    resp = await _login_user(auth_client, "nobody@example.com", "password123")
-
-    # Assert
-    assert resp.status_code == 401
-
-
-# ---------------------------------------------------------------------------
-# Protected route tests
-# ---------------------------------------------------------------------------
-
-
-async def test_protected_with_token(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-    login_resp = await _login_user(auth_client, "user@example.com", "password123")
-    token = login_resp.json()["access_token"]
+    token = resp.json()["access_token"]
 
     # Act
     resp = await auth_client.get(
@@ -212,7 +147,7 @@ async def test_protected_with_token(auth_client: AsyncClient, invite_code: str) 
     # Assert
     assert resp.status_code == 200
     body = resp.json()
-    assert body["email"] == "user@example.com"
+    assert body["email"] == "usera@example.com"
     assert "id" in body
     assert "is_active" in body
 
@@ -225,15 +160,14 @@ async def test_protected_no_token(auth_client: AsyncClient) -> None:
     assert resp.status_code == 401
 
 
-async def test_protected_expired(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange — create a user so we have a valid user_id
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
+async def test_protected_expired(auth_client: AsyncClient) -> None:
+    # Arrange — build an expired token manually
     settings = get_settings()
-
-    # Build an expired token manually
     expire = datetime.now(timezone.utc) - timedelta(minutes=1)
     payload = {"sub": "999", "type": "access", "exp": expire}
-    expired_token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    expired_token = jwt.encode(
+        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+    )
 
     # Act
     resp = await auth_client.get(
@@ -250,16 +184,17 @@ async def test_protected_expired(auth_client: AsyncClient, invite_code: str) -> 
 # ---------------------------------------------------------------------------
 
 
-async def test_refresh_token(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-    login_resp = await _login_user(auth_client, "user@example.com", "password123")
-    refresh_token = login_resp.json()["refresh_token"]
+async def test_refresh_token(
+    auth_client: AsyncClient, invite_code: str
+) -> None:
+    # Arrange — authenticate via Google
+    resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+    refresh_tok = resp.json()["refresh_token"]
 
     # Act
     resp = await auth_client.post(
         "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_token},
+        json={"refresh_token": refresh_tok},
     )
 
     # Assert
@@ -277,30 +212,33 @@ async def test_refresh_token(auth_client: AsyncClient, invite_code: str) -> None
 async def test_user_data_isolation(
     auth_session: AsyncSession, auth_client: AsyncClient, invite_code: str
 ) -> None:
-    """User A's invite creates only User A; User B registers separately with own invite."""
-
-    # Arrange — register User A with the existing invite
-    await _register_user(auth_client, "usera@example.com", "passwordAAA", invite_code)
+    """User A and User B see different /me responses."""
+    # Arrange — register User A with existing invite
+    resp_a = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+    assert resp_a.status_code == 200
+    token_a = resp_a.json()["access_token"]
 
     # Create a second invite from the admin
-    admin = (await auth_session.exec(select(User).where(User.email == "admin@example.com"))).first()
+    admin = (
+        await auth_session.exec(
+            select(User).where(User.email == "admin@example.com")
+        )
+    ).first()
     invite2 = InviteCode(code="INVITE-B-002", created_by=admin.id)
     auth_session.add(invite2)
     await auth_session.commit()
 
-    await _register_user(auth_client, "userb@example.com", "passwordBBB", "INVITE-B-002")
-
-    # Log in as User A
-    login_a = await _login_user(auth_client, "usera@example.com", "passwordAAA")
-    token_a = login_a.json()["access_token"]
-
-    # Log in as User B
-    login_b = await _login_user(auth_client, "userb@example.com", "passwordBBB")
-    token_b = login_b.json()["access_token"]
+    resp_b = await _google_auth(auth_client, FAKE_GOOGLE_USER_B, "INVITE-B-002")
+    assert resp_b.status_code == 200
+    token_b = resp_b.json()["access_token"]
 
     # Act — each user fetches /me
-    me_a = await auth_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token_a}"})
-    me_b = await auth_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token_b}"})
+    me_a = await auth_client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token_a}"}
+    )
+    me_b = await auth_client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token_b}"}
+    )
 
     # Assert — they see different users
     assert me_a.json()["email"] == "usera@example.com"
@@ -317,15 +255,14 @@ async def test_protected_with_wrong_token_type(
     auth_client: AsyncClient, invite_code: str
 ) -> None:
     """A refresh token (type=refresh) must be rejected by protected routes."""
-    # Arrange — register + login to get tokens
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-    login_resp = await _login_user(auth_client, "user@example.com", "password123")
-    refresh_token = login_resp.json()["refresh_token"]
+    # Arrange — authenticate to get tokens
+    resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+    refresh_tok = resp.json()["refresh_token"]
 
-    # Act — try to access protected route with refresh token instead of access token
+    # Act — try to access protected route with refresh token
     resp = await auth_client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {refresh_token}"},
+        headers={"Authorization": f"Bearer {refresh_tok}"},
     )
 
     # Assert
@@ -334,106 +271,65 @@ async def test_protected_with_wrong_token_type(
 
 async def test_protected_with_non_integer_sub(auth_client: AsyncClient) -> None:
     """A JWT with non-integer 'sub' claim must be rejected."""
-    # Arrange — craft a token with a non-integer sub
     settings = get_settings()
-    from datetime import datetime, timedelta, timezone
-    from jose import jwt
-
     expire = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {"sub": "not-an-int", "type": "access", "exp": expire}
-    bad_token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    bad_token = jwt.encode(
+        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+    )
 
-    # Act
     resp = await auth_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {bad_token}"},
     )
-
-    # Assert
     assert resp.status_code == 401
 
 
 async def test_protected_with_unknown_user_id(auth_client: AsyncClient) -> None:
     """A JWT for a non-existent user_id must be rejected."""
-    # Arrange — craft a token for user id 99999 (doesn't exist)
     settings = get_settings()
-    from datetime import datetime, timedelta, timezone
-    from jose import jwt
-
     expire = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {"sub": "99999", "type": "access", "exp": expire}
-    ghost_token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    ghost_token = jwt.encode(
+        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+    )
 
-    # Act
     resp = await auth_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {ghost_token}"},
     )
-
-    # Assert
     assert resp.status_code == 401
 
 
-async def test_protected_with_invalid_jwt_signature(auth_client: AsyncClient) -> None:
+async def test_protected_with_invalid_jwt_signature(
+    auth_client: AsyncClient,
+) -> None:
     """A token signed with the wrong secret must be rejected."""
-    # Arrange
-    from datetime import datetime, timedelta, timezone
-    from jose import jwt
-
     expire = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {"sub": "1", "type": "access", "exp": expire}
     bad_token = jwt.encode(payload, "wrong-secret", algorithm="HS256")
 
-    # Act
     resp = await auth_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {bad_token}"},
     )
-
-    # Assert
     assert resp.status_code == 401
 
 
 async def test_protected_with_missing_sub_claim(auth_client: AsyncClient) -> None:
     """A JWT with no 'sub' claim must be rejected."""
-    # Arrange — token without 'sub'
     settings = get_settings()
-    from datetime import datetime, timedelta, timezone
-    from jose import jwt
-
     expire = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {"type": "access", "exp": expire}
-    no_sub_token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    no_sub_token = jwt.encode(
+        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+    )
 
-    # Act
     resp = await auth_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {no_sub_token}"},
     )
-
-    # Assert
     assert resp.status_code == 401
-
-
-# ---------------------------------------------------------------------------
-# Account lockout test
-# ---------------------------------------------------------------------------
-
-
-async def test_account_lockout(auth_client: AsyncClient, invite_code: str) -> None:
-    # Arrange
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-
-    # Act — 5 wrong attempts
-    for _ in range(5):
-        resp = await _login_user(auth_client, "user@example.com", "wrongpassword")
-
-    # 6th attempt — should be locked even with correct password
-    resp = await _login_user(auth_client, "user@example.com", "password123")
-
-    # Assert
-    assert resp.status_code == 401
-    assert "locked" in resp.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -441,78 +337,58 @@ async def test_account_lockout(auth_client: AsyncClient, invite_code: str) -> No
 # ---------------------------------------------------------------------------
 
 
-async def test_bootstrap_creates_admin_and_invite_codes(
+async def test_bootstrap_rejects_missing_google_id_token(
     auth_client: AsyncClient,
 ) -> None:
-    # Act
-    settings = get_settings()
+    """Bootstrap with old email+password fields is rejected (422 -- wrong schema)."""
     resp = await auth_client.post(
         "/api/v1/auth/bootstrap",
         json={
-            "setup_token": settings.bootstrap_secret,
+            "setup_token": _test_settings.bootstrap_secret,
             "email": "admin@example.com",
             "password": "adminpassword",
         },
     )
+    assert resp.status_code == 422
 
-    # Assert
-    assert resp.status_code == 201
-    body = resp.json()
-    assert "invite_codes" in body
-    assert len(body["invite_codes"]) == 5
+
+async def test_bootstrap_returns_403_on_wrong_token(
+    auth_client: AsyncClient,
+) -> None:
+    resp = await auth_client.post(
+        "/api/v1/auth/bootstrap",
+        json={
+            "setup_token": "wrong-token",
+            "google_id_token": "some.google.jwt",
+        },
+    )
+    assert resp.status_code == 403
 
 
 async def test_bootstrap_returns_409_when_users_exist(
     auth_client: AsyncClient,
     invite_code: str,  # fixture creates a user
 ) -> None:
-    # Act — users already exist (from invite_code fixture)
-    settings = get_settings()
+    """Bootstrap returns 409 when a user already exists."""
     resp = await auth_client.post(
         "/api/v1/auth/bootstrap",
         json={
-            "setup_token": settings.bootstrap_secret,
-            "email": "second@example.com",
-            "password": "password123",
+            "setup_token": _test_settings.bootstrap_secret,
+            "google_id_token": "some.google.jwt",
         },
     )
-
-    # Assert
     assert resp.status_code == 409
-
-
-async def test_bootstrap_returns_403_on_wrong_token(
-    auth_client: AsyncClient,
-) -> None:
-    # Act
-    resp = await auth_client.post(
-        "/api/v1/auth/bootstrap",
-        json={
-            "setup_token": "wrong-token",
-            "email": "admin@example.com",
-            "password": "adminpassword",
-        },
-    )
-
-    # Assert
-    assert resp.status_code == 403
 
 
 async def test_me_includes_is_admin(
     auth_client: AsyncClient,
+    invite_code: str,
 ) -> None:
-    # Arrange — bootstrap creates an admin
-    settings = get_settings()
-    await auth_client.post(
-        "/api/v1/auth/bootstrap",
-        json={
-            "setup_token": settings.bootstrap_secret,
-            "email": "admin@example.com",
-            "password": "adminpassword",
-        },
-    )
-    login_resp = await _login_user(auth_client, "admin@example.com", "adminpassword")
-    token = login_resp.json()["access_token"]
+    """Admin user created via fixture has is_admin=True visible on /me."""
+    # The admin already exists from the invite_code fixture. Authenticate as admin.
+    resp = await _google_auth(auth_client, FAKE_GOOGLE_ADMIN)
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
 
     # Act
     resp = await auth_client.get(
@@ -530,10 +406,10 @@ async def test_invite_blocked_for_non_admin(
     auth_client: AsyncClient,
     invite_code: str,
 ) -> None:
-    # Arrange — register a normal (non-admin) user
-    await _register_user(auth_client, "user@example.com", "password123", invite_code)
-    login_resp = await _login_user(auth_client, "user@example.com", "password123")
-    token = login_resp.json()["access_token"]
+    # Arrange — register a normal (non-admin) user via Google OAuth
+    resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
 
     # Act — try to create an invite as non-admin
     resp = await auth_client.post(

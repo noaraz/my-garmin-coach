@@ -100,10 +100,10 @@ export const syncOne = (id: number) =>
 export const fetchSyncStatus = () =>
   request<SyncStatusItem[]>('/sync/status')
 
-export const googleAuth = (idToken: string, inviteCode?: string) =>
+export const googleAuth = (accessToken: string, inviteCode?: string) =>
   request<TokenResponse>('/auth/google', {
     method: 'POST',
-    body: JSON.stringify({ id_token: idToken, invite_code: inviteCode ?? null }),
+    body: JSON.stringify({ access_token: accessToken, invite_code: inviteCode ?? null }),
   })
 
 export const fetchMe = () =>
@@ -121,10 +121,10 @@ export const connectGarmin = (email: string, password: string) =>
 export const disconnectGarmin = () =>
   request<GarminStatusResponse>('/garmin/disconnect', { method: 'POST' })
 
-export const bootstrapAdmin = (setupToken: string, googleIdToken: string) =>
+export const bootstrapAdmin = (setupToken: string, googleAccessToken: string) =>
   request<BootstrapResponse>('/auth/bootstrap', {
     method: 'POST',
-    body: JSON.stringify({ setup_token: setupToken, google_id_token: googleIdToken }),
+    body: JSON.stringify({ setup_token: setupToken, google_access_token: googleAccessToken }),
   })
 
 export const createInvite = () =>
