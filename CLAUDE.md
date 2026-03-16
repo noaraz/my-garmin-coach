@@ -205,6 +205,32 @@ Project slash commands in `.claude/commands/`:
 - CSS `@theme` vars: `--font-family-display`, `--font-family-body`, `--font-family-mono`
 - **Zone method**: Friel only — `MethodSelector` component deleted. `zone_service.py` hardcodes `method="friel"`. Do not re-introduce method selection.
 
+## Docker + Dev Environment Gotchas (added 2026-03-17)
+
+### macOS bind-mount sync issue
+`./backend/tests:/app/tests` volume mounts don't always reflect local file changes immediately
+inside running containers on macOS. If tests still run old code after editing, force-sync with:
+
+```bash
+docker cp backend/tests/integration/test_api_auth.py garmincoach-backend-1:/app/tests/integration/test_api_auth.py
+```
+
+Replace the container name and path as needed. This is only a workaround — the underlying cause
+is macOS fsevents latency on bind mounts.
+
+### Local prod testing with .env.prod
+`.env.prod` exists at repo root (gitignored) with production secrets. Use it to test the
+prod docker-compose locally:
+
+```bash
+/Applications/Docker.app/Contents/Resources/bin/docker compose \
+  --env-file .env.prod \
+  -f docker-compose.prod.yml \
+  up --build
+```
+
+---
+
 ## Frontend Patterns (added 2026-03-08)
 
 - **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
@@ -288,6 +314,60 @@ const hasDistance = distanceM   != null && distanceM   > 0
 ```
 
 **Why steps fallback is necessary**: workout templates created by the builder typically have `estimated_duration_sec: null` in the DB (the builder doesn't compute/save it). The steps JSON always exists and contains the ground truth.
+
+## Alembic + SQLite Gotchas (added 2026-03-17)
+
+### Always set `render_as_batch=True`
+
+SQLite does not support `ALTER COLUMN` natively. Without `render_as_batch=True` in `alembic/env.py`,
+operations like making a column nullable are **silently ignored** — alembic reports success but the
+schema doesn't change. Always include this in `run_migrations_online()`:
+
+```python
+context.configure(
+    connection=connection,
+    target_metadata=target_metadata,
+    render_as_batch=True,  # Required for SQLite ALTER COLUMN support
+)
+```
+
+### Always copy alembic into the Docker image
+
+`alembic/` and `alembic.ini` must be in the Dockerfile `COPY` list — they are not source code
+and easy to forget. Without them, `alembic upgrade head` can't run in the container.
+
+```dockerfile
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
+```
+
+### Run `alembic upgrade head` on container startup
+
+`SQLModel.metadata.create_all` only creates **new** tables — it never alters existing ones.
+If a migration adds a column or changes a constraint, `create_all` silently skips it.
+Always run migrations before starting uvicorn:
+
+```dockerfile
+CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000"]
+```
+
+Same for the `docker-compose.yml` `command:` override (it supersedes the Dockerfile CMD):
+
+```yaml
+command: sh -c "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload"
+```
+
+### When a migration was stamped but not applied
+
+If alembic says `(head)` but the schema is wrong, the migration ran without batch mode and was a
+no-op. Fix: stamp back to the previous revision, then upgrade:
+
+```bash
+alembic stamp <previous-revision-id>
+alembic upgrade head
+```
+
+---
 
 ## Vitest Testing Gotchas (added 2026-03-09)
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -10,8 +10,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-const mockLogin = vi.fn()
-const mockRegister = vi.fn()
+const mockGoogleLogin = vi.fn()
 
 vi.mock('../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../contexts/AuthContext')>()
@@ -21,34 +20,71 @@ vi.mock('../contexts/AuthContext', async (importOriginal) => {
       user: null,
       accessToken: null,
       isLoading: false,
-      login: mockLogin,
-      register: mockRegister,
+      isAdmin: false,
+      googleLogin: mockGoogleLogin,
       logout: vi.fn(),
     }),
   }
 })
 
+vi.mock('@react-oauth/google', () => ({
+  useGoogleOAuth: () => ({
+    clientId: 'test-client-id',
+    scriptLoadedSuccessfully: true,
+  }),
+  GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 import { LoginPage } from '../pages/LoginPage'
+
+// Capture the GIS token client callback so tests can invoke it
+type TokenCallback = (response: { access_token?: string; error?: string }) => void
+let capturedTokenCallback: TokenCallback | null = null
+let mockRequestAccessToken: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   mockNavigate.mockReset()
-  mockLogin.mockReset()
+  mockGoogleLogin.mockReset()
+  capturedTokenCallback = null
+  mockRequestAccessToken = vi.fn()
+
+  // Mock the Google Identity Services initTokenClient global
+  ;(window as unknown as Record<string, unknown>).google = {
+    accounts: {
+      oauth2: {
+        initTokenClient: vi.fn((config: { callback: TokenCallback }) => {
+          capturedTokenCallback = config.callback
+          return { requestAccessToken: mockRequestAccessToken }
+        }),
+      },
+    },
+  }
 })
 
 describe('LoginPage', () => {
-  it('renders_login_form', () => {
+  it('renders_sign_in_heading_and_google_button', () => {
     render(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>
     )
-    expect(screen.getByRole('textbox', { name: /email/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
   })
 
-  it('submits_credentials', async () => {
-    mockLogin.mockResolvedValue(undefined)
+  it('does_not_render_email_or_password_fields', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('textbox', { name: /email/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /password/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /google id token/i })).not.toBeInTheDocument()
+  })
+
+  it('calls_googleLogin_and_navigates_on_google_success', async () => {
+    mockGoogleLogin.mockResolvedValue(undefined)
 
     render(
       <MemoryRouter>
@@ -57,15 +93,23 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret123')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    await user.click(screen.getByRole('button', { name: /sign in with google/i }))
 
-    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'secret123')
+    expect(mockRequestAccessToken).toHaveBeenCalled()
+
+    // Simulate the GIS callback with a fake access token
+    await act(async () => {
+      capturedTokenCallback?.({ access_token: 'fake-access-token' })
+    })
+
+    expect(mockGoogleLogin).toHaveBeenCalledWith('fake-access-token')
+    await vi.waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/calendar')
+    })
   })
 
-  it('shows_error_on_failure', async () => {
-    mockLogin.mockRejectedValue(new Error('Invalid credentials'))
+  it('shows_error_when_googleLogin_rejects', async () => {
+    mockGoogleLogin.mockRejectedValue(new Error('Invalid credentials'))
 
     render(
       <MemoryRouter>
@@ -74,16 +118,17 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'bad@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    await user.click(screen.getByRole('button', { name: /sign in with google/i }))
+
+    await act(async () => {
+      capturedTokenCallback?.({ access_token: 'fake-access-token' })
+    })
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials')
   })
 
-  it('navigates_to_calendar_on_success', async () => {
-    mockLogin.mockResolvedValue(undefined)
-
+  it('shows_error_when_google_onError_fires', async () => {
     render(
       <MemoryRouter>
         <LoginPage />
@@ -91,10 +136,13 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret123')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    await user.click(screen.getByRole('button', { name: /sign in with google/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/calendar')
+    // Simulate GIS callback returning an error
+    await act(async () => {
+      capturedTokenCallback?.({ error: 'access_denied' })
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in failed')
   })
 })

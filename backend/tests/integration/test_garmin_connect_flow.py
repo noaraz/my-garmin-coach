@@ -12,8 +12,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session
-from src.auth.models import InviteCode, User
-from src.auth.passwords import hash_password
+from src.auth.jwt import create_access_token
+from src.auth.models import User
 from src.db.models import AthleteProfile
 from src.garmin.encryption import decrypt_token, encrypt_token
 
@@ -59,33 +59,16 @@ async def garmin_client_fixture(
 async def garmin_user_token_fixture(
     garmin_session: AsyncSession, garmin_client: AsyncClient
 ) -> str:
-    """Create a user + invite, register, login, return access_token."""
-    # Create admin + invite
-    admin = User(email="admin@garmin.test", password_hash=hash_password("adminpass"))
-    garmin_session.add(admin)
-    await garmin_session.commit()
-    await garmin_session.refresh(admin)
-
-    invite = InviteCode(code="GARMIN-INVITE-001", created_by=admin.id)
-    garmin_session.add(invite)
-    await garmin_session.commit()
-
-    # Register user
-    await garmin_client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "garminuser@example.com",
-            "password": "password123",
-            "invite_code": "GARMIN-INVITE-001",
-        },
+    """Create a user directly in the DB and return an access token."""
+    user = User(
+        email="garminuser@example.com",
+        google_oauth_sub="google-uid-garmin-test",
     )
+    garmin_session.add(user)
+    await garmin_session.commit()
+    await garmin_session.refresh(user)
 
-    # Login
-    login_resp = await garmin_client.post(
-        "/api/v1/auth/login",
-        json={"email": "garminuser@example.com", "password": "password123"},
-    )
-    return login_resp.json()["access_token"]
+    return create_access_token(user.id, user.email, user.is_admin)
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,8 @@ import type {
   ScheduledWorkout, ScheduleCreate,
   SyncAllResponse, SyncStatusItem,
   GarminStatusResponse,
+  BootstrapResponse,
+  TokenResponse,
 } from './types'
 
 const BASE = '/api/v1'
@@ -36,8 +38,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let message: string
     try {
-      const body = await res.json() as { detail?: string }
-      message = body.detail ?? JSON.stringify(body)
+      const body = await res.json() as { detail?: string | Array<{ msg: string }> }
+      if (Array.isArray(body.detail)) {
+        message = body.detail.map(e => e.msg).join(', ')
+      } else {
+        message = body.detail ?? JSON.stringify(body)
+      }
     } catch {
       message = await res.text()
     }
@@ -94,20 +100,14 @@ export const syncOne = (id: number) =>
 export const fetchSyncStatus = () =>
   request<SyncStatusItem[]>('/sync/status')
 
-export const loginUser = (email: string, password: string) =>
-  request<{ access_token: string; refresh_token: string; token_type: string }>(
-    '/auth/login',
-    { method: 'POST', body: JSON.stringify({ email, password }) }
-  )
-
-export const registerUser = (email: string, password: string, invite_code: string) =>
-  request<{ id: number; email: string }>(
-    '/auth/register',
-    { method: 'POST', body: JSON.stringify({ email, password, invite_code }) }
-  )
+export const googleAuth = (accessToken: string, inviteCode?: string) =>
+  request<TokenResponse>('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ access_token: accessToken, invite_code: inviteCode ?? null }),
+  })
 
 export const fetchMe = () =>
-  request<{ id: number; email: string; is_active: boolean }>('/auth/me')
+  request<{ id: number; email: string; is_active: boolean; is_admin: boolean }>('/auth/me')
 
 export const getGarminStatus = () =>
   request<GarminStatusResponse>('/garmin/status')
@@ -120,3 +120,18 @@ export const connectGarmin = (email: string, password: string) =>
 
 export const disconnectGarmin = () =>
   request<GarminStatusResponse>('/garmin/disconnect', { method: 'POST' })
+
+export const bootstrapAdmin = (setupToken: string, googleAccessToken: string) =>
+  request<BootstrapResponse>('/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({ setup_token: setupToken, google_access_token: googleAccessToken }),
+  })
+
+export const createInvite = () =>
+  request<{ code: string }>('/auth/invite', { method: 'POST' })
+
+export const resetAdmins = (setupToken: string) =>
+  request<{ deleted: number }>('/auth/reset-admins', {
+    method: 'POST',
+    body: JSON.stringify({ setup_token: setupToken }),
+  })

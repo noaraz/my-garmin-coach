@@ -9,12 +9,15 @@ services:
       - ENVIRONMENT=development
       - BOOTSTRAP_SECRET=local-dev-bootstrap-secret
       - APP_URL=http://localhost:5173
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - ./backend/src:/app/src
       - ./backend/tests:/app/tests
       - ./backend/scripts:/app/scripts
+      - ./backend/alembic:/app/alembic
+      - ./backend/alembic.ini:/app/alembic.ini
       - backend_data:/data
-    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:

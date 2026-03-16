@@ -1,16 +1,17 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { loginUser as apiLoginUser, registerUser as apiRegisterUser } from '../api/client'
+import { googleAuth } from '../api/client'
 
 interface User {
   id: number
   email: string
+  isAdmin: boolean
 }
 
 interface AuthContextValue {
   user: User | null
   accessToken: string | null
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, inviteCode: string) => Promise<void>
+  isAdmin: boolean
+  googleLogin: (accessToken: string, inviteCode?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
 }
@@ -20,6 +21,7 @@ interface JwtPayload {
   sub?: string
   email?: string
   exp?: number
+  is_admin?: boolean
 }
 
 function decodeJwtPayload(token: string): JwtPayload | null {
@@ -37,7 +39,7 @@ function decodeJwtPayload(token: string): JwtPayload | null {
 }
 
 function isTokenExpired(payload: JwtPayload): boolean {
-  if (!payload.exp) return false
+  if (!payload.exp) return true
   return Date.now() / 1000 > payload.exp
 }
 
@@ -45,14 +47,14 @@ function userFromPayload(payload: JwtPayload): User | null {
   const id = payload.userId ?? (payload.sub ? parseInt(payload.sub, 10) : undefined)
   const email = payload.email
   if (!id || !email) return null
-  return { id, email }
+  return { id, email, isAdmin: payload.is_admin ?? false }
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   accessToken: null,
-  login: async () => {},
-  register: async () => {},
+  isAdmin: false,
+  googleLogin: async () => {},
   logout: () => {},
   isLoading: true,
 })
@@ -61,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  const isAdmin = user?.isAdmin ?? false
 
   useEffect(() => {
     const stored = localStorage.getItem('access_token')
@@ -83,20 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<void> => {
-    const data = await apiLoginUser(email, password)
+  const googleLogin = async (accessToken: string, inviteCode?: string): Promise<void> => {
+    const data = await googleAuth(accessToken, inviteCode)
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
     setAccessToken(data.access_token)
     const payload = decodeJwtPayload(data.access_token)
     if (payload) {
-      const parsedUser = userFromPayload(payload)
-      setUser(parsedUser)
+      setUser(userFromPayload(payload))
     }
-  }
-
-  const register = async (email: string, password: string, inviteCode: string): Promise<void> => {
-    await apiRegisterUser(email, password, inviteCode)
   }
 
   const logout = () => {
@@ -107,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, accessToken, isAdmin, googleLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
