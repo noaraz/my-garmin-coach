@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { getGarminStatus, connectGarmin, disconnectGarmin } from '../api/client'
+import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite } from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 
 type ConnectionState = 'loading' | 'connected' | 'disconnected'
 
@@ -20,6 +21,13 @@ export function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  const { isAdmin } = useAuth()
+
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     getGarminStatus()
@@ -44,6 +52,28 @@ export function SettingsPage() {
       setError(err instanceof Error ? err.message : 'Connection failed')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleGenerateInvite = async () => {
+    setInviteError(null)
+    setInviteLink(null)
+    setIsGenerating(true)
+    try {
+      const res = await createInvite()
+      setInviteLink(`${window.location.origin}/register?invite=${res.code}`)
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to generate invite')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (inviteLink) {
+      void navigator.clipboard.writeText(inviteLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -306,6 +336,108 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Admin section — only visible to admin users */}
+      {isAdmin && (
+        <div style={{ marginTop: '32px' }}>
+          <div style={sectionLabel}>Admin</div>
+
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            padding: '20px 22px',
+          }}>
+            <p style={{
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              fontFamily: "'Barlow', system-ui, sans-serif",
+              margin: '0 0 16px',
+              lineHeight: 1.5,
+            }}>
+              Generate a one-time invite link to share with a friend. Each link can only be used once.
+            </p>
+
+            {inviteError && (
+              <div style={{
+                marginBottom: '14px',
+                padding: '9px 11px',
+                background: 'var(--color-error-bg)',
+                border: '1px solid var(--color-error-border)',
+                borderRadius: '5px',
+                fontSize: '12px',
+                color: 'var(--color-error)',
+                fontFamily: "'Barlow', system-ui, sans-serif",
+              }}>
+                {inviteError}
+              </div>
+            )}
+
+            <button
+              onClick={handleGenerateInvite}
+              disabled={isGenerating}
+              style={{
+                padding: '9px 20px',
+                background: isGenerating ? 'var(--border-strong)' : 'var(--accent)',
+                color: 'var(--text-on-accent)',
+                border: 'none',
+                borderRadius: '5px',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase' as const,
+                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s',
+              }}
+            >
+              {isGenerating ? 'Generating…' : 'Generate Invite Link'}
+            </button>
+
+            {inviteLink && (
+              <div style={{ marginTop: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  readOnly
+                  value={inviteLink}
+                  style={{
+                    flex: 1,
+                    padding: '9px 11px',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '5px',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    outline: 'none',
+                    boxSizing: 'border-box' as const,
+                  }}
+                />
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    padding: '9px 14px',
+                    background: copied ? 'var(--color-success)' : 'var(--bg-surface-3)',
+                    color: copied ? 'var(--text-on-accent)' : 'var(--text-primary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase' as const,
+                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    cursor: 'pointer',
+                    transition: 'background 0.15s, color 0.15s',
+                    whiteSpace: 'nowrap' as const,
+                    flexShrink: 0,
+                  }}
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
