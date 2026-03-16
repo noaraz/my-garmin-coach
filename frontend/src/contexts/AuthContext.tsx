@@ -39,7 +39,7 @@ function decodeJwtPayload(token: string): JwtPayload | null {
 }
 
 function isTokenExpired(payload: JwtPayload): boolean {
-  if (!payload.exp) return false
+  if (!payload.exp) return true
   return Date.now() / 1000 > payload.exp
 }
 

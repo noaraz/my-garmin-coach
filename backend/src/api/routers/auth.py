@@ -67,7 +67,12 @@ async def reset_admins(
     request: ResetAdminsRequest,
     session: AsyncSession = Depends(get_session),
 ) -> ResetAdminsResponse:
-    """Remove all admin users and their invite codes (requires setup token)."""
+    """Remove all admin users and their invite codes (requires setup token).
+
+    WARNING: This endpoint wipes all users and invite codes. It is protected only by
+    BOOTSTRAP_SECRET. Add rate limiting (slowapi) or an IP allowlist before any public
+    deployment. See CLAUDE.md "Nice to Have" — Rate Limiting on Auth Routes.
+    """
     return await auth_service.reset_admins(request, session)
 
 
