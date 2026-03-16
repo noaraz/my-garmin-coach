@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -62,10 +63,20 @@ def create_app() -> FastAPI:
     application.include_router(calendar_router)
     application.include_router(sync_router)
 
-    # Mount React static build last — must come after all API routers
+    # Serve React SPA in production — must come after all API routers
     static_dir = Path(__file__).parent.parent.parent / "static"
     if static_dir.exists():
-        application.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+        # Serve hashed JS/CSS assets
+        application.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
+
+        # Catch-all: serve exact static files (favicon, etc.) or fall back to index.html
+        # for SPA routing (/login, /calendar, etc.)
+        @application.get("/{full_path:path}")
+        async def serve_spa(full_path: str) -> FileResponse:
+            file = static_dir / full_path
+            if file.is_file():
+                return FileResponse(file)
+            return FileResponse(static_dir / "index.html")
 
     return application
 

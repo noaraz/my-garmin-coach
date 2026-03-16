@@ -68,13 +68,40 @@ The local Docker-volume DB (`backend_data:/data/garmincoach.db`) was stamped at 
 
 ---
 
+## Render Deployment Notes
+
+- **Render Shell**: Not available on the free plan. Use the "Events" tab in the Render
+  dashboard to inspect build and deploy logs. To exec into a running container, upgrade
+  to a paid plan.
+- **autoDeploy: false**: Render does not deploy on every push. Trigger deploys manually
+  via the Render dashboard or use the `/release` workflow (tags + deploy hook).
+- **Docker build stage**: The `frontend-build` stage in `Dockerfile.prod` must set
+  `ENV NODE_ENV=development` before `npm ci`, otherwise Docker may skip `devDependencies`
+  (which includes `vite` and `tsc`), causing a silent build failure where `/app/static`
+  is never created and FastAPI serves 404 for all SPA routes.
+
+---
+
 ## FastAPI Static File Mount (Production)
 
+`StaticFiles(html=True)` does NOT do SPA fallback — it returns 404 for paths like `/login`
+that don't exist as files. Use a catch-all route instead:
+
 ```python
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 static_dir = Path(__file__).parent.parent.parent / "static"
 if static_dir.exists():
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    # Serve hashed JS/CSS assets
+    app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
+
+    # Catch-all: serve exact static file or fall back to index.html (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str) -> FileResponse:
+        file = static_dir / full_path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(static_dir / "index.html")
 ```
