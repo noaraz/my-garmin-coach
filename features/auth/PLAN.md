@@ -39,13 +39,14 @@ Track progress in **STATUS.md**.
 
 ### Google OAuth Migration (2026-03-16)
 - [x] Remove `POST /auth/login` and `POST /auth/register` endpoints
-- [x] Add `POST /auth/google { id_token, invite_code? }` — login + first-time register
-- [x] Update `POST /auth/bootstrap` to accept `{ setup_token, google_id_token }` instead of email/password
+- [x] Add `POST /auth/google { access_token, invite_code? }` — login + first-time register
+- [x] Update `POST /auth/bootstrap` to accept `{ setup_token, google_access_token }` instead of email/password
 - [x] Add `google_oauth_sub` (unique) to `User` model; make `password_hash` nullable
-- [x] Backend: verify token with `google.oauth2.id_token.verify_oauth2_token()`
-- [x] Backend: user lookup by `google_oauth_sub` OR email (handles migration of existing accounts)
-- [x] Frontend: add `@react-oauth/google` — `<GoogleLogin>` on LoginPage, RegisterPage, SetupPage
-- [x] Frontend: `googleLogin(idToken, inviteCode?)` in AuthContext replaces login/register functions
+- [x] Backend: verify token via httpx GET `/oauth2/v3/userinfo` (access token + userinfo approach)
+- [x] Backend: user lookup by `google_oauth_sub` **only** — no email fallback (prevents account takeover)
+- [x] Backend: reject tokens where `email_verified != True`
+- [x] Frontend: add `@react-oauth/google` — custom button via `useGoogleOAuth` on LoginPage, RegisterPage, SetupPage
+- [x] Frontend: `googleLogin(accessToken, inviteCode?)` in AuthContext replaces login/register functions
 
 ### Garmin Token Encryption
 - [x] Write all tests in `test_garmin_connect_flow.py` (see test table)

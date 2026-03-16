@@ -14,22 +14,22 @@ from src.auth.schemas import (
 
 
 class TestBootstrapRequest:
-    def test_accepts_valid_google_id_token(self) -> None:
-        """BootstrapRequest accepts setup_token + google_id_token."""
+    def test_accepts_valid_google_access_token(self) -> None:
+        """BootstrapRequest accepts setup_token + google_access_token."""
         req = BootstrapRequest(
             setup_token="valid-setup-token",
-            google_id_token="google.id.token.value",
+            google_access_token="google.access.token.value",
         )
         assert req.setup_token == "valid-setup-token"
-        assert req.google_id_token == "google.id.token.value"
+        assert req.google_access_token == "google.access.token.value"
 
     def test_requires_setup_token(self) -> None:
         """BootstrapRequest raises ValidationError when setup_token is missing."""
         with pytest.raises(ValidationError):
-            BootstrapRequest(google_id_token="some.token")  # type: ignore[call-arg]
+            BootstrapRequest(google_access_token="some.token")  # type: ignore[call-arg]
 
-    def test_requires_google_id_token(self) -> None:
-        """BootstrapRequest raises ValidationError when google_id_token is missing."""
+    def test_requires_google_access_token(self) -> None:
+        """BootstrapRequest raises ValidationError when google_access_token is missing."""
         with pytest.raises(ValidationError):
             BootstrapRequest(setup_token="tok")  # type: ignore[call-arg]
 
@@ -37,7 +37,7 @@ class TestBootstrapRequest:
         """BootstrapRequest no longer has email or password fields."""
         req = BootstrapRequest(
             setup_token="tok",
-            google_id_token="some.id.token",
+            google_access_token="some.access.token",
         )
         assert not hasattr(req, "email")
         assert not hasattr(req, "password")
@@ -52,19 +52,19 @@ class TestBootstrapResponse:
 
 
 class TestGoogleAuthRequest:
-    def test_accepts_id_token_only(self) -> None:
-        """GoogleAuthRequest is valid with just an id_token."""
-        req = GoogleAuthRequest(id_token="google.jwt.token")
-        assert req.id_token == "google.jwt.token"
+    def test_accepts_access_token_only(self) -> None:
+        """GoogleAuthRequest is valid with just an access_token."""
+        req = GoogleAuthRequest(access_token="google.access.token")
+        assert req.access_token == "google.access.token"
         assert req.invite_code is None
 
-    def test_accepts_id_token_and_invite_code(self) -> None:
+    def test_accepts_access_token_and_invite_code(self) -> None:
         """GoogleAuthRequest accepts optional invite_code."""
-        req = GoogleAuthRequest(id_token="google.jwt.token", invite_code="INVITE-001")
+        req = GoogleAuthRequest(access_token="google.access.token", invite_code="INVITE-001")
         assert req.invite_code == "INVITE-001"
 
-    def test_requires_id_token(self) -> None:
-        """GoogleAuthRequest raises ValidationError when id_token is missing."""
+    def test_requires_access_token(self) -> None:
+        """GoogleAuthRequest raises ValidationError when access_token is missing."""
         with pytest.raises(ValidationError):
             GoogleAuthRequest()  # type: ignore[call-arg]
 

@@ -117,7 +117,7 @@ The invite system is a chicken-and-egg: register needs invite code, create invit
 # Get your Google id_token from the SetupPage UI, then:
 curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
   -H "Content-Type: application/json" \
-  -d '{"setup_token": "your-bootstrap-secret", "google_id_token": "<token from SetupPage>"}'
+  -d '{"setup_token": "your-bootstrap-secret", "google_access_token": "<token from SetupPage>"}'
 # Returns: {"invite_codes": ["abc123", ...]}
 ```
 
@@ -160,14 +160,17 @@ async def _google_userinfo(access_token: str) -> dict:
         )
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Google access token")
-    return resp.json()   # has "sub", "email", "name", etc.
+    data = resp.json()   # has "sub", "email", "email_verified", "name", etc.
+    if not data.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google account email is not verified")
+    return data
 ```
 
-User lookup order:
-1. `WHERE google_oauth_sub = :sub`
-2. `WHERE email = :email` (migration path: links existing account to Google identity)
+User lookup: `WHERE google_oauth_sub = :sub` **only**.
+**Never fall back to email** — that allows any Google account with a matching email to take over
+an existing account (account takeover via OR query, fixed 2026-03-17).
 
-If neither match and `invite_code` provided and valid → create new user.
+If sub doesn't match and `invite_code` provided and valid → create new user.
 
 ### User model changes
 

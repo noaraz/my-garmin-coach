@@ -112,13 +112,13 @@ async def _google_auth(
     google_idinfo: dict,
     invite_code: str | None = None,
 ) -> object:
-    """Helper: authenticate via Google OAuth (mocking the token verification)."""
-    payload = {"id_token": "fake.google.token"}
+    """Helper: authenticate via Google OAuth (mocking the userinfo call)."""
+    payload = {"access_token": "fake.google.access.token"}
     if invite_code:
         payload["invite_code"] = invite_code
 
     with patch(
-        "src.auth.service.id_token.verify_oauth2_token",
+        "src.auth.service._google_userinfo",
         return_value=google_idinfo,
     ):
         resp = await client.post("/api/v1/auth/google", json=payload)
@@ -337,7 +337,7 @@ async def test_protected_with_missing_sub_claim(auth_client: AsyncClient) -> Non
 # ---------------------------------------------------------------------------
 
 
-async def test_bootstrap_rejects_missing_google_id_token(
+async def test_bootstrap_rejects_missing_google_access_token(
     auth_client: AsyncClient,
 ) -> None:
     """Bootstrap with old email+password fields is rejected (422 -- wrong schema)."""
@@ -359,7 +359,7 @@ async def test_bootstrap_returns_403_on_wrong_token(
         "/api/v1/auth/bootstrap",
         json={
             "setup_token": "wrong-token",
-            "google_id_token": "some.google.jwt",
+            "google_access_token": "some.google.jwt",
         },
     )
     assert resp.status_code == 403
@@ -374,7 +374,7 @@ async def test_bootstrap_returns_409_when_users_exist(
         "/api/v1/auth/bootstrap",
         json={
             "setup_token": _test_settings.bootstrap_secret,
-            "google_id_token": "some.google.jwt",
+            "google_access_token": "some.google.jwt",
         },
     )
     assert resp.status_code == 409
