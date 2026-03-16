@@ -9,6 +9,8 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.auth.schemas import (
     AccessTokenResponse,
+    BootstrapRequest,
+    BootstrapResponse,
     InviteResponse,
     LoginRequest,
     RefreshRequest,
@@ -54,9 +56,22 @@ async def create_invite(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> InviteResponse:
-    """Create a new invite code (requires authentication)."""
+    """Create a new invite code (requires admin)."""
+    from fastapi import HTTPException
+
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     invite = await auth_service.create_invite(current_user, session)
     return InviteResponse(code=invite.code)
+
+
+@router.post("/bootstrap", response_model=BootstrapResponse, status_code=status.HTTP_201_CREATED)
+async def bootstrap(
+    request: BootstrapRequest,
+    session: AsyncSession = Depends(get_session),
+) -> BootstrapResponse:
+    """Bootstrap the first admin user and generate 5 invite codes."""
+    return await auth_service.bootstrap(request, session)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -68,4 +83,5 @@ async def me(
         id=current_user.id,
         email=current_user.email,
         is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
     )

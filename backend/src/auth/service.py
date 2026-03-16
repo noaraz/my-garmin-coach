@@ -12,13 +12,54 @@ from src.auth.models import InviteCode, User
 from src.auth.passwords import hash_password, verify_password
 from src.auth.schemas import (
     AccessTokenResponse,
+    BootstrapRequest,
+    BootstrapResponse,
     LoginRequest,
     RegisterRequest,
     TokenResponse,
 )
+from src.core.config import get_settings
 
 _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_MINUTES = 15
+
+
+async def bootstrap(
+    request: BootstrapRequest,
+    session: AsyncSession,
+) -> BootstrapResponse:
+    """Create the first admin user and 5 invite codes.
+
+    Raises:
+        HTTPException 403 if setup_token is wrong.
+        HTTPException 409 if any user already exists.
+    """
+    settings = get_settings()
+    if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
+        raise HTTPException(status_code=403, detail="Invalid setup token")
+
+    existing = (await session.exec(select(User).limit(1))).first()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Admin already exists")
+
+    admin = User(
+        email=request.email,
+        password_hash=hash_password(request.password),
+        is_admin=True,
+    )
+    session.add(admin)
+    await session.commit()
+    await session.refresh(admin)
+
+    codes: list[str] = []
+    for _ in range(5):
+        code = secrets.token_urlsafe(16)
+        invite = InviteCode(code=code, created_by=admin.id)
+        session.add(invite)
+        codes.append(code)
+    await session.commit()
+
+    return BootstrapResponse(invite_codes=codes)
 
 
 async def register(
@@ -104,7 +145,7 @@ async def login(
     await session.commit()
 
     return TokenResponse(
-        access_token=create_access_token(user.id, user.email),
+        access_token=create_access_token(user.id, user.email, user.is_admin),
         refresh_token=create_refresh_token(user.id),
     )
 
@@ -133,7 +174,9 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    return AccessTokenResponse(access_token=create_access_token(user_id))
+    return AccessTokenResponse(
+        access_token=create_access_token(user.id, user.email, user.is_admin)
+    )
 
 
 async def create_invite(

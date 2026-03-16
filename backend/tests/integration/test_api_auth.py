@@ -63,6 +63,7 @@ async def invite_code_fixture(auth_session: AsyncSession) -> str:
     admin = User(
         email="admin@example.com",
         password_hash=hash_password("adminpassword"),
+        is_admin=True,
     )
     auth_session.add(admin)
     await auth_session.commit()
@@ -433,3 +434,112 @@ async def test_account_lockout(auth_client: AsyncClient, invite_code: str) -> No
     # Assert
     assert resp.status_code == 401
     assert "locked" in resp.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Bootstrap tests
+# ---------------------------------------------------------------------------
+
+
+async def test_bootstrap_creates_admin_and_invite_codes(
+    auth_client: AsyncClient,
+) -> None:
+    # Act
+    settings = get_settings()
+    resp = await auth_client.post(
+        "/api/v1/auth/bootstrap",
+        json={
+            "setup_token": settings.bootstrap_secret,
+            "email": "admin@example.com",
+            "password": "adminpassword",
+        },
+    )
+
+    # Assert
+    assert resp.status_code == 201
+    body = resp.json()
+    assert "invite_codes" in body
+    assert len(body["invite_codes"]) == 5
+
+
+async def test_bootstrap_returns_409_when_users_exist(
+    auth_client: AsyncClient,
+    invite_code: str,  # fixture creates a user
+) -> None:
+    # Act — users already exist (from invite_code fixture)
+    settings = get_settings()
+    resp = await auth_client.post(
+        "/api/v1/auth/bootstrap",
+        json={
+            "setup_token": settings.bootstrap_secret,
+            "email": "second@example.com",
+            "password": "password123",
+        },
+    )
+
+    # Assert
+    assert resp.status_code == 409
+
+
+async def test_bootstrap_returns_403_on_wrong_token(
+    auth_client: AsyncClient,
+) -> None:
+    # Act
+    resp = await auth_client.post(
+        "/api/v1/auth/bootstrap",
+        json={
+            "setup_token": "wrong-token",
+            "email": "admin@example.com",
+            "password": "adminpassword",
+        },
+    )
+
+    # Assert
+    assert resp.status_code == 403
+
+
+async def test_me_includes_is_admin(
+    auth_client: AsyncClient,
+) -> None:
+    # Arrange — bootstrap creates an admin
+    settings = get_settings()
+    await auth_client.post(
+        "/api/v1/auth/bootstrap",
+        json={
+            "setup_token": settings.bootstrap_secret,
+            "email": "admin@example.com",
+            "password": "adminpassword",
+        },
+    )
+    login_resp = await _login_user(auth_client, "admin@example.com", "adminpassword")
+    token = login_resp.json()["access_token"]
+
+    # Act
+    resp = await auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Assert
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_admin"] is True
+
+
+async def test_invite_blocked_for_non_admin(
+    auth_client: AsyncClient,
+    invite_code: str,
+) -> None:
+    # Arrange — register a normal (non-admin) user
+    await _register_user(auth_client, "user@example.com", "password123", invite_code)
+    login_resp = await _login_user(auth_client, "user@example.com", "password123")
+    token = login_resp.json()["access_token"]
+
+    # Act — try to create an invite as non-admin
+    resp = await auth_client.post(
+        "/api/v1/auth/invite",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Assert
+    assert resp.status_code == 403
