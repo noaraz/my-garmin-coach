@@ -107,11 +107,11 @@ export function RegisterPage() {
               style={{
                 marginBottom: '14px',
                 padding: '9px 11px',
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.3)',
+                background: 'var(--bg-surface-2)',
+                border: '1px solid var(--border-strong)',
                 borderRadius: '5px',
                 fontSize: '12px',
-                color: 'var(--text-error, #ef4444)',
+                color: 'var(--text-secondary)',
                 fontFamily: "'Barlow', system-ui, sans-serif",
               }}
             >
