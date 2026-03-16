@@ -76,7 +76,7 @@ describe('test_month_view_correct_days', () => {
 
 describe('test_workouts_on_dates', () => {
   it('3 workouts → 3 cards', () => {
-    renderPage()
+    renderPage({ initialDate: new Date('2026-03-09') })
     const cards = screen.getAllByTestId('workout-card')
     expect(cards).toHaveLength(3)
   })
@@ -84,7 +84,7 @@ describe('test_workouts_on_dates', () => {
 
 describe('test_card_name_duration', () => {
   it('card → name and clock duration', async () => {
-    renderPage()
+    renderPage({ initialDate: new Date('2026-03-09') })
     const nameEl = await screen.findByText('Easy Run')
     const card = nameEl.closest('[data-testid="workout-card"]') as HTMLElement
     // 2700s = 45:00 in clock format
@@ -94,7 +94,7 @@ describe('test_card_name_duration', () => {
 
 describe('test_card_sync_status', () => {
   it('synced workout → green sync icon', () => {
-    renderPage()
+    renderPage({ initialDate: new Date('2026-03-09') })
     const syncedIcon = screen.getAllByTestId('workout-card')
       .flatMap(c => Array.from(c.querySelectorAll('[data-sync="synced"]')))
     expect(syncedIcon.length).toBeGreaterThan(0)
@@ -174,7 +174,7 @@ describe('test_card_duration_from_steps_fallback', () => {
         sport_type: 'running', description: null, tags: null,
         steps: null, created_at: '', updated_at: '' },
     ])
-    renderPage()
+    renderPage({ initialDate: new Date('2026-03-09') })
     // workouts id:1 and id:3 both map to template id:1 → two "15:00" cards
     const clocks = await screen.findAllByText('15:00')
     expect(clocks.length).toBeGreaterThan(0)
@@ -191,7 +191,7 @@ describe('test_card_no_summary_when_no_data', () => {
         sport_type: 'running', description: null, tags: null,
         steps: null, created_at: '', updated_at: '' },
     ])
-    renderPage()
+    renderPage({ initialDate: new Date('2026-03-09') })
     await screen.findByText('Easy Run')
     const cards = screen.getAllByTestId('workout-card')
     cards.forEach(card => {
