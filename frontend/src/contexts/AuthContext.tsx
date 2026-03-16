@@ -4,11 +4,13 @@ import { loginUser as apiLoginUser, registerUser as apiRegisterUser } from '../a
 interface User {
   id: number
   email: string
+  isAdmin: boolean
 }
 
 interface AuthContextValue {
   user: User | null
   accessToken: string | null
+  isAdmin: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, inviteCode: string) => Promise<void>
   logout: () => void
@@ -20,6 +22,7 @@ interface JwtPayload {
   sub?: string
   email?: string
   exp?: number
+  is_admin?: boolean
 }
 
 function decodeJwtPayload(token: string): JwtPayload | null {
@@ -45,12 +48,13 @@ function userFromPayload(payload: JwtPayload): User | null {
   const id = payload.userId ?? (payload.sub ? parseInt(payload.sub, 10) : undefined)
   const email = payload.email
   if (!id || !email) return null
-  return { id, email }
+  return { id, email, isAdmin: payload.is_admin ?? false }
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   accessToken: null,
+  isAdmin: false,
   login: async () => {},
   register: async () => {},
   logout: () => {},
@@ -61,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  const isAdmin = user?.isAdmin ?? false
 
   useEffect(() => {
     const stored = localStorage.getItem('access_token')
@@ -107,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, accessToken, isAdmin, login, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
