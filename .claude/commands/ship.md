@@ -16,7 +16,23 @@ Present results to the user: total passed/failed, coverage per module, any failu
 
 ---
 
-## 2. Security Audit
+## 2. Lint
+
+Run linters before opening the PR — these mirror CI exactly:
+
+```bash
+# Backend: ruff lint (catches unused imports, style violations)
+cd backend && ruff check src/ tests/
+
+# Frontend: TypeScript type check + build
+cd frontend && npm run build
+```
+
+Fix any errors before continuing. For ruff: `ruff check --fix src/ tests/` auto-fixes safe issues.
+
+---
+
+## 3. Security Audit
 
 Run security checks before opening the PR:
 
@@ -32,7 +48,7 @@ If `npm audit` flags new high/critical CVEs: run `npm audit fix` (or `npm audit 
 
 ---
 
-## 3. Ask What to Fix (Pre-PR)
+## 4. Ask What to Fix (Pre-PR)
 
 Show the test results and ask:
 
@@ -42,7 +58,7 @@ Wait for the user's response. Fix any requested items, re-run the affected tests
 
 ---
 
-## 4. Local Test Steps
+## 5. Local Test Steps
 
 Print this block for the user to run manually:
 
@@ -62,7 +78,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 5. Update All Relevant Docs
+## 6. Update All Relevant Docs
 
 ### STATUS.md
 - Mark all completed tasks as ✅
@@ -83,7 +99,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 6. Commit and Open PR
+## 7. Commit and Open PR
 
 Stage and review:
 ```bash
@@ -121,7 +137,7 @@ Return the PR URL to the user.
 
 ---
 
-## 7. Code Review on the PR
+## 8. Code Review on the PR
 
 Now that the PR exists, invoke the `/code-review` command on it:
 
