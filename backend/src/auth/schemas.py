@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     is_active: bool
+    is_admin: bool
 
 
 class RegisterResponse(BaseModel):
@@ -49,6 +50,23 @@ class RegisterResponse(BaseModel):
 
 class InviteResponse(BaseModel):
     code: str
+
+
+class BootstrapRequest(BaseModel):
+    setup_token: str
+    email: str
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+class BootstrapResponse(BaseModel):
+    invite_codes: list[str]
 
 
 class GarminConnectRequest(BaseModel):
