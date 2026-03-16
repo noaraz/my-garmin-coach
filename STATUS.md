@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-17 (Google OAuth security hardening — email_verified + sub-only lookup)
+Last updated: 2026-03-17 (admin bootstrap, invite system, Google OAuth — PR #19 ready to merge)
 
 ## Current Focus: Render First Deploy
 
@@ -152,6 +152,9 @@ Last updated: 2026-03-17 (Google OAuth security hardening — email_verified + s
 | **Google OAuth**: Frontend — GoogleLogin button on LoginPage, RegisterPage, SetupPage | ✅ |
 | **Google OAuth**: AuthContext — googleLogin(idToken, inviteCode?) replaces login/register | ✅ |
 | **Google OAuth security**: reject unverified emails (email_verified check); sub-only user lookup (no email takeover) | ✅ |
+| **Admin bootstrap + invite UI**: SetupPage, /setup route, SettingsPage admin section, invite link generation | ✅ |
+| **Reset-admins endpoint**: POST /auth/reset-admins (setup token protected, factory reset) | ✅ |
+| **Code review fixes**: dead schemas removed, tokenUrl fixed, datetime.utcnow → timezone.utc, isTokenExpired missing exp | ✅ |
 | Deploy to Render | ⬜ |
 
 ---
