@@ -108,6 +108,7 @@ export function LoginPage() {
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <GoogleLogin
+                locale="en"
               onSuccess={(credentialResponse) => {
                 if (credentialResponse.credential) {
                   void handleSuccess(credentialResponse.credential)
