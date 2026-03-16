@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
@@ -16,6 +16,8 @@ from src.auth.schemas import (
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
+    ResetAdminsRequest,
+    ResetAdminsResponse,
     TokenResponse,
     UserResponse,
 )
@@ -57,8 +59,6 @@ async def create_invite(
     session: AsyncSession = Depends(get_session),
 ) -> InviteResponse:
     """Create a new invite code (requires admin)."""
-    from fastapi import HTTPException
-
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     invite = await auth_service.create_invite(current_user, session)
@@ -72,6 +72,15 @@ async def bootstrap(
 ) -> BootstrapResponse:
     """Bootstrap the first admin user and generate 5 invite codes."""
     return await auth_service.bootstrap(request, session)
+
+
+@router.post("/reset-admins", response_model=ResetAdminsResponse)
+async def reset_admins(
+    request: ResetAdminsRequest,
+    session: AsyncSession = Depends(get_session),
+) -> ResetAdminsResponse:
+    """Remove all admin users and their invite codes (requires setup token)."""
+    return await auth_service.reset_admins(request, session)
 
 
 @router.get("/me", response_model=UserResponse)

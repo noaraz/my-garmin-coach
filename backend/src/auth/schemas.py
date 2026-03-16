@@ -69,6 +69,14 @@ class BootstrapResponse(BaseModel):
     invite_codes: list[str]
 
 
+class ResetAdminsRequest(BaseModel):
+    setup_token: str
+
+
+class ResetAdminsResponse(BaseModel):
+    deleted: int
+
+
 class GarminConnectRequest(BaseModel):
     email: str
     password: str
