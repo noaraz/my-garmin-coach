@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 import src.db.models  # noqa: F401 — register all SQLModel tables
 import src.auth.models  # noqa: F401 — register User/InviteCode tables
 from src.auth import service as auth_service
-from src.auth.models import InviteCode, User
+from src.auth.models import User
 from src.auth.passwords import hash_password
 
 

@@ -135,7 +135,7 @@ Response:  { access_token, refresh_token, token_type }
 ```
 
 - New user (first time): requires `invite_code`. 403 if missing or invalid.
-- Existing user: `invite_code` ignored. Matched by `google_oauth_sub` first, then by email.
+- Existing user: `invite_code` ignored. Matched by `google_oauth_sub` only (never email fallback).
 
 ### Why access token + userinfo (not ID token)
 
@@ -213,6 +213,53 @@ This gives a fully custom button (English text, any styling) that works with Rea
 `googleLogin(accessToken, inviteCode?)` in `AuthContext` — replaces `login` and `register`.
 
 Wrap `<App>` in `<GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>`.
+
+### Test mock patterns (added 2026-03-17)
+
+**Backend tests** — mock `_google_userinfo`, not `id_token.verify_oauth2_token`:
+
+```python
+# ✅ Correct mock target
+@patch("src.auth.service._google_userinfo", return_value=FAKE_GOOGLE_IDINFO)
+
+# For error cases
+@patch("src.auth.service._google_userinfo", side_effect=HTTPException(status_code=401, detail="..."))
+```
+
+Request field names: `access_token` (not `id_token`) for `GoogleAuthRequest`;
+`google_access_token` (not `google_id_token`) for `BootstrapRequest`.
+
+**Frontend tests (`LoginPage.test.tsx`)** — mock `useGoogleOAuth` + GIS global:
+
+```tsx
+vi.mock('@react-oauth/google', () => ({
+  useGoogleOAuth: () => ({ clientId: 'test-client-id', scriptLoadedSuccessfully: true }),
+  GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+// In beforeEach: capture the GIS callback
+let capturedTokenCallback: ((r: { access_token?: string; error?: string }) => void) | null = null
+let mockRequestAccessToken: ReturnType<typeof vi.fn>
+
+beforeEach(() => {
+  mockRequestAccessToken = vi.fn()
+  ;(window as unknown as Record<string, unknown>).google = {
+    accounts: { oauth2: {
+      initTokenClient: vi.fn((config) => {
+        capturedTokenCallback = config.callback
+        return { requestAccessToken: mockRequestAccessToken }
+      }),
+    }},
+  }
+})
+
+// In test: click button → call captured callback
+await user.click(screen.getByRole('button', { name: /sign in with google/i }))
+expect(mockRequestAccessToken).toHaveBeenCalled()
+await act(async () => { capturedTokenCallback?.({ access_token: 'fake-token' }) })
+```
+
+Do NOT mock `GoogleLogin` component — `LoginPage` doesn't use it.
 
 ### Google Console setup
 

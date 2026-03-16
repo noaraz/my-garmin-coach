@@ -13,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.auth.jwt import create_access_token
-from src.auth.models import InviteCode, User
+from src.auth.models import User
 from src.db.models import AthleteProfile
 from src.garmin.encryption import decrypt_token, encrypt_token
 

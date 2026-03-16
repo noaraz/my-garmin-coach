@@ -196,6 +196,32 @@ Project slash commands in `.claude/commands/`:
 - **API functions**: `getGarminStatus`, `connectGarmin`, `disconnectGarmin` in `frontend/src/api/client.ts`
 - **Type**: `GarminStatusResponse { connected: boolean }` in `frontend/src/api/types.ts`
 
+## Docker + Dev Environment Gotchas (added 2026-03-17)
+
+### macOS bind-mount sync issue
+`./backend/tests:/app/tests` volume mounts don't always reflect local file changes immediately
+inside running containers on macOS. If tests still run old code after editing, force-sync with:
+
+```bash
+docker cp backend/tests/integration/test_api_auth.py garmincoach-backend-1:/app/tests/integration/test_api_auth.py
+```
+
+Replace the container name and path as needed. This is only a workaround — the underlying cause
+is macOS fsevents latency on bind mounts.
+
+### Local prod testing with .env.prod
+`.env.prod` exists at repo root (gitignored) with production secrets. Use it to test the
+prod docker-compose locally:
+
+```bash
+/Applications/Docker.app/Contents/Resources/bin/docker compose \
+  --env-file .env.prod \
+  -f docker-compose.prod.yml \
+  up --build
+```
+
+---
+
 ## Frontend Patterns (added 2026-03-08)
 
 - **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
