@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-11 (Alembic fixed + initial migration regenerated; v0.1.0 tag ready to push)
+Last updated: 2026-03-16 (SPA routing fix: FastAPI catch-all + NODE_ENV=development in Dockerfile.prod)
 
 ## Current Focus: Render First Deploy
 
@@ -26,6 +26,7 @@ Last updated: 2026-03-11 (Alembic fixed + initial migration regenerated; v0.1.0 
 | pip-audit: document + ignore CVE-2024-23342 (ecdsa, no fix available) | ✅ |
 | Security review + fixes (ownership checks, exception leakage) | ✅ |
 | HTTP security headers (nginx CSP/HSTS/X-Frame + FastAPI middleware) | ✅ |
+| Fix: SPA routing in production (FastAPI catch-all + NODE_ENV=development in Dockerfile.prod) | ✅ |
 | **Bootstrap endpoint**: POST /api/v1/auth/bootstrap — creates first user + 5 invite codes, locked after first user exists (Render free plan has no Shell access) — see `features/auth/CLAUDE.md` | ⬜ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |

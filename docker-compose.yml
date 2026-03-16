@@ -7,6 +7,8 @@ services:
       - GARMINCOACH_SECRET_KEY=local-dev-secret-change-in-prod
       - JWT_SECRET=local-dev-jwt-secret-change-in-prod
       - ENVIRONMENT=development
+      - BOOTSTRAP_SECRET=local-dev-bootstrap-secret
+      - APP_URL=http://localhost:5173
     volumes:
       - ./backend/src:/app/src
       - ./backend/tests:/app/tests
