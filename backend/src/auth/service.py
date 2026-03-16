@@ -1,40 +1,39 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlmodel import select
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from sqlmodel import or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.auth.jwt import create_access_token, create_refresh_token, decode_token
 from src.auth.models import InviteCode, User
-from src.auth.passwords import hash_password, verify_password
 from src.auth.schemas import (
     AccessTokenResponse,
     BootstrapRequest,
     BootstrapResponse,
-    LoginRequest,
-    RegisterRequest,
+    GoogleAuthRequest,
     ResetAdminsRequest,
     ResetAdminsResponse,
     TokenResponse,
 )
 from src.core.config import get_settings
 
-_MAX_FAILED_ATTEMPTS = 5
-_LOCKOUT_MINUTES = 15
-
 
 async def bootstrap(
     request: BootstrapRequest,
     session: AsyncSession,
 ) -> BootstrapResponse:
-    """Create the first admin user and 5 invite codes.
+    """Create the first admin user via Google OAuth and generate 5 invite codes.
 
     Raises:
         HTTPException 403 if setup_token is wrong.
         HTTPException 409 if any user already exists.
+        HTTPException 503 if Google OAuth is not configured.
+        HTTPException 401 if the Google ID token is invalid.
     """
     settings = get_settings()
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
@@ -44,9 +43,21 @@ async def bootstrap(
     if existing is not None:
         raise HTTPException(status_code=409, detail="Admin already exists")
 
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="Google OAuth not configured")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            request.google_id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
     admin = User(
-        email=request.email,
-        password_hash=hash_password(request.password),
+        email=idinfo["email"],
+        google_oauth_sub=idinfo["sub"],
         is_admin=True,
     )
     session.add(admin)
@@ -55,13 +66,95 @@ async def bootstrap(
 
     codes: list[str] = []
     for _ in range(5):
-        code = secrets.token_urlsafe(16)
-        invite = InviteCode(code=code, created_by=admin.id)
-        session.add(invite)
-        codes.append(code)
-    await session.commit()
+        invite = await create_invite(admin, session)
+        codes.append(invite.code)
 
     return BootstrapResponse(invite_codes=codes)
+
+
+async def google_auth(
+    request: GoogleAuthRequest,
+    session: AsyncSession,
+) -> TokenResponse:
+    """Authenticate or register a user via Google OAuth.
+
+    Raises:
+        HTTPException 503 if Google OAuth is not configured.
+        HTTPException 401 if the Google ID token is invalid.
+        HTTPException 403 if user is unknown and no valid invite code provided.
+    """
+    settings = get_settings()
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="Google OAuth not configured")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            request.id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+    google_sub: str = idinfo["sub"]
+    email: str = idinfo["email"]
+
+    # Find existing user by google_oauth_sub or email
+    user = (
+        await session.exec(
+            select(User).where(
+                or_(User.google_oauth_sub == google_sub, User.email == email)
+            )
+        )
+    ).first()
+
+    # Existing user -> issue tokens (also link google_oauth_sub if missing)
+    if user:
+        if user.google_oauth_sub is None:
+            user.google_oauth_sub = google_sub
+            session.add(user)
+            await session.commit()
+        return _make_token_response(user)
+
+    # New user with invite -> create account
+    if request.invite_code:
+        invite = (
+            await session.exec(
+                select(InviteCode).where(InviteCode.code == request.invite_code)
+            )
+        ).first()
+        if invite is None or invite.used_by is not None:
+            raise HTTPException(
+                status_code=403, detail="Invalid or already-used invite code"
+            )
+
+        user = User(
+            email=email,
+            google_oauth_sub=google_sub,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        invite.used_by = user.id
+        invite.used_at = datetime.now(timezone.utc)
+        session.add(invite)
+        await session.commit()
+
+        return _make_token_response(user)
+
+    # No invite -> 403
+    raise HTTPException(
+        status_code=403, detail="No account found. Request an invite to join."
+    )
+
+
+def _make_token_response(user: User) -> TokenResponse:
+    """Build a TokenResponse with access + refresh tokens for the given user."""
+    return TokenResponse(
+        access_token=create_access_token(user.id, user.email, user.is_admin),
+        refresh_token=create_refresh_token(user.id),
+    )
 
 
 async def reset_admins(
@@ -90,94 +183,6 @@ async def reset_admins(
     await session.commit()
 
     return ResetAdminsResponse(deleted=len(users))
-
-
-async def register(
-    request: RegisterRequest,
-    session: AsyncSession,
-) -> User:
-    """Register a new user consuming an invite code.
-
-    Raises:
-        HTTPException 403 if invite code is invalid or already used.
-        HTTPException 409 if email is already registered.
-    """
-    # Check for duplicate email first (returns 409 before 403 for better UX)
-    existing = (
-        await session.exec(select(User).where(User.email == request.email))
-    ).first()
-    if existing is not None:
-        raise HTTPException(status_code=409, detail="Email already registered")
-
-    # Validate invite code
-    invite = (
-        await session.exec(
-            select(InviteCode).where(InviteCode.code == request.invite_code)
-        )
-    ).first()
-    if invite is None or invite.used_by is not None:
-        raise HTTPException(status_code=403, detail="Invalid or already-used invite code")
-
-    # Create user
-    user = User(
-        email=request.email,
-        password_hash=hash_password(request.password),
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-
-    # Mark invite as used
-    invite.used_by = user.id
-    invite.used_at = datetime.now(timezone.utc)
-    session.add(invite)
-    await session.commit()
-
-    return user
-
-
-async def login(
-    request: LoginRequest,
-    session: AsyncSession,
-) -> TokenResponse:
-    """Authenticate a user and return JWT tokens.
-
-    Raises:
-        HTTPException 401 on invalid credentials or account locked.
-    """
-    user = (
-        await session.exec(select(User).where(User.email == request.email))
-    ).first()
-
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # Check lockout
-    if user.locked_until is not None:
-        now = datetime.now(timezone.utc)
-        locked_until_aware = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
-        if now < locked_until_aware:
-            raise HTTPException(status_code=401, detail="Account locked. Try again later.")
-
-    # Verify password
-    if not verify_password(request.password, user.password_hash):
-        user.failed_login_attempts += 1
-        if user.failed_login_attempts >= _MAX_FAILED_ATTEMPTS:
-            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=_LOCKOUT_MINUTES)
-        session.add(user)
-        await session.commit()
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # Successful login — reset counter
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    session.add(user)
-    await session.commit()
-
-    return TokenResponse(
-        access_token=create_access_token(user.id, user.email, user.is_admin),
-        refresh_token=create_refresh_token(user.id),
-    )
 
 
 async def refresh_token(
