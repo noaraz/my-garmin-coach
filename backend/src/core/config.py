@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Admin bootstrap
     bootstrap_secret: str = "dev-bootstrap-secret-change-in-prod"
 
+    # Google OAuth
+    google_client_id: str = ""
+
     model_config = {"env_file": ".env"}
 
 
