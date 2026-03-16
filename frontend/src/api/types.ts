@@ -132,3 +132,7 @@ export interface WorkoutTemplateCreate {
   tags?: string
   steps?: BuilderStep[]
 }
+
+export interface BootstrapResponse {
+  invite_codes: string[]
+}

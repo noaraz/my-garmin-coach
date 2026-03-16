@@ -6,6 +6,7 @@ import type {
   ScheduledWorkout, ScheduleCreate,
   SyncAllResponse, SyncStatusItem,
   GarminStatusResponse,
+  BootstrapResponse,
 } from './types'
 
 const BASE = '/api/v1'
@@ -107,7 +108,7 @@ export const registerUser = (email: string, password: string, invite_code: strin
   )
 
 export const fetchMe = () =>
-  request<{ id: number; email: string; is_active: boolean }>('/auth/me')
+  request<{ id: number; email: string; is_active: boolean; is_admin: boolean }>('/auth/me')
 
 export const getGarminStatus = () =>
   request<GarminStatusResponse>('/garmin/status')
@@ -120,3 +121,12 @@ export const connectGarmin = (email: string, password: string) =>
 
 export const disconnectGarmin = () =>
   request<GarminStatusResponse>('/garmin/disconnect', { method: 'POST' })
+
+export const bootstrapAdmin = (setupToken: string, email: string, password: string) =>
+  request<BootstrapResponse>('/auth/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify({ setup_token: setupToken, email, password }),
+  })
+
+export const createInvite = () =>
+  request<{ code: string }>('/auth/invite', { method: 'POST' })
