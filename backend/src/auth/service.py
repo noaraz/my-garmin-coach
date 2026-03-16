@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import httpx
 from fastapi import HTTPException
-from sqlmodel import or_, select
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.auth.jwt import create_access_token, create_refresh_token, decode_token
@@ -33,7 +33,10 @@ async def _google_userinfo(access_token: str) -> dict:
         )
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Google access token")
-    return resp.json()
+    data = resp.json()
+    if not data.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google account email is not verified")
+    return data
 
 
 async def bootstrap(
@@ -87,21 +90,17 @@ async def google_auth(
     google_sub: str = userinfo["sub"]
     email: str = userinfo["email"]
 
-    # Find existing user by google_oauth_sub or email
+    # Find existing user by google_oauth_sub only — never fall back to email,
+    # as that would allow any Google account with a matching email to take over
+    # an existing account.
     user = (
         await session.exec(
-            select(User).where(
-                or_(User.google_oauth_sub == google_sub, User.email == email)
-            )
+            select(User).where(User.google_oauth_sub == google_sub)
         )
     ).first()
 
-    # Existing user -> issue tokens (also link google_oauth_sub if missing)
+    # Existing user -> issue tokens
     if user:
-        if user.google_oauth_sub is None:
-            user.google_oauth_sub = google_sub
-            session.add(user)
-            await session.commit()
         return _make_token_response(user)
 
     # New user with invite -> create account
