@@ -10,6 +10,8 @@ services:
       - GARMINCOACH_SECRET_KEY=${GARMINCOACH_SECRET_KEY}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:80}
       - ENVIRONMENT=production
+      - BOOTSTRAP_SECRET=${BOOTSTRAP_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - backend_data:/data
     expose:
@@ -19,6 +21,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      args:
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
     restart: unless-stopped
     ports:
       - "80:80"
