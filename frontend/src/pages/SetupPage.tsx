@@ -189,11 +189,11 @@ export function SetupPage() {
                   style={{
                     marginBottom: '14px',
                     padding: '9px 11px',
-                    background: 'rgba(239,68,68,0.08)',
-                    border: '1px solid rgba(239,68,68,0.3)',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: '5px',
                     fontSize: '12px',
-                    color: 'var(--text-error, #ef4444)',
+                    color: 'var(--text-secondary)',
                     fontFamily: "'Barlow', system-ui, sans-serif",
                   }}
                 >
@@ -233,11 +233,11 @@ export function SetupPage() {
                 <div style={{
                   marginBottom: '10px',
                   padding: '9px 11px',
-                  background: 'rgba(34,197,94,0.08)',
-                  border: '1px solid rgba(34,197,94,0.3)',
+                  background: 'var(--bg-surface-2)',
+                  border: '1px solid var(--border)',
                   borderRadius: '5px',
                   fontSize: '12px',
-                  color: '#22c55e',
+                  color: 'var(--accent)',
                   fontFamily: "'Barlow', system-ui, sans-serif",
                 }}>
                   {resetMsg}
@@ -250,9 +250,9 @@ export function SetupPage() {
                 disabled={isResetting}
                 style={{
                   padding: '8px 16px',
-                  background: confirmReset ? 'rgba(239,68,68,0.15)' : 'transparent',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239,68,68,0.4)',
+                  background: confirmReset ? 'var(--bg-surface-2)' : 'transparent',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-strong)',
                   borderRadius: '5px',
                   fontSize: '11px',
                   fontWeight: 700,
