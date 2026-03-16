@@ -161,3 +161,4 @@ Last updated: 2026-03-16 (SPA routing fix: FastAPI catch-all + NODE_ENV=developm
 - `scripts/try_it.py` provides an end-to-end local demo: `docker compose exec backend python scripts/try_it.py`
 - **DB migrations**: Managed by Alembic (in `backend/alembic/`). Tests use in-memory DBs so schema drift is invisible to CI. For schema changes: `alembic revision --autogenerate -m "desc"` → apply locally → apply on Render before deploying.
 - **HKDF breaking change**: Garmin token encryption switched from SHA-256 to HKDF. Any existing encrypted tokens in the DB are invalidated — connected Garmin accounts must reconnect after deployment.
+- **Calendar test date-drift**: `Calendar.test.tsx` uses hardcoded dates (`baseWorkouts` at 2026-03-09–11). Tests that render without `initialDate` will fail once those dates fall outside the current week. Fix: pass `initialDate: new Date('2026-03-09')` to any `renderPage()` call that needs to see those workouts.
