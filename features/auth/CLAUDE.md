@@ -121,66 +121,95 @@ curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
 # Returns: {"invite_codes": ["abc123", ...]}
 ```
 
-## Google OAuth (added 2026-03-16)
+## Google OAuth (added 2026-03-16, updated 2026-03-17)
 
 ### Overview
 
-Email/password login and registration are removed. All authentication flows through Google OAuth.
+Email/password login and registration are removed. All authentication flows through Google OAuth
+using the **access token + userinfo** approach (not ID token verification).
 
 ```
 Endpoint:  POST /api/v1/auth/google
-Body:      { id_token: string, invite_code?: string }
+Body:      { access_token: string, invite_code?: string }
 Response:  { access_token, refresh_token, token_type }
 ```
 
 - New user (first time): requires `invite_code`. 403 if missing or invalid.
-- Existing user: `invite_code` ignored. Matched by `google_oauth_sub` first, then by email (migration path).
-- Backend verifies token with `google.oauth2.id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)`.
+- Existing user: `invite_code` ignored. Matched by `google_oauth_sub` first, then by email.
 
-### Backend patterns
+### Why access token + userinfo (not ID token)
+
+The `google-auth` library's `verify_oauth2_token` approach requires `GOOGLE_CLIENT_ID` on the
+backend and is tightly coupled to the specific OAuth client. The userinfo endpoint approach:
+- No `GOOGLE_CLIENT_ID` needed on backend
+- Works with any valid Google access token
+- Simpler: one HTTP call, no cryptographic verification machinery
+
+### Backend pattern
 
 ```python
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
+import httpx
 
-payload = id_token.verify_oauth2_token(
-    token, google_requests.Request(), settings.google_client_id
-)
-google_sub = payload["sub"]
-email = payload["email"]
+_GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+async def _google_userinfo(access_token: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            _GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid Google access token")
+    return resp.json()   # has "sub", "email", "name", etc.
 ```
 
 User lookup order:
 1. `WHERE google_oauth_sub = :sub`
-2. `WHERE email = :email` (migration: links existing account to Google identity)
+2. `WHERE email = :email` (migration path: links existing account to Google identity)
 
-If neither match and `invite_code` is provided and valid → create new user.
+If neither match and `invite_code` provided and valid → create new user.
 
 ### User model changes
 
 ```python
 class User(SQLModel, table=True):
     google_oauth_sub: str | None = Field(default=None, unique=True, index=True)
-    password_hash: str | None = Field(default=None)   # nullable — legacy only
+    password_hash: str | None = Field(default=None)   # nullable — Google users have no password
 ```
 
-### Frontend patterns
+Requires Alembic migration — see "Alembic + SQLite" section below.
+
+### Frontend patterns — React 19 gotcha
+
+**`useGoogleLogin` from `@react-oauth/google` crashes React 19** with `Uncaught _.od`.
+Do NOT use `GoogleLogin` component either (renders in user's Google account language, ignores `locale` prop).
+
+**Correct approach**: use `useGoogleOAuth` (low-level context hook) + call GIS directly:
 
 ```tsx
-// @react-oauth/google
-import { GoogleLogin } from '@react-oauth/google'
+import { useGoogleOAuth } from '@react-oauth/google'
 
-<GoogleLogin
-  onSuccess={async (credentialResponse) => {
-    await googleLogin(credentialResponse.credential!, inviteCode)
-  }}
-  onError={() => setError('Google sign-in failed')}
-/>
+const { clientId, scriptLoadedSuccessfully } = useGoogleOAuth()
+
+const handleSignIn = () => {
+  if (!scriptLoadedSuccessfully) return
+  const client = (window as any).google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'openid profile email',
+    callback: async (response: { access_token?: string; error?: string }) => {
+      if (response.error || !response.access_token) { setError('Google sign-in failed'); return }
+      await googleLogin(response.access_token, inviteCode)
+    },
+  })
+  client.requestAccessToken()
+}
 ```
 
-`googleLogin(idToken, inviteCode?)` in `AuthContext` — replaces `login` and `register`.
+This gives a fully custom button (English text, any styling) that works with React 19.
 
-Wrap `<App>` in `<GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>`.
+`googleLogin(accessToken, inviteCode?)` in `AuthContext` — replaces `login` and `register`.
+
+Wrap `<App>` in `<GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>`.
 
 ### Google Console setup
 
@@ -188,7 +217,8 @@ Wrap `<App>` in `<GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>`.
 - Authorized JavaScript origins: your deployed domain + `http://localhost:5173` for dev
 - Audience: External
 - Publishing status: Published (avoids 7-day token expiry and test-user list requirement)
-- `VITE_GOOGLE_CLIENT_ID` in frontend env; `GOOGLE_CLIENT_ID` in backend env
+- `VITE_GOOGLE_CLIENT_ID` in frontend env (Vite bakes it in at build time)
+- `GOOGLE_CLIENT_ID` in backend env (not used for auth, but good to have for future)
 
 ### Admin user creation (scripts)
 ```bash
