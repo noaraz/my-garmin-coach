@@ -17,7 +17,6 @@ from src.auth.schemas import (
     RefreshRequest,
     ResetAdminsRequest,
     ResetAdminsResponse,
-    TokenResponse,
     UserResponse,
 )
 

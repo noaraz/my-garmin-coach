@@ -14,7 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session
-from src.auth.jwt import create_access_token, create_refresh_token
+from src.auth.jwt import create_refresh_token
 from src.auth.models import InviteCode, User
 from src.core.config import Settings, get_settings
 
