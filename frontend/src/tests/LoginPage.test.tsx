@@ -10,8 +10,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-const mockLogin = vi.fn()
-const mockRegister = vi.fn()
+const mockGoogleLogin = vi.fn()
 
 vi.mock('../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../contexts/AuthContext')>()
@@ -21,8 +20,7 @@ vi.mock('../contexts/AuthContext', async (importOriginal) => {
       user: null,
       accessToken: null,
       isLoading: false,
-      login: mockLogin,
-      register: mockRegister,
+      googleLogin: mockGoogleLogin,
       logout: vi.fn(),
     }),
   }
@@ -32,7 +30,7 @@ import { LoginPage } from '../pages/LoginPage'
 
 beforeEach(() => {
   mockNavigate.mockReset()
-  mockLogin.mockReset()
+  mockGoogleLogin.mockReset()
 })
 
 describe('LoginPage', () => {
@@ -42,13 +40,12 @@ describe('LoginPage', () => {
         <LoginPage />
       </MemoryRouter>
     )
-    expect(screen.getByRole('textbox', { name: /email/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /google id token/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
-  it('submits_credentials', async () => {
-    mockLogin.mockResolvedValue(undefined)
+  it('submits_id_token', async () => {
+    mockGoogleLogin.mockResolvedValue(undefined)
 
     render(
       <MemoryRouter>
@@ -57,15 +54,14 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret123')
+    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'fake-id-token')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'secret123')
+    expect(mockGoogleLogin).toHaveBeenCalledWith('fake-id-token')
   })
 
   it('shows_error_on_failure', async () => {
-    mockLogin.mockRejectedValue(new Error('Invalid credentials'))
+    mockGoogleLogin.mockRejectedValue(new Error('Invalid credentials'))
 
     render(
       <MemoryRouter>
@@ -74,15 +70,14 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'bad@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
+    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'bad-token')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
   })
 
   it('navigates_to_calendar_on_success', async () => {
-    mockLogin.mockResolvedValue(undefined)
+    mockGoogleLogin.mockResolvedValue(undefined)
 
     render(
       <MemoryRouter>
@@ -91,8 +86,7 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /email/i }), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret123')
+    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'fake-id-token')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/calendar')

@@ -3,13 +3,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function RegisterPage() {
-  const { register } = useAuth()
+  const { googleLogin } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState(searchParams.get('invite') ?? '')
+  const [idToken, setIdToken] = useState('')
+  const [inviteCode] = useState(searchParams.get('invite') ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -18,8 +17,8 @@ export function RegisterPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await register(email, password, inviteCode)
-      navigate('/login', { state: { registered: true } })
+      await googleLogin(idToken, inviteCode)
+      navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -90,48 +89,9 @@ export function RegisterPage() {
           }}>Request Access</h1>
 
           <form onSubmit={handleSubmit} noValidate action="." method="post">
-            <div style={{ marginBottom: '14px' }}>
-              <label
-                htmlFor="email"
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  color: 'var(--text-secondary)',
-                  marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '9px 11px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: '5px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
-                  outline: 'none',
-                  boxSizing: 'border-box' as const,
-                }}
-              />
-            </div>
-
             <div style={{ marginBottom: '20px' }}>
               <label
-                htmlFor="password"
+                htmlFor="id-token"
                 style={{
                   display: 'block',
                   fontSize: '11px',
@@ -143,15 +103,15 @@ export function RegisterPage() {
                   fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                 }}
               >
-                Password
+                Google ID Token
               </label>
               <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                id="id-token"
+                name="id-token"
+                type="text"
+                autoComplete="off"
+                value={idToken}
+                onChange={e => setIdToken(e.target.value)}
                 required
                 style={{
                   width: '100%',

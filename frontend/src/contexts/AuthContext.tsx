@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { loginUser as apiLoginUser, registerUser as apiRegisterUser } from '../api/client'
+import { googleAuth } from '../api/client'
 
 interface User {
   id: number
@@ -11,8 +11,7 @@ interface AuthContextValue {
   user: User | null
   accessToken: string | null
   isAdmin: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, inviteCode: string) => Promise<void>
+  googleLogin: (idToken: string, inviteCode?: string) => Promise<void>
   logout: () => void
   isLoading: boolean
 }
@@ -55,8 +54,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   accessToken: null,
   isAdmin: false,
-  login: async () => {},
-  register: async () => {},
+  googleLogin: async () => {},
   logout: () => {},
   isLoading: true,
 })
@@ -89,20 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<void> => {
-    const data = await apiLoginUser(email, password)
+  const googleLogin = async (idToken: string, inviteCode?: string): Promise<void> => {
+    const data = await googleAuth(idToken, inviteCode)
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
     setAccessToken(data.access_token)
     const payload = decodeJwtPayload(data.access_token)
     if (payload) {
-      const parsedUser = userFromPayload(payload)
-      setUser(parsedUser)
+      setUser(userFromPayload(payload))
     }
-  }
-
-  const register = async (email: string, password: string, inviteCode: string): Promise<void> => {
-    await apiRegisterUser(email, password, inviteCode)
   }
 
   const logout = () => {
@@ -113,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, isAdmin, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, accessToken, isAdmin, googleLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

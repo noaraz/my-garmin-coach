@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { googleLogin } = useAuth()
   const navigate = useNavigate()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [idToken, setIdToken] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -16,12 +15,7 @@ export function LoginPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await login(email, password)
-      // Credential Management API — tells Chrome/Edge to prompt "Save password?"
-      // Silently skipped in Safari (uses form submit heuristic instead) and Firefox
-      type PwCredCtor = new (data: { id: string; password: string }) => Credential
-      const PwCred = (window as Window & { PasswordCredential?: PwCredCtor }).PasswordCredential
-      if (PwCred) void navigator.credentials.store(new PwCred({ id: email, password }))
+      await googleLogin(idToken)
       navigate('/calendar')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -93,48 +87,9 @@ export function LoginPage() {
           }}>Sign In</h1>
 
           <form onSubmit={handleSubmit} noValidate action="." method="post">
-            <div style={{ marginBottom: '14px' }}>
-              <label
-                htmlFor="email"
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  color: 'var(--text-secondary)',
-                  marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '9px 11px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: '5px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
-                  outline: 'none',
-                  boxSizing: 'border-box' as const,
-                }}
-              />
-            </div>
-
             <div style={{ marginBottom: '20px' }}>
               <label
-                htmlFor="password"
+                htmlFor="id-token"
                 style={{
                   display: 'block',
                   fontSize: '11px',
@@ -146,15 +101,15 @@ export function LoginPage() {
                   fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                 }}
               >
-                Password
+                Google ID Token
               </label>
               <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                id="id-token"
+                name="id-token"
+                type="text"
+                autoComplete="off"
+                value={idToken}
+                onChange={e => setIdToken(e.target.value)}
                 required
                 style={{
                   width: '100%',
@@ -213,25 +168,6 @@ export function LoginPage() {
           </form>
         </div>
 
-        <p style={{
-          textAlign: 'center',
-          marginTop: '16px',
-          fontSize: '12px',
-          color: 'var(--text-muted)',
-          fontFamily: "'Barlow', system-ui, sans-serif",
-        }}>
-          Don't have an account?{' '}
-          <Link
-            to="/register"
-            style={{
-              color: 'var(--accent)',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            Request access
-          </Link>
-        </p>
       </div>
     </div>
   )

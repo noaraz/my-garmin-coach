@@ -4,8 +4,7 @@ import { bootstrapAdmin, resetAdmins } from '../api/client'
 
 export function SetupPage() {
   const [setupToken, setSetupToken] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [googleIdToken, setGoogleIdToken] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -18,7 +17,7 @@ export function SetupPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await bootstrapAdmin(setupToken, email, password)
+      await bootstrapAdmin(setupToken, googleIdToken)
       setSuccess(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Setup failed'
@@ -185,48 +184,9 @@ export function SetupPage() {
                 />
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  htmlFor="email"
-                  style={{
-                    display: 'block',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase' as const,
-                    color: 'var(--text-secondary)',
-                    marginBottom: '6px',
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                  }}
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '9px 11px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: '5px',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
-                    outline: 'none',
-                    boxSizing: 'border-box' as const,
-                  }}
-                />
-              </div>
-
               <div style={{ marginBottom: '20px' }}>
                 <label
-                  htmlFor="password"
+                  htmlFor="google-id-token"
                   style={{
                     display: 'block',
                     fontSize: '11px',
@@ -238,15 +198,15 @@ export function SetupPage() {
                     fontFamily: "'Barlow Condensed', system-ui, sans-serif",
                   }}
                 >
-                  Password
+                  Google ID Token
                 </label>
                 <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  id="google-id-token"
+                  name="google-id-token"
+                  type="text"
+                  autoComplete="off"
+                  value={googleIdToken}
+                  onChange={e => setGoogleIdToken(e.target.value)}
                   required
                   style={{
                     width: '100%',
