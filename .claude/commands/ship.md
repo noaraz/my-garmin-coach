@@ -16,7 +16,23 @@ Present results to the user: total passed/failed, coverage per module, any failu
 
 ---
 
-## 2. Ask What to Fix (Pre-PR)
+## 2. Security Audit
+
+Run security checks before opening the PR:
+
+```bash
+# Frontend: fail on high-severity CVEs
+cd frontend && npm audit --audit-level=high
+
+# Backend: fail on known vulnerabilities
+pip-audit --ignore-vuln GHSA-25h7-pfq9-p65f  # ecdsa, no fix available
+```
+
+If `npm audit` flags new high/critical CVEs: run `npm audit fix` (or `npm audit fix --force` if needed), commit `package-lock.json`, then continue.
+
+---
+
+## 3. Ask What to Fix (Pre-PR)
 
 Show the test results and ask:
 
@@ -26,7 +42,7 @@ Wait for the user's response. Fix any requested items, re-run the affected tests
 
 ---
 
-## 3. Local Test Steps
+## 4. Local Test Steps
 
 Print this block for the user to run manually:
 
@@ -46,7 +62,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 4. Update All Relevant Docs
+## 5. Update All Relevant Docs
 
 ### STATUS.md
 - Mark all completed tasks as ✅
@@ -67,7 +83,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 5. Commit and Open PR
+## 6. Commit and Open PR
 
 Stage and review:
 ```bash
@@ -105,7 +121,7 @@ Return the PR URL to the user.
 
 ---
 
-## 6. Code Review on the PR
+## 7. Code Review on the PR
 
 Now that the PR exists, invoke the `/code-review` command on it:
 
