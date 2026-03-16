@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reliability)
+Last updated: 2026-03-16 (Google OAuth migration — email/password auth replaced)
 
 ## Current Focus: Render First Deploy
 
@@ -146,6 +146,11 @@ Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reli
 | Frontend: AuthContext + login/register pages + protected routes | ✅ |
 | Frontend: Settings page + Garmin Connect UI | ✅ |
 | Password manager support (name/autocomplete/action + Credential Management API) | ✅ |
+| **Google OAuth migration**: remove email/password login/register, add POST /auth/google | ✅ |
+| **Google OAuth**: User model — add google_oauth_sub (unique), make password_hash nullable | ✅ |
+| **Google OAuth**: Bootstrap updated — accepts google_id_token instead of email/password | ✅ |
+| **Google OAuth**: Frontend — GoogleLogin button on LoginPage, RegisterPage, SetupPage | ✅ |
+| **Google OAuth**: AuthContext — googleLogin(idToken, inviteCode?) replaces login/register | ✅ |
 | Deploy to Render | ⬜ |
 
 ---

@@ -92,31 +92,103 @@ rather than `JSON.stringify(body)`, or the UI shows the raw JSON string.
 `localhost` inside the container resolves to the container itself, not the host or the
 backend container.
 
-### Bootstrap endpoint — needed for Render free plan (added 2026-03-12)
+### Bootstrap endpoint — needed for Render free plan (added 2026-03-12, updated 2026-03-16)
 
 **Problem**: Render free plan has no Shell access. `scripts/create_admin.py` requires shell.
 The invite system is a chicken-and-egg: register needs invite code, create invite needs login, login needs a user.
 
 **Solution**: `POST /api/v1/auth/bootstrap`
-- Accepts `{ email, password }` in request body
+- *(Updated 2026-03-16)* Accepts `{ setup_token, google_id_token }` — email/password form removed
 - Checks `SELECT COUNT(*) FROM user` — if > 0, returns HTTP 409 (permanently locked)
-- Creates first user + 5 invite codes, returns invite codes in response
+- Verifies `setup_token` against `BOOTSTRAP_SECRET` env var — 403 on mismatch
+- Verifies `google_id_token` with Google — creates user from Google profile
+- Creates first user (admin) + 5 invite codes, returns invite codes in response
 - No auth required (that's the point)
 - Safe: once any user exists, endpoint is a permanent no-op
 
-**Files to touch**:
-- `backend/src/auth/service.py` — add `bootstrap(request, session)` function
-- `backend/src/auth/schemas.py` — add `BootstrapRequest` + `BootstrapResponse`
-- `backend/src/api/routers/auth.py` — add `POST /bootstrap` route
-- `backend/tests/integration/test_api_auth.py` — add tests: success, locked after first user
+**Files touched**:
+- `backend/src/auth/service.py` — `bootstrap(request, session)` function
+- `backend/src/auth/schemas.py` — `BootstrapRequest` + `BootstrapResponse`
+- `backend/src/api/routers/auth.py` — `POST /bootstrap` route
+- `backend/tests/integration/test_api_auth.py` — bootstrap tests
 
 **Usage after deploy**:
 ```bash
+# Get your Google id_token from the SetupPage UI, then:
 curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "YourPassword123"}'
+  -d '{"setup_token": "your-bootstrap-secret", "google_id_token": "<token from SetupPage>"}'
 # Returns: {"invite_codes": ["abc123", ...]}
 ```
+
+## Google OAuth (added 2026-03-16)
+
+### Overview
+
+Email/password login and registration are removed. All authentication flows through Google OAuth.
+
+```
+Endpoint:  POST /api/v1/auth/google
+Body:      { id_token: string, invite_code?: string }
+Response:  { access_token, refresh_token, token_type }
+```
+
+- New user (first time): requires `invite_code`. 403 if missing or invalid.
+- Existing user: `invite_code` ignored. Matched by `google_oauth_sub` first, then by email (migration path).
+- Backend verifies token with `google.oauth2.id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)`.
+
+### Backend patterns
+
+```python
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+payload = id_token.verify_oauth2_token(
+    token, google_requests.Request(), settings.google_client_id
+)
+google_sub = payload["sub"]
+email = payload["email"]
+```
+
+User lookup order:
+1. `WHERE google_oauth_sub = :sub`
+2. `WHERE email = :email` (migration: links existing account to Google identity)
+
+If neither match and `invite_code` is provided and valid → create new user.
+
+### User model changes
+
+```python
+class User(SQLModel, table=True):
+    google_oauth_sub: str | None = Field(default=None, unique=True, index=True)
+    password_hash: str | None = Field(default=None)   # nullable — legacy only
+```
+
+### Frontend patterns
+
+```tsx
+// @react-oauth/google
+import { GoogleLogin } from '@react-oauth/google'
+
+<GoogleLogin
+  onSuccess={async (credentialResponse) => {
+    await googleLogin(credentialResponse.credential!, inviteCode)
+  }}
+  onError={() => setError('Google sign-in failed')}
+/>
+```
+
+`googleLogin(idToken, inviteCode?)` in `AuthContext` — replaces `login` and `register`.
+
+Wrap `<App>` in `<GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>`.
+
+### Google Console setup
+
+- OAuth 2.0 Client ID (Web application type)
+- Authorized JavaScript origins: your deployed domain + `http://localhost:5173` for dev
+- Audience: External
+- Publishing status: Published (avoids 7-day token expiry and test-user list requirement)
+- `VITE_GOOGLE_CLIENT_ID` in frontend env; `GOOGLE_CLIENT_ID` in backend env
 
 ### Admin user creation (scripts)
 ```bash
