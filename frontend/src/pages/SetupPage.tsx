@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { bootstrapAdmin } from '../api/client'
+import { bootstrapAdmin, resetAdmins } from '../api/client'
 
 export function SetupPage() {
   const [setupToken, setSetupToken] = useState('')
@@ -9,6 +9,9 @@ export function SetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -28,6 +31,31 @@ export function SetupPage() {
       }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!confirmReset) {
+      setConfirmReset(true)
+      return
+    }
+    setIsResetting(true)
+    setError(null)
+    setResetMsg(null)
+    try {
+      const res = await resetAdmins(setupToken)
+      setConfirmReset(false)
+      setResetMsg(`Removed ${res.deleted} admin${res.deleted !== 1 ? 's' : ''}. You can now run setup again.`)
+    } catch (err) {
+      setConfirmReset(false)
+      const message = err instanceof Error ? err.message : 'Reset failed'
+      if (message.includes('403')) {
+        setError('Invalid setup token.')
+      } else {
+        setError(message)
+      }
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -275,6 +303,71 @@ export function SetupPage() {
                 {isSubmitting ? 'Creating…' : 'Create Admin'}
               </button>
             </form>
+          )}
+
+          {/* Danger zone — always visible */}
+          {!success && (
+            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase' as const,
+                color: 'var(--text-muted)',
+                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                marginBottom: '10px',
+              }}>
+                Danger Zone
+              </div>
+
+              {resetMsg && (
+                <div style={{
+                  marginBottom: '10px',
+                  padding: '9px 11px',
+                  background: 'rgba(34,197,94,0.08)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  borderRadius: '5px',
+                  fontSize: '12px',
+                  color: '#22c55e',
+                  fontFamily: "'Barlow', system-ui, sans-serif",
+                }}>
+                  {resetMsg}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isResetting}
+                style={{
+                  padding: '8px 16px',
+                  background: confirmReset ? 'rgba(239,68,68,0.15)' : 'transparent',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase' as const,
+                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  cursor: isResetting ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                {isResetting ? 'Removing…' : confirmReset ? 'Confirm Remove All Admins' : 'Remove All Admins'}
+              </button>
+
+              {confirmReset && (
+                <div style={{
+                  marginTop: '6px',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  fontFamily: "'Barlow', system-ui, sans-serif",
+                }}>
+                  Click again to confirm. This cannot be undone.
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

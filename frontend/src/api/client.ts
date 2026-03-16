@@ -130,3 +130,9 @@ export const bootstrapAdmin = (setupToken: string, email: string, password: stri
 
 export const createInvite = () =>
   request<{ code: string }>('/auth/invite', { method: 'POST' })
+
+export const resetAdmins = (setupToken: string) =>
+  request<{ deleted: number }>('/auth/reset-admins', {
+    method: 'POST',
+    body: JSON.stringify({ setup_token: setupToken }),
+  })
