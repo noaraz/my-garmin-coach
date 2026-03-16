@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-16 (SPA routing fix: FastAPI catch-all + NODE_ENV=development in Dockerfile.prod)
+Last updated: 2026-03-16 (v0.1.1 tagged — SPA routing fix + Calendar test reliability)
 
 ## Current Focus: Render First Deploy
 
@@ -30,7 +30,8 @@ Last updated: 2026-03-16 (SPA routing fix: FastAPI catch-all + NODE_ENV=developm
 | **Bootstrap endpoint**: POST /api/v1/auth/bootstrap — creates first user + 5 invite codes, locked after first user exists (Render free plan has no Shell access) — see `features/auth/CLAUDE.md` | ⬜ |
 | First deploy to Render (connect GitHub → Render dashboard) | ⬜ |
 | Verify Render: login + profile + Garmin connect | ⬜ |
-| Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ⬜ |
+| Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ✅ |
+| Tag v0.1.1 + push (SPA routing fix + Calendar test reliability) | ✅ |
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 
