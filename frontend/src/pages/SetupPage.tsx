@@ -1,23 +1,24 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
 import { bootstrapAdmin, resetAdmins } from '../api/client'
 
 export function SetupPage() {
   const [setupToken, setSetupToken] = useState('')
-  const [googleIdToken, setGoogleIdToken] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState<string | null>(null)
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const handleGoogleSuccess = async (credential: string) => {
     setError(null)
-    setIsSubmitting(true)
+    if (!setupToken.trim()) {
+      setError('Please enter your setup token first')
+      return
+    }
     try {
-      await bootstrapAdmin(setupToken, googleIdToken)
+      await bootstrapAdmin(setupToken, credential)
       setSuccess(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Setup failed'
@@ -28,8 +29,6 @@ export function SetupPage() {
       } else {
         setError(message)
       }
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -140,12 +139,12 @@ export function SetupPage() {
                   fontFamily: "'Barlow', system-ui, sans-serif",
                 }}
               >
-                Sign in →
+                Sign in &rarr;
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} noValidate action="." method="post">
-              <div style={{ marginBottom: '14px' }}>
+            <div>
+              <div style={{ marginBottom: '20px' }}>
                 <label
                   htmlFor="setup-token"
                   style={{
@@ -184,45 +183,6 @@ export function SetupPage() {
                 />
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label
-                  htmlFor="google-id-token"
-                  style={{
-                    display: 'block',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase' as const,
-                    color: 'var(--text-secondary)',
-                    marginBottom: '6px',
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                  }}
-                >
-                  Google ID Token
-                </label>
-                <input
-                  id="google-id-token"
-                  name="google-id-token"
-                  type="text"
-                  autoComplete="off"
-                  value={googleIdToken}
-                  onChange={e => setGoogleIdToken(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '9px 11px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: '5px',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
-                    outline: 'none',
-                    boxSizing: 'border-box' as const,
-                  }}
-                />
-              </div>
-
               {error && (
                 <div
                   role="alert"
@@ -233,7 +193,7 @@ export function SetupPage() {
                     border: '1px solid rgba(239,68,68,0.3)',
                     borderRadius: '5px',
                     fontSize: '12px',
-                    color: '#ef4444',
+                    color: 'var(--text-error, #ef4444)',
                     fontFamily: "'Barlow', system-ui, sans-serif",
                   }}
                 >
@@ -241,31 +201,20 @@ export function SetupPage() {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: isSubmitting ? 'var(--border-strong)' : 'var(--accent)',
-                  color: 'var(--text-on-accent)',
-                  border: 'none',
-                  borderRadius: '5px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.15s',
-                }}
-              >
-                {isSubmitting ? 'Creating…' : 'Create Admin'}
-              </button>
-            </form>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                  onSuccess={(credentialResponse) => {
+                    if (credentialResponse.credential) {
+                      void handleGoogleSuccess(credentialResponse.credential)
+                    }
+                  }}
+                  onError={() => setError('Google sign-in failed')}
+                />
+              </div>
+            </div>
           )}
 
-          {/* Danger zone — always visible */}
+          {/* Danger zone -- always visible */}
           {!success && (
             <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
               <div style={{
@@ -297,7 +246,7 @@ export function SetupPage() {
 
               <button
                 type="button"
-                onClick={handleReset}
+                onClick={() => { void handleReset() }}
                 disabled={isResetting}
                 style={{
                   padding: '8px 16px',
@@ -314,7 +263,7 @@ export function SetupPage() {
                   transition: 'background 0.15s',
                 }}
               >
-                {isResetting ? 'Removing…' : confirmReset ? 'Confirm Remove All Admins' : 'Remove All Admins'}
+                {isResetting ? 'Removing...' : confirmReset ? 'Confirm Remove All Admins' : 'Remove All Admins'}
               </button>
 
               {confirmReset && (

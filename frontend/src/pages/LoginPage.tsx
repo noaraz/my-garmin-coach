@@ -1,26 +1,21 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../contexts/AuthContext'
 
 export function LoginPage() {
   const { googleLogin } = useAuth()
   const navigate = useNavigate()
 
-  const [idToken, setIdToken] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const handleSuccess = async (credential: string) => {
     setError(null)
-    setIsSubmitting(true)
     try {
-      await googleLogin(idToken)
+      await googleLogin(credential)
       navigate('/calendar')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -83,89 +78,44 @@ export function LoginPage() {
             letterSpacing: '0.06em',
             textTransform: 'uppercase' as const,
             color: 'var(--text-primary)',
-            margin: '0 0 20px',
+            margin: '0 0 6px',
           }}>Sign In</h1>
 
-          <form onSubmit={handleSubmit} noValidate action="." method="post">
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="id-token"
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  color: 'var(--text-secondary)',
-                  marginBottom: '6px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                }}
-              >
-                Google ID Token
-              </label>
-              <input
-                id="id-token"
-                name="id-token"
-                type="text"
-                autoComplete="off"
-                value={idToken}
-                onChange={e => setIdToken(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '9px 11px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: '5px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
-                  outline: 'none',
-                  boxSizing: 'border-box' as const,
-                }}
-              />
-            </div>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-secondary)',
+            fontFamily: "'Barlow', system-ui, sans-serif",
+            margin: '0 0 20px',
+          }}>Sign in with your Google account</p>
 
-            {error && (
-              <div
-                role="alert"
-                style={{
-                  marginBottom: '14px',
-                  padding: '9px 11px',
-                  background: 'rgba(239,68,68,0.08)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  borderRadius: '5px',
-                  fontSize: '12px',
-                  color: '#ef4444',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
+          {error && (
+            <div
+              role="alert"
               style={{
-                width: '100%',
-                padding: '10px',
-                background: isSubmitting ? 'var(--border-strong)' : 'var(--accent)',
-                color: 'var(--text-on-accent)',
-                border: 'none',
+                marginBottom: '14px',
+                padding: '9px 11px',
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: '5px',
                 fontSize: '12px',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase' as const,
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                transition: 'background 0.15s',
+                color: 'var(--text-error, #ef4444)',
+                fontFamily: "'Barlow', system-ui, sans-serif",
               }}
             >
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <GoogleLogin
+              onSuccess={(credentialResponse) => {
+                if (credentialResponse.credential) {
+                  void handleSuccess(credentialResponse.credential)
+                }
+              }}
+              onError={() => setError('Google sign-in failed')}
+            />
+          </div>
         </div>
 
       </div>

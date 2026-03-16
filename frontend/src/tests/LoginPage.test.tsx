@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -20,31 +20,54 @@ vi.mock('../contexts/AuthContext', async (importOriginal) => {
       user: null,
       accessToken: null,
       isLoading: false,
+      isAdmin: false,
       googleLogin: mockGoogleLogin,
       logout: vi.fn(),
     }),
   }
 })
 
+// Mock GoogleLogin to render a button that triggers onSuccess with a fake credential
+let capturedOnError: (() => void) | null = null
+
+vi.mock('@react-oauth/google', () => ({
+  GoogleLogin: (props: { onSuccess: (response: { credential?: string }) => void; onError?: () => void }) => {
+    capturedOnError = props.onError ?? null
+    return <button data-testid="google-login-btn" onClick={() => props.onSuccess({ credential: 'fake-google-credential' })}>Sign in with Google</button>
+  },
+}))
+
 import { LoginPage } from '../pages/LoginPage'
 
 beforeEach(() => {
   mockNavigate.mockReset()
   mockGoogleLogin.mockReset()
+  capturedOnError = null
 })
 
 describe('LoginPage', () => {
-  it('renders_login_form', () => {
+  it('renders_sign_in_heading_and_google_button', () => {
     render(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>
     )
-    expect(screen.getByRole('textbox', { name: /google id token/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByTestId('google-login-btn')).toBeInTheDocument()
   })
 
-  it('submits_id_token', async () => {
+  it('does_not_render_email_or_password_fields', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('textbox', { name: /email/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /password/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /google id token/i })).not.toBeInTheDocument()
+  })
+
+  it('calls_googleLogin_and_navigates_on_google_success', async () => {
     mockGoogleLogin.mockResolvedValue(undefined)
 
     render(
@@ -54,13 +77,16 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'fake-id-token')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    await user.click(screen.getByTestId('google-login-btn'))
 
-    expect(mockGoogleLogin).toHaveBeenCalledWith('fake-id-token')
+    expect(mockGoogleLogin).toHaveBeenCalledWith('fake-google-credential')
+    // Wait for navigate
+    await vi.waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/calendar')
+    })
   })
 
-  it('shows_error_on_failure', async () => {
+  it('shows_error_when_googleLogin_rejects', async () => {
     mockGoogleLogin.mockRejectedValue(new Error('Invalid credentials'))
 
     render(
@@ -70,25 +96,26 @@ describe('LoginPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'bad-token')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    await user.click(screen.getByTestId('google-login-btn'))
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials')
   })
 
-  it('navigates_to_calendar_on_success', async () => {
-    mockGoogleLogin.mockResolvedValue(undefined)
-
+  it('shows_error_when_google_onError_fires', () => {
     render(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>
     )
 
-    const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: /google id token/i }), 'fake-id-token')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    // Simulate Google sign-in error
+    act(() => {
+      if (capturedOnError) {
+        capturedOnError()
+      }
+    })
 
-    expect(mockNavigate).toHaveBeenCalledWith('/calendar')
+    expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in failed')
   })
 })
