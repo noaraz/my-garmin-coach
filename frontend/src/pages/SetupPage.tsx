@@ -107,7 +107,7 @@ export function SetupPage() {
             </svg>
           </div>
           <div style={{
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontWeight: 700,
             fontSize: '20px',
             letterSpacing: '0.08em',
@@ -124,7 +124,7 @@ export function SetupPage() {
           padding: '28px 24px',
         }}>
           <h1 style={{
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontWeight: 700,
             fontSize: '20px',
             letterSpacing: '0.06em',
@@ -138,7 +138,7 @@ export function SetupPage() {
               <p style={{
                 color: 'var(--text-primary)',
                 fontSize: '14px',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 marginBottom: '16px',
               }}>
                 Setup complete. Sign in to continue.
@@ -150,7 +150,7 @@ export function SetupPage() {
                   textDecoration: 'none',
                   fontWeight: 500,
                   fontSize: '14px',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 }}
               >
                 Sign in &rarr;
@@ -169,7 +169,7 @@ export function SetupPage() {
                     textTransform: 'uppercase' as const,
                     color: 'var(--text-secondary)',
                     marginBottom: '6px',
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                   }}
                 >
                   Setup Token
@@ -190,7 +190,7 @@ export function SetupPage() {
                     borderRadius: '5px',
                     color: 'var(--text-primary)',
                     fontSize: '13px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                     outline: 'none',
                     boxSizing: 'border-box' as const,
                   }}
@@ -208,7 +208,7 @@ export function SetupPage() {
                     borderRadius: '5px',
                     fontSize: '12px',
                     color: 'var(--text-secondary)',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                   }}
                 >
                   {error}
@@ -231,7 +231,7 @@ export function SetupPage() {
                     fontWeight: 500,
                     color: 'var(--text-primary)',
                     cursor: scriptLoadedSuccessfully ? 'pointer' : 'not-allowed',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                   }}
                 >
                   <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
@@ -255,7 +255,7 @@ export function SetupPage() {
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase' as const,
                 color: 'var(--text-muted)',
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 marginBottom: '10px',
               }}>
                 Danger Zone
@@ -270,7 +270,7 @@ export function SetupPage() {
                   borderRadius: '5px',
                   fontSize: '12px',
                   color: 'var(--accent)',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 }}>
                   {resetMsg}
                 </div>
@@ -290,7 +290,7 @@ export function SetupPage() {
                   fontWeight: 700,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase' as const,
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                   cursor: isResetting ? 'not-allowed' : 'pointer',
                   transition: 'background 0.15s',
                 }}
@@ -303,7 +303,7 @@ export function SetupPage() {
                   marginTop: '6px',
                   fontSize: '11px',
                   color: 'var(--text-muted)',
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 }}>
                   Click again to confirm. This cannot be undone.
                 </div>

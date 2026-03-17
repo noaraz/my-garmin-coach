@@ -161,7 +161,7 @@ class TestRecalculateHRZones:
         zone_numbers = [z.zone_number for z in result]
         assert zone_numbers == [1, 2, 3, 4, 5]
 
-    async def test_uses_coggan_calculation_method(self) -> None:
+    async def test_uses_friel_calculation_method(self) -> None:
         # Arrange
         service = ZoneService()
         profile = AthleteProfile(id=1, name="Runner", lthr=162)
@@ -178,7 +178,7 @@ class TestRecalculateHRZones:
             result = await service.recalculate_hr_zones(mock_session, profile)
 
         # Assert
-        assert all(z.calculation_method == "coggan" for z in result)
+        assert all(z.calculation_method == "friel" for z in result)
 
     async def test_triggers_cascade_re_resolve(self) -> None:
         # Arrange

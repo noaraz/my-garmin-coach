@@ -43,7 +43,6 @@ export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
             <th style={thStyle}>Zone</th>
             <th style={thStyle}>Name</th>
             <th style={thStyle}>Pace Range</th>
-            <th style={thStyle}>Method</th>
           </tr>
         </thead>
         <tbody>
@@ -56,7 +55,6 @@ export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
               <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px' }}>
                 {formatPace(zone.upper_pace)} – {formatPace(zone.lower_pace)}
               </td>
-              <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '11px' }}>{zone.calculation_method}</td>
             </tr>
           ))}
         </tbody>
