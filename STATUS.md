@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-17 (post-release hotfixes — Google client_id build arg, tokeninfo audience validation)
+Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
 
 ## Current Focus: Next Feature
 
@@ -35,6 +35,7 @@ Last updated: 2026-03-17 (post-release hotfixes — Google client_id build arg, 
 | Tag v0.2.0 + push (Google OAuth, admin bootstrap, invite system, security hardening) | ✅ |
 | Fix: pass GOOGLE_CLIENT_ID as VITE_GOOGLE_CLIENT_ID in prod Docker build | ✅ |
 | Fix: Google tokeninfo endpoint for audience validation (azp claim, not aud on userinfo) | ✅ |
+| Tag v0.2.1 + push (Google OAuth audience validation hotfix) | ✅ |
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 
