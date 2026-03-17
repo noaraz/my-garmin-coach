@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import garth as garth
+import requests
 from fastapi import APIRouter, Depends, HTTPException
-
-logger = logging.getLogger(__name__)
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -16,6 +16,8 @@ from src.auth.schemas import GarminConnectRequest, GarminStatusResponse
 from src.core.config import get_settings
 from src.db.models import AthleteProfile
 from src.garmin.encryption import encrypt_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/garmin", tags=["garmin"])
 
@@ -48,17 +50,44 @@ async def connect_garmin(
     """
     settings = get_settings()
 
-    # Authenticate with Garmin via garth
-    try:
-        client = garth.Client()
-        client.login(request.email, request.password)
-        token_json: str = client.dumps()
-    except Exception as exc:
-        logger.exception("Garmin login failed: %s", exc)
-        raise HTTPException(status_code=400, detail="Garmin authentication failed. Check your email and password.") from exc
-    finally:
-        # Discard credentials immediately
-        del request
+    # Authenticate with Garmin via garth.
+    # Garmin rate-limits OAuth requests from cloud/datacenter IPs (429).
+    # One retry after a short wait resolves most transient 429s.
+    email, password = request.email, request.password
+    del request  # Discard credentials as early as possible
+
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        if attempt > 0:
+            await asyncio.sleep(3)
+        try:
+            client = garth.Client()
+            client.login(email, password)
+            token_json: str = client.dumps()
+            break
+        except requests.exceptions.HTTPError as exc:
+            last_exc = exc
+            if exc.response is not None and exc.response.status_code == 429:
+                logger.warning("Garmin rate-limited (429), attempt %d/2", attempt + 1)
+                continue
+            logger.exception("Garmin login failed: %s", exc)
+            raise HTTPException(
+                status_code=400,
+                detail="Garmin authentication failed. Check your email and password.",
+            ) from exc
+        except Exception as exc:
+            last_exc = exc
+            logger.exception("Garmin login failed: %s", exc)
+            raise HTTPException(
+                status_code=400,
+                detail="Garmin authentication failed. Check your email and password.",
+            ) from exc
+    else:
+        logger.error("Garmin login failed after retries: %s", last_exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Garmin is temporarily rate-limiting this server. Please try again in a few minutes.",
+        ) from last_exc
 
     # Encrypt and store token
     encrypted = encrypt_token(current_user.id, settings.garmincoach_secret_key, token_json)

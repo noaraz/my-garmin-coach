@@ -6,9 +6,10 @@ to ensure pytest-cov properly instruments the async function bodies.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+import requests
 from fastapi import HTTPException
 
 from src.api.routers.garmin_connect import (
@@ -131,6 +132,68 @@ class TestConnectGarmin:
 
         assert exc_info.value.status_code == 400
         assert "Garmin authentication failed" in exc_info.value.detail
+
+    async def test_connect_retries_once_on_429_then_succeeds(self) -> None:
+        # Arrange — first attempt raises 429, second succeeds
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        http_429 = requests.exceptions.HTTPError(response=resp_429)
+
+        mock_garth_client_fail = MagicMock()
+        mock_garth_client_fail.login.side_effect = http_429
+
+        mock_garth_client_ok = MagicMock()
+        mock_garth_client_ok.dumps.return_value = '{"oauth_token": "tok"}'
+
+        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep:
+            mock_garth.Client.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
+            mock_settings.return_value.garmincoach_secret_key = "test-key"
+
+            result = await connect_garmin(
+                request=request,
+                current_user=user,
+                session=mock_session,
+            )
+
+        assert result.connected is True
+        mock_sleep.assert_awaited_once_with(3)
+
+    async def test_connect_raises_503_when_both_attempts_rate_limited(self) -> None:
+        # Arrange — both attempts get 429
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        http_429 = requests.exceptions.HTTPError(response=resp_429)
+
+        mock_garth_client = MagicMock()
+        mock_garth_client.login.side_effect = http_429
+
+        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+             patch("src.api.routers.garmin_connect.get_settings"), \
+             patch("src.api.routers.garmin_connect.asyncio.sleep"):
+            mock_garth.Client.return_value = mock_garth_client
+
+            with pytest.raises(HTTPException) as exc_info:
+                await connect_garmin(
+                    request=request,
+                    current_user=user,
+                    session=mock_session,
+                )
+
+        assert exc_info.value.status_code == 503
+        assert "rate-limiting" in exc_info.value.detail
 
     async def test_connect_stores_encrypted_token_on_profile(self) -> None:
         # Arrange
