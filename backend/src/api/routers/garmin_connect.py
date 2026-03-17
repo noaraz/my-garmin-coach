@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 import garth as garth
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -50,6 +54,7 @@ async def connect_garmin(
         client.login(request.email, request.password)
         token_json: str = client.dumps()
     except Exception as exc:
+        logger.exception("Garmin login failed: %s", exc)
         raise HTTPException(status_code=400, detail="Garmin authentication failed. Check your email and password.") from exc
     finally:
         # Discard credentials immediately
