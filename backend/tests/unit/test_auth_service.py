@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
+import httpx
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -136,9 +137,13 @@ def _make_httpx_response(status_code: int, json_data: dict) -> MagicMock:
 class TestGoogleUserinfo:
     """Unit tests for _google_userinfo — mocks httpx so the function body is exercised."""
 
+    from src.auth.service import _google_userinfo  # import at class scope for consistent use
+
     def _mock_client(self, tokeninfo_resp: MagicMock, userinfo_resp: MagicMock) -> MagicMock:
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=[tokeninfo_resp, userinfo_resp])
+        # tokeninfo uses POST, userinfo uses GET — side_effect covers both in order
+        client.post = AsyncMock(return_value=tokeninfo_resp)
+        client.get = AsyncMock(return_value=userinfo_resp)
         cm = MagicMock()
         cm.__aenter__ = AsyncMock(return_value=client)
         cm.__aexit__ = AsyncMock(return_value=False)
@@ -147,6 +152,7 @@ class TestGoogleUserinfo:
     @pytest.mark.asyncio
     async def test_valid_token_with_matching_audience_succeeds(self) -> None:
         # Arrange
+        from src.auth.service import _google_userinfo
         tokeninfo = _make_httpx_response(200, {"azp": "my-client-id", "email": "u@e.com"})
         userinfo = _make_httpx_response(200, {
             "sub": "123", "email": "u@e.com", "email_verified": True,
@@ -154,42 +160,54 @@ class TestGoogleUserinfo:
         with patch("src.auth.service.httpx.AsyncClient", return_value=self._mock_client(tokeninfo, userinfo)):
             with patch("src.auth.service.get_settings") as mock_settings:
                 mock_settings.return_value.google_client_id = "my-client-id"
-                # Act
-                result = await __import__("src.auth.service", fromlist=["_google_userinfo"])._google_userinfo("tok")
-        # Assert
+                result = await _google_userinfo("tok")
         assert result["email"] == "u@e.com"
 
     @pytest.mark.asyncio
     async def test_audience_mismatch_raises_401(self) -> None:
         # Arrange — azp is a different client
+        from src.auth.service import _google_userinfo
         tokeninfo = _make_httpx_response(200, {"azp": "other-client-id"})
         userinfo = _make_httpx_response(200, {"sub": "123", "email": "u@e.com", "email_verified": True})
         with patch("src.auth.service.httpx.AsyncClient", return_value=self._mock_client(tokeninfo, userinfo)):
             with patch("src.auth.service.get_settings") as mock_settings:
                 mock_settings.return_value.google_client_id = "my-client-id"
-                # Act + Assert
                 with pytest.raises(HTTPException) as exc:
-                    from src.auth.service import _google_userinfo
                     await _google_userinfo("tok")
         assert exc.value.status_code == 401
         assert "mismatch" in exc.value.detail
 
     @pytest.mark.asyncio
-    async def test_invalid_token_returns_401(self) -> None:
-        # Arrange — tokeninfo returns non-200
+    async def test_tokeninfo_non200_raises_401(self) -> None:
+        # Arrange — tokeninfo returns non-200 (invalid/expired token)
+        from src.auth.service import _google_userinfo
         tokeninfo = _make_httpx_response(400, {"error": "invalid_token"})
         userinfo = _make_httpx_response(200, {})
         with patch("src.auth.service.httpx.AsyncClient", return_value=self._mock_client(tokeninfo, userinfo)):
             with patch("src.auth.service.get_settings") as mock_settings:
                 mock_settings.return_value.google_client_id = "my-client-id"
                 with pytest.raises(HTTPException) as exc:
-                    from src.auth.service import _google_userinfo
                     await _google_userinfo("bad-token")
+        assert exc.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_userinfo_non200_raises_401(self) -> None:
+        # Arrange — tokeninfo passes but userinfo returns non-200
+        # (token revoked between the two calls)
+        from src.auth.service import _google_userinfo
+        tokeninfo = _make_httpx_response(200, {"azp": "my-client-id"})
+        userinfo = _make_httpx_response(401, {"error": "invalid_token"})
+        with patch("src.auth.service.httpx.AsyncClient", return_value=self._mock_client(tokeninfo, userinfo)):
+            with patch("src.auth.service.get_settings") as mock_settings:
+                mock_settings.return_value.google_client_id = "my-client-id"
+                with pytest.raises(HTTPException) as exc:
+                    await _google_userinfo("tok")
         assert exc.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_unverified_email_raises_401(self) -> None:
         # Arrange — email not verified
+        from src.auth.service import _google_userinfo
         tokeninfo = _make_httpx_response(200, {"azp": "my-client-id"})
         userinfo = _make_httpx_response(200, {
             "sub": "123", "email": "u@e.com", "email_verified": False,
@@ -198,14 +216,31 @@ class TestGoogleUserinfo:
             with patch("src.auth.service.get_settings") as mock_settings:
                 mock_settings.return_value.google_client_id = "my-client-id"
                 with pytest.raises(HTTPException) as exc:
-                    from src.auth.service import _google_userinfo
                     await _google_userinfo("tok")
         assert exc.value.status_code == 401
         assert "not verified" in exc.value.detail
 
     @pytest.mark.asyncio
+    async def test_network_error_raises_503(self) -> None:
+        # Arrange — Google service unreachable
+        from src.auth.service import _google_userinfo
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=httpx.ConnectError("unreachable"))
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=client)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        with patch("src.auth.service.httpx.AsyncClient", return_value=cm):
+            with patch("src.auth.service.get_settings") as mock_settings:
+                mock_settings.return_value.google_client_id = "my-client-id"
+                with pytest.raises(HTTPException) as exc:
+                    await _google_userinfo("tok")
+        assert exc.value.status_code == 503
+        assert "unavailable" in exc.value.detail
+
+    @pytest.mark.asyncio
     async def test_skips_audience_check_when_client_id_not_configured(self) -> None:
         # Arrange — no google_client_id configured (dev/test env)
+        from src.auth.service import _google_userinfo
         userinfo = _make_httpx_response(200, {
             "sub": "123", "email": "u@e.com", "email_verified": True,
         })
@@ -217,11 +252,11 @@ class TestGoogleUserinfo:
         with patch("src.auth.service.httpx.AsyncClient", return_value=cm):
             with patch("src.auth.service.get_settings") as mock_settings:
                 mock_settings.return_value.google_client_id = ""
-                from src.auth.service import _google_userinfo
                 result = await _google_userinfo("tok")
         assert result["sub"] == "123"
-        # Only one HTTP call — tokeninfo was skipped
+        # Only one HTTP call (GET userinfo) — POST tokeninfo was skipped
         assert client.get.call_count == 1
+        assert client.post.call_count == 0
 
 
 class TestCreateInvite:
