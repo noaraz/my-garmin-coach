@@ -186,6 +186,13 @@ Project slash commands in `.claude/commands/`:
 - **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
 - **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.
 
+## Google OAuth Gotchas (added 2026-03-17)
+
+- **`aud` is NOT in the userinfo response** — `/oauth2/v3/userinfo` does not expose the token audience. Only ID tokens (JWTs) have `aud`. For access tokens, use the tokeninfo endpoint.
+- **Audience validation via tokeninfo** — `GET https://oauth2.googleapis.com/tokeninfo?access_token={token}` returns `azp` (authorized party = the OAuth2 client_id). Check `azp == settings.google_client_id`.
+- **`VITE_GOOGLE_CLIENT_ID` is a build-time variable** — Vite bakes it into the bundle at `npm run build`. In `Dockerfile.prod`, pass it as a Docker `ARG` before `RUN npm run build`. Reuse `GOOGLE_CLIENT_ID` (already in Render) via `ARG GOOGLE_CLIENT_ID` → `ENV VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID` — no separate Render env var needed.
+- **Don't mock `_google_userinfo` in tests** — mocking the whole function hides bugs in its body. Mock `httpx.AsyncClient` instead so the audience check, email_verified check, and URL logic are all exercised.
+
 ## Settings / Garmin Connect UI (added 2026-03-09)
 
 - **Route**: `/settings` → `SettingsPage.tsx` — protected, wrapped in AppShell + ErrorBoundary

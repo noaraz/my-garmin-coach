@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 from fastapi import HTTPException
@@ -21,28 +22,48 @@ from src.auth.schemas import (
 )
 from src.core.config import get_settings
 
+_GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 
-async def _google_userinfo(access_token: str) -> dict:
-    """Fetch user info from Google using an OAuth2 access token."""
+async def _google_userinfo(access_token: str) -> dict[str, Any]:
+    """Fetch and validate user info from Google using an OAuth2 access token.
+
+    Uses the tokeninfo endpoint to validate the token audience (azp claim),
+    then the userinfo endpoint for the full profile (sub, email, picture, etc.).
+    Token is sent in the POST body — not as a URL query param — to avoid
+    leaking it into server access logs.
+    """
     settings = get_settings()
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            _GOOGLE_USERINFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            # Validate token audience via tokeninfo — azp is the OAuth2 client_id
+            # that issued the token. The userinfo endpoint does not expose this claim.
+            # POST body avoids exposing the token in server access logs.
+            if settings.google_client_id:
+                ti_resp = await client.post(
+                    _GOOGLE_TOKENINFO_URL,
+                    data={"access_token": access_token},
+                )
+                if ti_resp.status_code != 200:
+                    raise HTTPException(status_code=401, detail="Invalid Google access token")
+                ti = ti_resp.json()
+                if ti.get("azp") != settings.google_client_id:
+                    raise HTTPException(status_code=401, detail="Google token audience mismatch")
+
+            resp = await client.get(
+                _GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    except HTTPException:
+        raise
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Google service unavailable")
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Google access token")
     data = resp.json()
     if not data.get("email_verified"):
         raise HTTPException(status_code=401, detail="Google account email is not verified")
-    # Validate the token was issued to our Google client to prevent token substitution attacks.
-    if settings.google_client_id:
-        aud = data.get("aud", "")
-        audience = aud if isinstance(aud, list) else [aud]
-        if settings.google_client_id not in audience:
-            raise HTTPException(status_code=401, detail="Google token audience mismatch")
     return data
 
 
