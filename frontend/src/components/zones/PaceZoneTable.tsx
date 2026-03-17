@@ -7,11 +7,11 @@ interface PaceZoneTableProps {
 }
 
 const ZONE_COLORS: Record<number, string> = {
-  1: '#3B82F6',
-  2: '#22C55E',
-  3: '#EAB308',
-  4: '#F97316',
-  5: '#EF4444',
+  1: 'var(--color-zone-1)',
+  2: 'var(--color-zone-2)',
+  3: 'var(--color-zone-3)',
+  4: 'var(--color-zone-4)',
+  5: 'var(--color-zone-5)',
 }
 
 export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {

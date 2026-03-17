@@ -7,7 +7,7 @@ import { ThresholdInput } from './ThresholdInput'
 import type { HRZone } from '../../api/types'
 
 export function ZoneManager() {
-  const { hrZones, paceZones, loading: zonesLoading, error: zonesError, recalcHR, recalcPace } = useZones()
+  const { hrZones, paceZones, loading: zonesLoading, error: zonesError, saveHRZones, recalcHR, recalcPace } = useZones()
   const { profile, loading: profileLoading, error: profileError, save } = useProfile()
 
   const [lthr, setLthr] = useState<number | null>(null)
@@ -31,6 +31,10 @@ export function ZoneManager() {
         lthr: resolvedLthr ?? undefined,
         threshold_pace: resolvedThresholdPace ?? undefined,
       })
+      if (localZones.length > 0) {
+        await saveHRZones(localZones)
+        setLocalZones([])
+      }
       showToast('success', 'Saved successfully')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Save failed')
@@ -40,6 +44,7 @@ export function ZoneManager() {
   const handleRecalcHR = async () => {
     try {
       await recalcHR()
+      setLocalZones([])
       showToast('success', 'HR zones recalculated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
@@ -68,13 +73,13 @@ export function ZoneManager() {
     fontWeight: 700,
     letterSpacing: '0.15em',
     textTransform: 'uppercase',
-    color: '#aaa',
+    color: 'var(--text-muted)',
     marginBottom: '10px',
   }
 
   if (zonesLoading || profileLoading) {
     return (
-      <div style={{ padding: '40px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', color: '#aaa' }}>
+      <div style={{ padding: '40px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', color: 'var(--text-muted)' }}>
         Loading zones…
       </div>
     )
@@ -98,7 +103,7 @@ export function ZoneManager() {
         <div style={{
           fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '9px',
-          color: '#bbb',
+          color: 'var(--text-muted)',
           marginTop: '4px',
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
@@ -107,22 +112,22 @@ export function ZoneManager() {
 
       {error && (
         <div role="alert" style={{
-          background: '#fff0f0', border: '1px solid #ffc5c5',
-          color: '#c00', padding: '10px 14px', borderRadius: '5px',
+          background: 'var(--color-error-bg)', border: '1px solid var(--color-error-border)',
+          color: 'var(--color-error)', padding: '10px 14px', borderRadius: '5px',
           fontSize: '13px', marginBottom: '20px',
         }}>{error}</div>
       )}
       {toast?.type === 'error' && (
         <div role="alert" style={{
-          background: '#fff0f0', border: '1px solid #ffc5c5',
-          color: '#c00', padding: '10px 14px', borderRadius: '5px',
+          background: 'var(--color-error-bg)', border: '1px solid var(--color-error-border)',
+          color: 'var(--color-error)', padding: '10px 14px', borderRadius: '5px',
           fontSize: '13px', marginBottom: '20px',
         }}>{toast.message}</div>
       )}
       {toast?.type === 'success' && (
         <div role="status" style={{
-          background: '#f0fff4', border: '1px solid #b2f5c8',
-          color: '#0a7a30', padding: '10px 14px', borderRadius: '5px',
+          background: 'var(--color-success-bg)', border: '1px solid var(--color-success-border)',
+          color: 'var(--color-success)', padding: '10px 14px', borderRadius: '5px',
           fontSize: '13px', marginBottom: '20px',
         }}>{toast.message}</div>
       )}
@@ -133,7 +138,7 @@ export function ZoneManager() {
         {/* Guide card */}
         <div style={{
           background: 'var(--accent-subtle)',
-          border: '1px solid rgba(0,87,255,0.18)',
+          border: '1px solid var(--border)',
           borderRadius: '8px',
           padding: '16px 18px',
           marginBottom: '12px',
@@ -181,7 +186,7 @@ export function ZoneManager() {
           <div style={{
             marginTop: '12px',
             paddingTop: '10px',
-            borderTop: '1px solid rgba(0,87,255,0.12)',
+            borderTop: '1px solid var(--border)',
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '10px',
             color: 'var(--text-secondary)',

@@ -351,7 +351,7 @@ export function SettingsPage() {
             <p style={{
               fontSize: '12px',
               color: 'var(--text-secondary)',
-              fontFamily: "'Barlow', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               margin: '0 0 16px',
               lineHeight: 1.5,
             }}>
@@ -367,7 +367,7 @@ export function SettingsPage() {
                 borderRadius: '5px',
                 fontSize: '12px',
                 color: 'var(--color-error)',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               }}>
                 {inviteError}
               </div>
@@ -386,7 +386,7 @@ export function SettingsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase' as const,
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 cursor: isGenerating ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s',
               }}
@@ -407,7 +407,7 @@ export function SettingsPage() {
                     borderRadius: '5px',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                     outline: 'none',
                     boxSizing: 'border-box' as const,
                   }}
@@ -424,7 +424,7 @@ export function SettingsPage() {
                     fontWeight: 700,
                     letterSpacing: '0.08em',
                     textTransform: 'uppercase' as const,
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                     cursor: 'pointer',
                     transition: 'background 0.15s, color 0.15s',
                     whiteSpace: 'nowrap' as const,
