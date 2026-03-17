@@ -61,7 +61,7 @@ export function Sidebar() {
     borderRadius: '5px',
     marginBottom: '1px',
     fontSize: '12px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontWeight: 600,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
@@ -105,7 +105,7 @@ export function Sidebar() {
         </div>
         <div>
           <div style={{
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontWeight: 700,
             fontSize: '14px',
             letterSpacing: '0.08em',
@@ -114,7 +114,7 @@ export function Sidebar() {
             lineHeight: 1.15,
           }}>GarminCoach</div>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '9px',
             color: SIDE_LOGO_SUB,
             letterSpacing: '0.05em',
@@ -174,7 +174,7 @@ export function Sidebar() {
           borderTop: `1px solid ${SIDE_BORD}`,
         }}>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '9px',
             color: SIDE_LOGO_SUB,
             letterSpacing: '0.04em',
@@ -199,7 +199,7 @@ export function Sidebar() {
               gap: '5px',
               borderRadius: '4px',
               fontSize: '10px',
-              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontWeight: 600,
               letterSpacing: '0.06em',
               textTransform: 'uppercase' as const,
@@ -225,7 +225,7 @@ export function Sidebar() {
         justifyContent: 'space-between',
       }}>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '9px',
           color: SIDE_VER,
           letterSpacing: '0.06em',

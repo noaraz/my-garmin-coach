@@ -44,21 +44,21 @@ export function RegisterPage() {
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
           </div>
-          <div style={{ fontFamily: "'Barlow Condensed', system-ui, sans-serif", fontWeight: 700, fontSize: '20px', letterSpacing: '0.08em', color: 'var(--text-primary)', textTransform: 'uppercase' as const }}>GarminCoach</div>
+          <div style={{ fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif", fontWeight: 700, fontSize: '20px', letterSpacing: '0.08em', color: 'var(--text-primary)', textTransform: 'uppercase' as const }}>GarminCoach</div>
         </div>
 
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '28px 24px' }}>
-          <h1 style={{ fontFamily: "'Barlow Condensed', system-ui, sans-serif", fontWeight: 700, fontSize: '20px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'var(--text-primary)', margin: '0 0 6px' }}>Request Access</h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: "'Barlow', system-ui, sans-serif", margin: '0 0 20px' }}>Sign in with Google to create your account</p>
+          <h1 style={{ fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif", fontWeight: 700, fontSize: '20px', letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'var(--text-primary)', margin: '0 0 6px' }}>Request Access</h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: "'IBM Plex Sans', system-ui, sans-serif", margin: '0 0 20px' }}>Sign in with Google to create your account</p>
 
           {inviteCode && (
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: "'Barlow', system-ui, sans-serif", margin: '0 0 14px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", margin: '0 0 14px' }}>
               Invite code: {inviteCode}
             </p>
           )}
 
           {error && (
-            <div role="alert" style={{ marginBottom: '14px', padding: '9px 11px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-strong)', borderRadius: '5px', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: "'Barlow', system-ui, sans-serif" }}>
+            <div role="alert" style={{ marginBottom: '14px', padding: '9px 11px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-strong)', borderRadius: '5px', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
               {error}
             </div>
           )}
@@ -67,7 +67,7 @@ export function RegisterPage() {
             <button
               onClick={handleSignIn}
               disabled={!scriptLoadedSuccessfully}
-              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: '4px', fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', cursor: scriptLoadedSuccessfully ? 'pointer' : 'not-allowed', fontFamily: "'Barlow', system-ui, sans-serif" }}
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: '4px', fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', cursor: scriptLoadedSuccessfully ? 'pointer' : 'not-allowed', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -80,7 +80,7 @@ export function RegisterPage() {
           </div>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: "'Barlow', system-ui, sans-serif" }}>
+        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
           Already have an account?{' '}
           <Link to="/login" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>Sign in</Link>
         </p>

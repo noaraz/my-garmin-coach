@@ -25,7 +25,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
   }
 
   const labelStyle: React.CSSProperties = {
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontSize: '10px',
     fontWeight: 700,
     letterSpacing: '0.12em',
@@ -43,7 +43,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
     border: '1px solid var(--input-border)',
     borderRadius: '3px',
     color: 'var(--text-primary)',
-    fontFamily: "'Barlow', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
     fontSize: '13px',
     outline: 'none',
   }
@@ -77,7 +77,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
       >
         <h2 style={{
           margin: 0,
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           fontSize: '16px',
           fontWeight: 700,
           letterSpacing: '0.06em',
@@ -86,7 +86,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
         }}>
           Schedule Workout
           <div style={{
-            fontFamily: "'Barlow', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
             fontSize: '13px',
             fontWeight: 400,
             letterSpacing: 0,
@@ -115,7 +115,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
             style={{
               padding: '6px 16px',
               cursor: 'pointer',
-              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.08em',
@@ -134,7 +134,7 @@ export function ScheduleDialog({ template, onClose, onScheduled }: ScheduleDialo
             style={{
               padding: '6px 16px',
               cursor: date && !loading ? 'pointer' : 'not-allowed',
-              fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.08em',

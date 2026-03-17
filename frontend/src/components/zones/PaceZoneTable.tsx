@@ -7,17 +7,17 @@ interface PaceZoneTableProps {
 }
 
 const ZONE_COLORS: Record<number, string> = {
-  1: '#3B82F6',
-  2: '#22C55E',
-  3: '#EAB308',
-  4: '#F97316',
-  5: '#EF4444',
+  1: 'var(--color-zone-1)',
+  2: 'var(--color-zone-2)',
+  3: 'var(--color-zone-3)',
+  4: 'var(--color-zone-4)',
+  5: 'var(--color-zone-5)',
 }
 
 export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
   const thStyle: React.CSSProperties = {
     padding: '6px 10px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontSize: '10px',
     fontWeight: 700,
     letterSpacing: '0.1em',
@@ -43,20 +43,18 @@ export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
             <th style={thStyle}>Zone</th>
             <th style={thStyle}>Name</th>
             <th style={thStyle}>Pace Range</th>
-            <th style={thStyle}>Method</th>
           </tr>
         </thead>
         <tbody>
           {zones.map(zone => (
             <tr key={zone.id}>
-              <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: ZONE_COLORS[zone.zone_number] ?? 'var(--text-muted)' }}>
+              <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: ZONE_COLORS[zone.zone_number] ?? 'var(--text-muted)' }}>
                 Z{zone.zone_number}
               </td>
               <td style={tdStyle}>{zone.name}</td>
-              <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
+              <td style={{ ...tdStyle, fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px' }}>
                 {formatPace(zone.upper_pace)} – {formatPace(zone.lower_pace)}
               </td>
-              <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '11px' }}>{zone.calculation_method}</td>
             </tr>
           ))}
         </tbody>
@@ -70,7 +68,7 @@ export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
             border: '1px solid var(--border-strong)',
             borderRadius: '3px',
             color: 'var(--text-secondary)',
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontSize: '10px',
             fontWeight: 700,
             letterSpacing: '0.08em',

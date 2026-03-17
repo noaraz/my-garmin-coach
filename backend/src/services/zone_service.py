@@ -22,11 +22,11 @@ class ZoneService:
     async def recalculate_hr_zones(
         self, session: AsyncSession, profile: AthleteProfile
     ) -> list[HRZone]:
-        """Recalculate HR zones from LTHR (Coggan), then cascade re-resolve."""
+        """Recalculate HR zones from LTHR (Friel), then cascade re-resolve."""
         if not profile.lthr:
             return []
 
-        config = ZoneConfig(threshold=float(profile.lthr), method="coggan")
+        config = ZoneConfig(threshold=float(profile.lthr), method="friel")
         zone_set = HRZoneCalculator(config).calculate()
 
         await hr_zone_repository.delete_by_profile(session, profile.id)
@@ -39,7 +39,7 @@ class ZoneService:
                 name=z.name,
                 lower_bpm=z.lower,
                 upper_bpm=z.upper,
-                calculation_method="coggan",
+                calculation_method="friel",
                 pct_lower=z.pct_lower,
                 pct_upper=z.pct_upper,
             )

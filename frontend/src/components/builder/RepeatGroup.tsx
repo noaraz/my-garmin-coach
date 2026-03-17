@@ -45,7 +45,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
       }}
     >
       <div style={{
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '10px',
         fontWeight: 700,
         letterSpacing: '0.1em',
@@ -78,7 +78,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
             border: `1px solid var(--color-zone-4)`,
             borderRadius: '2px',
             color: 'var(--color-zone-4)',
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', sans-serif",
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -97,7 +97,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
             border: `1px solid var(--color-zone-2)`,
             borderRadius: '2px',
             color: 'var(--color-zone-2)',
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', sans-serif",
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -116,7 +116,7 @@ export function RepeatGroup({ group, groupIndex, isSelected = false, onChange, o
             border: '1px solid var(--border-strong)',
             borderRadius: '2px',
             color: 'var(--text-muted)',
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', sans-serif",
             letterSpacing: '0.05em',
           }}
         >

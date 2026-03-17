@@ -18,7 +18,7 @@ export function StepPalette({ onAddStep, onAddRepeat }: StepPaletteProps) {
     cursor: 'pointer',
     borderRadius: '3px',
     fontSize: '10px',
-    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
     fontWeight: 700,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',

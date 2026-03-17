@@ -109,17 +109,6 @@ describe('test_zone_boundaries_editable', () => {
   })
 })
 
-describe('test_method_dropdown', () => {
-  it('method dropdown has coggan/friel/custom options', () => {
-    render(<ZoneManager />)
-    const dropdown = screen.getByRole('combobox', { name: /method/i })
-    expect(dropdown).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /coggan/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /friel/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /custom/i })).toBeInTheDocument()
-  })
-})
-
 describe('test_success_feedback', () => {
   it('save succeeds → success toast shown', async () => {
     const user = userEvent.setup()

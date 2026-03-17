@@ -14,7 +14,7 @@ const btnBase: React.CSSProperties = {
   padding: '3px 10px',
   cursor: 'pointer',
   fontSize: '10px',
-  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontWeight: 700,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
@@ -49,7 +49,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
       {/* Left: name + meta */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontFamily: "'Barlow', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
           fontWeight: 600,
           fontSize: '13px',
           color: 'var(--text-primary)',
@@ -63,7 +63,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
           <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '10px',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.4,
@@ -78,7 +78,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
             {hasDuration && (
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
@@ -89,7 +89,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
             )}
             {hasDistance && (
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
@@ -105,7 +105,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
           fontSize: '10px',
           color: 'var(--text-muted)',
           marginTop: '3px',
-          fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
         }}>

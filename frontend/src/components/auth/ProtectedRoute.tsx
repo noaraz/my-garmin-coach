@@ -19,7 +19,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         background: 'var(--bg-main)',
         color: 'var(--text-muted)',
         fontSize: '13px',
-        fontFamily: "'Barlow', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
       }}>
         Loading...
       </div>

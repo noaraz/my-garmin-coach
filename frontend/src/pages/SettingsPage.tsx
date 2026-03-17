@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 type ConnectionState = 'loading' | 'connected' | 'disconnected'
 
 const sectionLabel: React.CSSProperties = {
-  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontSize: '11px',
   fontWeight: 700,
   letterSpacing: '0.15em',
@@ -96,7 +96,7 @@ export function SettingsPage() {
     <div style={{ padding: '28px 32px', maxWidth: '680px' }}>
       {/* Page header */}
       <h1 style={{
-        fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
         fontSize: '26px',
         fontWeight: 700,
         letterSpacing: '0.02em',
@@ -129,7 +129,7 @@ export function SettingsPage() {
               <span style={{
                 fontSize: '12px',
                 color: 'var(--text-muted)',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               }}>
                 Checking connection…
               </span>
@@ -148,7 +148,7 @@ export function SettingsPage() {
                 }} />
                 <span style={{
                   fontSize: '13px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                   fontWeight: 700,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
@@ -170,7 +170,7 @@ export function SettingsPage() {
               borderRadius: '5px',
               fontSize: '12px',
               color: 'var(--color-error)',
-              fontFamily: "'Barlow', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
             }}>
               {error}
             </div>
@@ -184,7 +184,7 @@ export function SettingsPage() {
               borderRadius: '5px',
               fontSize: '12px',
               color: 'var(--color-success)',
-              fontFamily: "'Barlow', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
             }}>
               {successMsg}
             </div>
@@ -196,7 +196,7 @@ export function SettingsPage() {
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-secondary)',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 margin: '0 0 16px',
                 lineHeight: 1.5,
               }}>
@@ -213,7 +213,7 @@ export function SettingsPage() {
                   textTransform: 'uppercase',
                   color: 'var(--text-secondary)',
                   marginBottom: '5px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 }}>
                   Garmin Email
                 </label>
@@ -233,7 +233,7 @@ export function SettingsPage() {
                     borderRadius: '5px',
                     color: 'var(--text-primary)',
                     fontSize: '13px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                     outline: 'none',
                     boxSizing: 'border-box',
                   }}
@@ -249,7 +249,7 @@ export function SettingsPage() {
                   textTransform: 'uppercase',
                   color: 'var(--text-secondary)',
                   marginBottom: '5px',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 }}>
                   Garmin Password
                 </label>
@@ -269,7 +269,7 @@ export function SettingsPage() {
                     borderRadius: '5px',
                     color: 'var(--text-primary)',
                     fontSize: '13px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                     outline: 'none',
                     boxSizing: 'border-box',
                   }}
@@ -289,7 +289,7 @@ export function SettingsPage() {
                   fontWeight: 700,
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   transition: 'background 0.15s',
                 }}
@@ -305,7 +305,7 @@ export function SettingsPage() {
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-secondary)',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                 margin: '0 0 16px',
                 lineHeight: 1.5,
               }}>
@@ -325,7 +325,7 @@ export function SettingsPage() {
                   fontWeight: 700,
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
-                  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   transition: 'border-color 0.15s, color 0.15s',
                 }}
@@ -351,7 +351,7 @@ export function SettingsPage() {
             <p style={{
               fontSize: '12px',
               color: 'var(--text-secondary)',
-              fontFamily: "'Barlow', system-ui, sans-serif",
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               margin: '0 0 16px',
               lineHeight: 1.5,
             }}>
@@ -367,7 +367,7 @@ export function SettingsPage() {
                 borderRadius: '5px',
                 fontSize: '12px',
                 color: 'var(--color-error)',
-                fontFamily: "'Barlow', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               }}>
                 {inviteError}
               </div>
@@ -386,7 +386,7 @@ export function SettingsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase' as const,
-                fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                 cursor: isGenerating ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s',
               }}
@@ -407,7 +407,7 @@ export function SettingsPage() {
                     borderRadius: '5px',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
-                    fontFamily: "'Barlow', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                     outline: 'none',
                     boxSizing: 'border-box' as const,
                   }}
@@ -424,7 +424,7 @@ export function SettingsPage() {
                     fontWeight: 700,
                     letterSpacing: '0.08em',
                     textTransform: 'uppercase' as const,
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                     cursor: 'pointer',
                     transition: 'background 0.15s, color 0.15s',
                     whiteSpace: 'nowrap' as const,

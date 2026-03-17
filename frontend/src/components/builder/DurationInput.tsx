@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const fieldLabel: React.CSSProperties = {
-  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontSize: '10px',
   fontWeight: 700,
   letterSpacing: '0.12em',
@@ -14,7 +14,7 @@ const inputStyle: React.CSSProperties = {
   padding: '5px 8px',
   marginTop: '4px',
   fontSize: '12px',
-  fontFamily: "'JetBrains Mono', monospace",
+  fontFamily: "'IBM Plex Mono', monospace",
   background: 'var(--input-bg)',
   border: '1px solid var(--input-border)',
   borderRadius: '3px',

@@ -8,7 +8,7 @@ interface ZoneSelectorProps {
 const ZONE_NAMES = ['Recovery', 'Aerobic', 'Tempo', 'Threshold', 'VO2max']
 
 const fieldLabel: React.CSSProperties = {
-  fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontSize: '10px',
   fontWeight: 700,
   letterSpacing: '0.12em',
@@ -30,7 +30,7 @@ export function ZoneSelector({ zone, onChange }: ZoneSelectorProps) {
           padding: '5px 8px',
           marginTop: '4px',
           fontSize: '12px',
-          fontFamily: "'Barlow', system-ui, sans-serif",
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
           background: 'var(--input-bg)',
           border: `1px solid ${zone ? ZONE_COLORS[zone] : 'var(--input-border)'}`,
           borderRadius: '3px',

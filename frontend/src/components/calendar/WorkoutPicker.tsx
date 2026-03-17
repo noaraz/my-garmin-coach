@@ -42,7 +42,7 @@ export function WorkoutPicker({ templates, onSchedule, onClose }: WorkoutPickerP
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h2 style={{
             margin: 0,
-            fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontSize: '16px',
             fontWeight: 700,
             letterSpacing: '0.06em',
@@ -84,14 +84,14 @@ export function WorkoutPicker({ templates, onSchedule, onClose }: WorkoutPickerP
                 }}
               >
                 <div style={{
-                  fontFamily: "'Barlow', system-ui, sans-serif",
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
                   fontWeight: 600,
                   fontSize: '13px',
                   color: 'var(--text-primary)',
                 }}>{template.name}</div>
                 {template.sport_type && (
                   <div style={{
-                    fontFamily: "'Barlow Condensed', system-ui, sans-serif",
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
                     fontSize: '11px',
                     color: 'var(--text-muted)',
                     marginTop: '2px',

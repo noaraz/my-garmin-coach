@@ -196,6 +196,15 @@ Project slash commands in `.claude/commands/`:
 - **API functions**: `getGarminStatus`, `connectGarmin`, `disconnectGarmin` in `frontend/src/api/client.ts`
 - **Type**: `GarminStatusResponse { connected: boolean }` in `frontend/src/api/types.ts`
 
+## Typography (updated 2026-03-16)
+
+- **Display/headers**: `'IBM Plex Sans Condensed'` — section labels, page titles, zone badges, button text
+- **Body**: `'IBM Plex Sans'` — descriptive text, form labels, guide card content
+- **Mono/numbers**: `'IBM Plex Mono'` — BPM values, pace values, mono subtitles, "or:" hint lines
+- Google Fonts import in `index.css` — `IBM+Plex+Sans+Condensed`, `IBM+Plex+Sans`, `IBM+Plex+Mono`
+- CSS `@theme` vars: `--font-family-display`, `--font-family-body`, `--font-family-mono`
+- **Zone method**: Friel only — `MethodSelector` component deleted. `zone_service.py` hardcodes `method="friel"`. Do not re-introduce method selection.
+
 ## Docker + Dev Environment Gotchas (added 2026-03-17)
 
 ### macOS bind-mount sync issue
