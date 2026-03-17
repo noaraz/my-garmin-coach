@@ -21,13 +21,31 @@ from src.auth.schemas import (
 )
 from src.core.config import get_settings
 
+_GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 
 async def _google_userinfo(access_token: str) -> dict:
-    """Fetch user info from Google using an OAuth2 access token."""
+    """Fetch and validate user info from Google using an OAuth2 access token.
+
+    Uses the tokeninfo endpoint to validate the token audience (azp claim),
+    then the userinfo endpoint for the full profile (sub, email, picture, etc.).
+    """
     settings = get_settings()
     async with httpx.AsyncClient() as client:
+        # Validate token audience via tokeninfo — azp is the OAuth2 client_id
+        # that issued the token. The userinfo endpoint does not expose this claim.
+        if settings.google_client_id:
+            ti_resp = await client.get(
+                _GOOGLE_TOKENINFO_URL,
+                params={"access_token": access_token},
+            )
+            if ti_resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid Google access token")
+            ti = ti_resp.json()
+            if ti.get("azp") != settings.google_client_id:
+                raise HTTPException(status_code=401, detail="Google token audience mismatch")
+
         resp = await client.get(
             _GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -37,12 +55,6 @@ async def _google_userinfo(access_token: str) -> dict:
     data = resp.json()
     if not data.get("email_verified"):
         raise HTTPException(status_code=401, detail="Google account email is not verified")
-    # Validate the token was issued to our Google client to prevent token substitution attacks.
-    if settings.google_client_id:
-        aud = data.get("aud", "")
-        audience = aud if isinstance(aud, list) else [aud]
-        if settings.google_client_id not in audience:
-            raise HTTPException(status_code=401, detail="Google token audience mismatch")
     return data
 
 
