@@ -26,6 +26,7 @@ _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 async def _google_userinfo(access_token: str) -> dict:
     """Fetch user info from Google using an OAuth2 access token."""
+    settings = get_settings()
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             _GOOGLE_USERINFO_URL,
@@ -36,6 +37,12 @@ async def _google_userinfo(access_token: str) -> dict:
     data = resp.json()
     if not data.get("email_verified"):
         raise HTTPException(status_code=401, detail="Google account email is not verified")
+    # Validate the token was issued to our Google client to prevent token substitution attacks.
+    if settings.google_client_id:
+        aud = data.get("aud", "")
+        audience = aud if isinstance(aud, list) else [aud]
+        if settings.google_client_id not in audience:
+            raise HTTPException(status_code=401, detail="Google token audience mismatch")
     return data
 
 
