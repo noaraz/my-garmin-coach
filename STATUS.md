@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-17 (admin bootstrap, invite system, Google OAuth — PR #19 ready to merge)
+Last updated: 2026-03-17 (v0.2.0 tagged — Google OAuth, admin bootstrap, invite system, security hardening)
 
-## Current Focus: Render First Deploy
+## Current Focus: Next Feature
 
 ---
 
@@ -32,6 +32,7 @@ Last updated: 2026-03-17 (admin bootstrap, invite system, Google OAuth — PR #1
 | Verify Render: login + profile + Garmin connect | ✅ |
 | Tag v0.1.0 + push (triggers CI gate → GitHub Release → Render deploy) | ✅ |
 | Tag v0.1.1 + push (SPA routing fix + Calendar test reliability) | ✅ |
+| Tag v0.2.0 + push (Google OAuth, admin bootstrap, invite system, security hardening) | ✅ |
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 
