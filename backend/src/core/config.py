@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str = ""
 
+    # Fixie proxy for Garmin OAuth (production only — avoids 429 from shared IPs)
+    fixie_url: str = ""
+
     model_config = {"env_file": ".env"}
 
     @model_validator(mode="after")

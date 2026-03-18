@@ -55,6 +55,7 @@ async def get_current_user(
 - [ ] .env NOT in git
 - [ ] Database NOT publicly accessible
 - [ ] Registration is invite-only
+- [ ] FIXIE_URL set in Render (Garmin OAuth proxy — treats as secret, contains auth token)
 
 ## Gotchas & Patterns (added 2026-03-09)
 

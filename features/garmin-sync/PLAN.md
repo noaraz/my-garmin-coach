@@ -118,6 +118,12 @@ Track progress in **STATUS.md**.
 
 All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 
+### Fixie Proxy (production)
+- [x] Add `fixie_url` to Settings (`FIXIE_URL` env var, empty = disabled)
+- [x] Configure proxy on `garth.Client.sess.proxies` before login
+- [x] Add `FIXIE_URL` to `docker-compose.prod.yml`
+- Garmin rate-limits OAuth from Render's shared datacenter IPs (429). Fixie free tier (500 req/mo) provides a dedicated static IP for the login call only.
+
 ---
 
 ## Implementation Files

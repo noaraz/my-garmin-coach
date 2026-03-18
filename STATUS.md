@@ -38,6 +38,7 @@ Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
 | Tag v0.2.1 + push (Google OAuth audience validation hotfix) | ✅ |
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
+| Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
 
 ### Zone Engine
 | Task | Status |

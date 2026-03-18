@@ -120,6 +120,15 @@ cipher = Fernet(base64_urlsafe_encode(key))
 encrypted = cipher.encrypt(token_json.encode())
 ```
 
+### Environment Secrets
+| Env var | Purpose |
+|---------|---------|
+| `JWT_SECRET` | JWT signing key |
+| `GARMINCOACH_SECRET_KEY` | Garmin token encryption master key |
+| `BOOTSTRAP_SECRET` | Admin bootstrap endpoint token |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `FIXIE_URL` | Fixie proxy URL for Garmin OAuth (production only, avoids 429 rate limits) |
+
 ---
 
 ## Tests

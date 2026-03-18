@@ -470,6 +470,17 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 ---
 
+## Fixie Proxy for Garmin OAuth (added 2026-03-17)
+
+- **Problem**: Garmin rate-limits OAuth requests (429) from Render's shared datacenter IPs
+- **Solution**: Route Garmin login through Fixie static IP proxy (free tier: 500 req/mo)
+- **Env var**: `FIXIE_URL` — set in Render only, empty in dev (no proxy)
+- **Scope**: Only affects `garth.Client.login()` in `garmin_connect.py` — sync operations use stored tokens and don't need the proxy
+- **Config**: `settings.fixie_url` in `backend/src/core/config.py` — empty string = disabled
+- **Security**: TLS end-to-end — Fixie sees destination hostnames but not request bodies (credentials encrypted in transit)
+
+---
+
 ## Nice to Have (future features)
 
 Ideas for future iterations, roughly in priority order.
