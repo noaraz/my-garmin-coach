@@ -62,8 +62,8 @@ Render uses `render.yaml` at the repo root. It provisions the web service, persi
 **First deploy:**
 
 1. Go to [render.com](https://render.com) → New → Blueprint → connect the GitHub repo.
-2. Render detects `render.yaml` — no manual env var setup needed.
-3. Set `GOOGLE_CLIENT_ID` manually in the Render dashboard (not in `render.yaml`).
+2. Render detects `render.yaml` — auto-generates `JWT_SECRET` and `GARMINCOACH_SECRET_KEY`.
+3. Set `GOOGLE_CLIENT_ID`, `BOOTSTRAP_SECRET`, and `FIXIE_URL` manually in the Render dashboard.
 4. `autoDeploy: false` — deploys are triggered manually or via the `/release` workflow.
 
 On container start, `alembic upgrade head` runs automatically before uvicorn — it creates all tables on the first deploy and applies any new migrations on subsequent deploys.
