@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
+Last updated: 2026-03-18 (v0.2.3 tagged — Fixie proxy + security hardening, deployed to Render)
 
 ## Current Focus: Next Feature
 
@@ -39,6 +39,9 @@ Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 | Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
+| Tag v0.2.2 + push (Fixie proxy) | ✅ |
+| Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
+| Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
 
 ### Zone Engine
 | Task | Status |
