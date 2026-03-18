@@ -16,6 +16,8 @@ dependencies = [
     "passlib[bcrypt]>=1.7",
     "cryptography>=41.0",
     "alembic>=1.13",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9",
     "google-auth>=2.0",
 ]
 

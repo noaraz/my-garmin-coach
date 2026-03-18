@@ -2,6 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
 
+declare const __APP_VERSION__: string
+
 const CalendarIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -229,7 +231,7 @@ export function Sidebar() {
           fontSize: '9px',
           color: SIDE_VER,
           letterSpacing: '0.06em',
-        }}>v0.1.0-dev</span>
+        }}>{import.meta.env.PROD ? `v${__APP_VERSION__}` : `v${__APP_VERSION__}-dev`}</span>
         <button
           aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           onClick={toggleTheme}

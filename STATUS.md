@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
+Last updated: 2026-03-19 (dynamic version string in sidebar — reads from package.json, strips -dev in prod)
 
 ## Current Focus: Next Feature
 
@@ -39,6 +39,14 @@ Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 | Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
+| Tag v0.2.2 + push (Fixie proxy) | ✅ |
+| Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
+| Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
+| Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
+| Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
+| Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
+| Integration tests: TEST_DATABASE_URL env var support in conftest.py | ✅ |
+| Fix: naive UTC datetimes in User/InviteCode models (PostgreSQL TIMESTAMP WITHOUT TIME ZONE) | ✅ |
 
 ### Zone Engine
 | Task | Status |
@@ -137,6 +145,7 @@ Last updated: 2026-03-17 (v0.2.1 tagged — tokeninfo audience validation fix)
 | Post-ship: Calendar sync button debounce + spinner animation | ✅ |
 | Post-ship: Zone manager Friel-only + threshold guide card | ✅ |
 | Post-ship: App font refresh → IBM Plex Sans family | ✅ |
+| Post-ship: Dynamic sidebar version from package.json (`__APP_VERSION__` via Vite define, strips `-dev` in prod) | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment

@@ -152,7 +152,7 @@ async def google_auth(
         await session.refresh(user)
 
         invite.used_by = user.id
-        invite.used_at = datetime.now(timezone.utc)
+        invite.used_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(invite)
         await session.commit()
 
