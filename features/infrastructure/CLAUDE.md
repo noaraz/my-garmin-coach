@@ -82,6 +82,74 @@ The local Docker-volume DB (`backend_data:/data/garmincoach.db`) was stamped at 
 
 ---
 
+## Neon PostgreSQL — Production DB (added 2026-03-18)
+
+### Why Neon
+
+Render free tier has no persistent disk. SQLite at `/data/garmincoach.db` is wiped on every
+container restart (inactivity spin-down or redeployment). Neon was chosen over Supabase because
+Supabase pauses projects after 7 days of inactivity (requires a manual click to restore — unusable
+for a personal tool used weekly). Neon scales to zero after 5 min idle but restores transparently
+on the next query (cold start ~1s, invisible to users).
+
+### DATABASE_URL split: SQLite (dev) vs PostgreSQL (prod)
+
+```
+Dev  (docker-compose.yml):     DATABASE_URL=sqlite+aiosqlite:////data/garmincoach.db   ← default
+Prod (Render env dashboard):   DATABASE_URL=postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require
+```
+
+`?ssl=require` is mandatory — Neon requires TLS.
+
+### Alembic URL stripping (`alembic/env.py`)
+
+Alembic uses a synchronous driver (`psycopg2` for PostgreSQL, `sqlite3` for SQLite). Strip the
+async driver suffix before passing to alembic, and also convert the SSL param:
+
+```python
+_db_url = os.environ.get("DATABASE_URL", "sqlite:////data/garmincoach.db")
+_sync_url = _db_url.replace("+aiosqlite", "").replace("+asyncpg", "")
+# asyncpg uses ?ssl=require; psycopg2 uses ?sslmode=require
+_sync_url = _sync_url.replace("ssl=require", "sslmode=require")
+```
+
+Both `asyncpg` and `psycopg2-binary` must be in `[project.dependencies]`:
+- `asyncpg` — used by SQLAlchemy async engine at runtime
+- `psycopg2-binary` — used by alembic's synchronous migration engine
+
+`render_as_batch` is required for SQLite ALTER COLUMN but must be off for PostgreSQL (it causes
+unnecessary wrapping). Set it conditionally:
+
+```python
+_is_sqlite = _sync_url.startswith("sqlite")
+context.configure(
+    ...,
+    render_as_batch=_is_sqlite,
+)
+```
+
+### Running integration tests against PostgreSQL
+
+The integration test fixture in `tests/integration/conftest.py` accepts `TEST_DATABASE_URL`:
+
+```bash
+TEST_DATABASE_URL=postgresql+asyncpg://user:pass@host.neon.tech/testdb?ssl=require \
+  pytest tests/integration/ -v
+```
+
+Default (no env var) = SQLite in-memory, unchanged.
+
+### Provisioning a Neon project
+
+1. neon.com → free account (no credit card)
+2. New project → region closest to Render service (e.g. `us-east-1`)
+3. Connection string → "Connection pooling" OFF → copy `postgresql://...` URL
+4. Prepend `+asyncpg`: `postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require`
+5. Render dashboard → backend service → Environment → `DATABASE_URL` = the URL above
+6. Never commit this URL to `render.yaml` or any tracked file
+
+---
+
 ## FastAPI Static File Mount (Production)
 
 `StaticFiles(html=True)` does NOT do SPA fallback — it returns 404 for paths like `/login`

@@ -93,6 +93,23 @@ Track progress in **STATUS.md**.
 - [ ] Verify: login works
 - [ ] Verify: Garmin connect flow works end-to-end
 
+### Neon PostgreSQL Migration (2026-03-18)
+
+**Problem**: Render free tier has ephemeral storage. SQLite DB wiped on every restart/redeploy.
+**Solution**: Neon free PostgreSQL (0.5 GB, no credit card, no pause on inactivity).
+Local dev keeps SQLite. `DATABASE_URL` env var handles the split.
+
+- [x] Unit tests: `tests/unit/test_alembic_url.py` — parametrize URL stripping for `+aiosqlite` and `+asyncpg`
+- [x] Integration tests: `tests/integration/conftest.py` — accept `TEST_DATABASE_URL` env var (SQLite default unchanged)
+- [x] `backend/pyproject.toml`: add `asyncpg>=0.29.0` to main deps
+- [x] `backend/alembic/env.py`: fix URL stripping (`+aiosqlite` and `+asyncpg`), make `render_as_batch` conditional on SQLite
+- [x] `render.yaml`: remove `disk:` block (was silently ignored on free tier anyway)
+- [ ] **Manual**: create Neon project at neon.com → copy connection string → set `DATABASE_URL` in Render dashboard
+- [ ] **Verify**: register user → redeploy → login → user persists
+
+> **Connection string format**: `postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require`
+> Do NOT commit the Neon URL to `render.yaml` — set it in the Render dashboard directly.
+
 ### Release Management
 See **`RELEASING.md`** at the repo root — versioning scheme, full workflow, GitHub Release commands.
 

@@ -31,9 +31,12 @@ if config.config_file_name is not None:
 target_metadata = SQLModel.metadata
 
 # Override the URL from DATABASE_URL env var if set.
-# Strip "+aiosqlite" since Alembic uses a sync driver.
+# Strip async driver suffix — alembic uses a sync driver for both SQLite and PostgreSQL.
 _db_url = os.environ.get("DATABASE_URL", "sqlite:////data/garmincoach.db")
-_sync_url = _db_url.replace("sqlite+aiosqlite", "sqlite")
+_sync_url = _db_url.replace("+aiosqlite", "").replace("+asyncpg", "")
+# asyncpg uses ?ssl=require; psycopg2 (alembic sync driver) uses ?sslmode=require
+_sync_url = _sync_url.replace("ssl=require", "sslmode=require")
+_is_sqlite = _sync_url.startswith("sqlite")
 config.set_main_option("sqlalchemy.url", _sync_url)
 
 
@@ -64,7 +67,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=False,  # SQLite type comparison unreliable; avoid false positives
-            render_as_batch=True,  # Required for SQLite ALTER COLUMN support
+            render_as_batch=_is_sqlite,  # Required for SQLite ALTER COLUMN; not needed for PostgreSQL
         )
 
         with context.begin_transaction():

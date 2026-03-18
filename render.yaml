@@ -16,7 +16,7 @@ services:
         value: production
       - key: CORS_ORIGINS
         value: https://garmincoach.onrender.com
-    disk:
-      name: garmincoach-data
-      mountPath: /data
-      sizeGB: 1
+      # DATABASE_URL: set manually in Render dashboard — points to Neon PostgreSQL.
+      # Format: postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require
+      # Do NOT commit the Neon connection string here (contains credentials).
+      # Render free tier does not support persistent disks, so SQLite is not viable in prod.
