@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
@@ -41,6 +42,16 @@ class Settings(BaseSettings):
 
     # Fixie proxy for Garmin OAuth (production only — avoids 429 from shared IPs)
     fixie_url: str = ""
+
+    @field_validator("fixie_url")
+    @classmethod
+    def validate_fixie_url(cls, v: str) -> str:
+        if not v:
+            return v
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("FIXIE_URL must be a valid http or https URL")
+        return v
 
     model_config = {"env_file": ".env"}
 
