@@ -77,6 +77,14 @@ async def connect_garmin(
                 status_code=400,
                 detail="Garmin authentication failed. Check your email and password.",
             ) from exc
+        except requests.exceptions.ProxyError as exc:
+            last_exc = exc
+            # Log without including exc to avoid leaking proxy credentials from the URL
+            logger.error("Garmin proxy connection failed (proxy unreachable or misconfigured)")
+            raise HTTPException(
+                status_code=503,
+                detail="Garmin connection unavailable. Please try again later.",
+            ) from exc
         except Exception as exc:
             last_exc = exc
             logger.exception("Garmin login failed: %s", exc)
