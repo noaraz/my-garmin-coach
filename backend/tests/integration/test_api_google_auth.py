@@ -37,6 +37,7 @@ FAKE_GOOGLE_IDINFO_2 = {
 # ---------------------------------------------------------------------------
 
 _test_settings = Settings(
+    environment="testing",
     database_url="sqlite+aiosqlite:///:memory:",
     google_client_id="test-google-client-id.apps.googleusercontent.com",
     bootstrap_secret="dev-bootstrap-secret-change-in-prod",

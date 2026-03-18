@@ -98,6 +98,7 @@ class TestConnectGarmin:
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
             mock_garth.Client.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act
             result = await connect_garmin(
@@ -119,8 +120,9 @@ class TestConnectGarmin:
         mock_garth_client.login.side_effect = Exception("Bad credentials")
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
-             patch("src.api.routers.garmin_connect.get_settings"):
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
             mock_garth.Client.return_value = mock_garth_client
+            mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act / Assert
             with pytest.raises(HTTPException) as exc_info:
@@ -157,6 +159,7 @@ class TestConnectGarmin:
              patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep:
             mock_garth.Client.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             result = await connect_garmin(
                 request=request,
@@ -181,9 +184,10 @@ class TestConnectGarmin:
         mock_garth_client.login.side_effect = http_429
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
-             patch("src.api.routers.garmin_connect.get_settings"), \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep"):
             mock_garth.Client.return_value = mock_garth_client
+            mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             with pytest.raises(HTTPException) as exc_info:
                 await connect_garmin(
@@ -214,6 +218,7 @@ class TestConnectGarmin:
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
             mock_garth.Client.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act
             await connect_garmin(
@@ -227,6 +232,73 @@ class TestConnectGarmin:
         assert profile.garmin_oauth_token_encrypted is not None
         # Token should not be stored as plaintext
         assert "garmin_tok" not in profile.garmin_oauth_token_encrypted
+
+
+    async def test_connect_sets_proxy_when_fixie_url_configured(self) -> None:
+        # Arrange
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        mock_garth_client = MagicMock()
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
+
+        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+            mock_garth.Client.return_value = mock_garth_client
+            mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
+
+            await connect_garmin(request=request, current_user=user, session=mock_session)
+
+        # Assert proxy was set on the client session
+        assert mock_garth_client.sess.proxies == {"https": "http://token@proxy.fixie.io:1234"}
+
+    async def test_connect_does_not_set_proxy_when_fixie_url_empty(self) -> None:
+        # Arrange
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        mock_garth_client = MagicMock()
+        mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
+
+        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+            mock_garth.Client.return_value = mock_garth_client
+            mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.fixie_url = ""
+
+            await connect_garmin(request=request, current_user=user, session=mock_session)
+
+        # Assert proxies were never assigned
+        assert mock_garth_client.sess.proxies != {"https": ""}
+
+    async def test_connect_raises_503_on_proxy_error(self) -> None:
+        # Arrange — proxy is unreachable
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+
+        mock_garth_client = MagicMock()
+        mock_garth_client.login.side_effect = requests.exceptions.ProxyError("proxy down")
+
+        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+            mock_garth.Client.return_value = mock_garth_client
+            mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
+
+            with pytest.raises(HTTPException) as exc_info:
+                await connect_garmin(request=request, current_user=user, session=mock_session)
+
+        assert exc_info.value.status_code == 503
+        assert "unavailable" in exc_info.value.detail
 
 
 # ---------------------------------------------------------------------------
