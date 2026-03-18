@@ -33,13 +33,7 @@ Copy `.env.example` to `.env.prod` and fill in values:
 
 ```bash
 cp .env.example .env.prod
-# edit .env.prod — set JWT_SECRET, GARMINCOACH_SECRET_KEY, BOOTSTRAP_SECRET, CORS_ORIGINS, GOOGLE_CLIENT_ID, etc.
-```
-
-Generate secrets:
-
-```bash
-openssl rand -hex 32   # use once for JWT_SECRET, once for GARMINCOACH_SECRET_KEY
+# edit .env.prod — fill in all values (see comments in the file)
 ```
 
 Start:
