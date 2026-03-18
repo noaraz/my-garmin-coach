@@ -18,7 +18,7 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_admin: bool = Field(default=False)
     failed_login_attempts: int = Field(default=0)
-    locked_until: Optional[datetime] = Field(default=None)
+    locked_until: Optional[datetime] = Field(default=None)  # must be naive UTC if set — use .replace(tzinfo=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
