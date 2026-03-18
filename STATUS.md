@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral storage data loss)
+Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral storage data loss; v0.2.3 Fixie + security hardening)
 
 ## Current Focus: Next Feature
 
@@ -39,6 +39,9 @@ Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral sto
 | Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
 | Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
 | Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
+| Tag v0.2.2 + push (Fixie proxy) | ✅ |
+| Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
+| Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
