@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { Sidebar } from '../components/layout/Sidebar'
 
+declare const __APP_VERSION__: string
+
 vi.mock('../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../contexts/AuthContext')>()
   return {
@@ -36,6 +38,6 @@ describe('Sidebar version display', () => {
 
   it('version number reflects package.json via __APP_VERSION__', () => {
     renderSidebar()
-    expect(screen.getByText(/^v0\.2\.3/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`^v${__APP_VERSION__}`))).toBeInTheDocument()
   })
 })
