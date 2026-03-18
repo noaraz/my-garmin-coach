@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-18 (v0.2.3 tagged — Fixie proxy + security hardening, deployed to Render)
+Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral storage data loss; v0.2.3 Fixie + security hardening)
 
 ## Current Focus: Next Feature
 
@@ -42,6 +42,11 @@ Last updated: 2026-03-18 (v0.2.3 tagged — Fixie proxy + security hardening, de
 | Tag v0.2.2 + push (Fixie proxy) | ✅ |
 | Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
 | Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
+| Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
+| Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
+| Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
+| Integration tests: TEST_DATABASE_URL env var support in conftest.py | ✅ |
+| Fix: naive UTC datetimes in User/InviteCode models (PostgreSQL TIMESTAMP WITHOUT TIME ZONE) | ✅ |
 
 ### Zone Engine
 | Task | Status |

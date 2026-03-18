@@ -14,7 +14,7 @@ Replaces TrainingPeaks for self-coached athletes.
 | Layer      | Technology                                  |
 | ---------- | ------------------------------------------- |
 | Frontend   | React 18 + TypeScript + Tailwind + dnd-kit  |
-| Backend    | FastAPI (Python 3.11+) + SQLModel + SQLite  |
+| Backend    | FastAPI (Python 3.11+) + SQLModel + SQLite (dev) / PostgreSQL (prod) |
 | Garmin     | python-garminconnect (via garth OAuth)       |
 | Auth       | python-jose (JWT) + passlib (bcrypt) + Fernet |
 | Testing    | pytest + Vitest + React Testing Library      |
@@ -478,6 +478,31 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 - **Scope**: Only affects `garth.Client.login()` in `garmin_connect.py` — sync operations use stored tokens and don't need the proxy
 - **Config**: `settings.fixie_url` in `backend/src/core/config.py` — empty string = disabled
 - **Security**: TLS end-to-end — Fixie sees destination hostnames but not request bodies (credentials encrypted in transit)
+
+---
+
+## Neon PostgreSQL — Production DB (added 2026-03-18)
+
+- **Why Neon**: Render free tier has no persistent storage — SQLite is wiped on every restart.
+  Neon provides free hosted PostgreSQL (0.5 GB, no credit card, no 7-day pause like Supabase).
+- **Split**: Local dev uses SQLite (`sqlite+aiosqlite:////data/garmincoach.db` default).
+  Production uses Neon via `DATABASE_URL=postgresql+asyncpg://...` env var.
+- **`DATABASE_URL` format for Neon**: `postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require`
+  (asyncpg driver required for SQLAlchemy async; `?ssl=require` mandatory for Neon TLS)
+- **Alembic URL stripping**: `alembic/env.py` strips `+aiosqlite` or `+asyncpg` to get the sync URL,
+  then converts `ssl=require` → `sslmode=require` (asyncpg vs psycopg2 SSL param names differ):
+  `url.replace("+aiosqlite","").replace("+asyncpg","").replace("ssl=require","sslmode=require")`
+- **Two drivers needed**: `asyncpg` (SQLAlchemy async runtime) + `psycopg2-binary` (alembic sync migrations).
+  Both must be in `[project.dependencies]`.
+- **`render_as_batch`**: `True` for SQLite (required for `ALTER COLUMN`), `False` for PostgreSQL.
+  `alembic/env.py` sets it conditionally: `render_as_batch=_sync_url.startswith("sqlite")`
+- **Naive UTC datetimes**: PostgreSQL `TIMESTAMP WITHOUT TIME ZONE` rejects timezone-aware datetimes.
+  All `datetime.now(timezone.utc)` calls that write to DB columns must strip tzinfo:
+  `datetime.now(timezone.utc).replace(tzinfo=None)`
+- **Render setup**: Set `DATABASE_URL` manually in Render dashboard (not in `render.yaml` — contains credentials).
+  Remove the `disk:` block from `render.yaml` (was silently ignored anyway on free tier).
+- **Tests**: Integration tests default to SQLite in-memory. Set `TEST_DATABASE_URL=postgresql+asyncpg://...`
+  to run the full integration suite against a real PostgreSQL DB.
 
 ---
 
