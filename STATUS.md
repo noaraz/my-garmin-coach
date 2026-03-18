@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral storage data loss; v0.2.3 Fixie + security hardening)
+Last updated: 2026-03-19 (dynamic version string in sidebar — reads from package.json, strips -dev in prod)
 
 ## Current Focus: Next Feature
 
@@ -145,6 +145,7 @@ Last updated: 2026-03-18 (Neon PostgreSQL migration — fix Render ephemeral sto
 | Post-ship: Calendar sync button debounce + spinner animation | ✅ |
 | Post-ship: Zone manager Friel-only + threshold guide card | ✅ |
 | Post-ship: App font refresh → IBM Plex Sans family | ✅ |
+| Post-ship: Dynamic sidebar version from package.json (`__APP_VERSION__` via Vite define, strips `-dev` in prod) | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment
