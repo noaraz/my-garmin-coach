@@ -51,14 +51,21 @@ App is served on http://localhost (port 80). The frontend (nginx) proxies `/api/
 
 ### Render
 
-Render uses `render.yaml` at the repo root. It provisions the web service, persistent disk (`/data`), and auto-generates secrets.
+Render uses `render.yaml` at the repo root. It provisions the web service and auto-generates secrets.
+
+Production uses [Neon](https://neon.tech) (free tier) for PostgreSQL — Render free tier has no persistent disk, so SQLite is not viable.
 
 **First deploy:**
 
-1. Go to [render.com](https://render.com) → New → Blueprint → connect the GitHub repo.
-2. Render detects `render.yaml` — auto-generates `JWT_SECRET` and `GARMINCOACH_SECRET_KEY`.
-3. Set `GOOGLE_CLIENT_ID`, `BOOTSTRAP_SECRET`, and `FIXIE_URL` manually in the Render dashboard.
-4. `autoDeploy: false` — deploys are triggered manually or via the `/release` workflow.
+1. Create a Neon project at [neon.tech](https://neon.tech) and copy the connection string.
+2. Go to [render.com](https://render.com) → New → Blueprint → connect the GitHub repo.
+3. Render detects `render.yaml` — auto-generates `JWT_SECRET` and `GARMINCOACH_SECRET_KEY`.
+4. Set these manually in the Render dashboard → Environment:
+   - `DATABASE_URL` — Neon connection string (`postgresql+asyncpg://...?ssl=require`)
+   - `GOOGLE_CLIENT_ID` — from Google Cloud Console
+   - `BOOTSTRAP_SECRET` — `openssl rand -hex 32`
+   - `FIXIE_URL` — from [usefixie.com](https://usefixie.com) (optional, avoids Garmin 429s)
+5. `autoDeploy: false` — deploys are triggered manually or via the `/release` workflow.
 
 On container start, `alembic upgrade head` runs automatically before uvicorn — it creates all tables on the first deploy and applies any new migrations on subsequent deploys.
 
