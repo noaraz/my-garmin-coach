@@ -17,8 +17,6 @@ services:
         generateValue: true
       - key: ENVIRONMENT
         value: production
-      - key: DATABASE_URL
-        value: sqlite+aiosqlite:////data/garmincoach.db
       - key: CORS_ORIGINS
         value: https://garmincoach.onrender.com
       # DATABASE_URL: set manually in Render dashboard — points to Neon PostgreSQL.
