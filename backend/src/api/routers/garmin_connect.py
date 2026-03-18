@@ -62,6 +62,8 @@ async def connect_garmin(
             await asyncio.sleep(3)
         try:
             client = garth.Client()
+            if settings.fixie_url:
+                client.sess.proxies = {"https": settings.fixie_url}
             client.login(email, password)
             token_json: str = client.dumps()
             break

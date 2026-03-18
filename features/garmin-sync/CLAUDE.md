@@ -72,6 +72,22 @@ also delete it from Garmin Connect. Pattern:
 - Called after: PUT /zones/hr, POST /zones/hr/recalculate, POST /zones/pace/recalculate,
   and PUT /profile when `lthr` or `threshold_pace` is in the submitted fields
 
+## Fixie Proxy for Garmin OAuth (production only)
+
+Garmin rate-limits OAuth from datacenter IPs (429). In production, `garth.Client.login()` routes
+through a Fixie static IP proxy:
+
+```python
+client = garth.Client()
+if settings.fixie_url:
+    client.sess.proxies = {"https": settings.fixie_url}
+client.login(email, password)
+```
+
+- `FIXIE_URL` env var: set in Render, empty in dev (no proxy)
+- Only affects login — sync uses stored tokens (no proxy needed)
+- TLS end-to-end: credentials are encrypted in transit, Fixie only sees hostnames
+
 ## Gotchas
 
 - **Pace format**: Garmin uses m/s, not sec/km. Always convert.

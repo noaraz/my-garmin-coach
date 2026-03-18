@@ -12,6 +12,7 @@ services:
       - ENVIRONMENT=production
       - BOOTSTRAP_SECRET=${BOOTSTRAP_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - FIXIE_URL=${FIXIE_URL:-}
     volumes:
       - backend_data:/data
     expose:
