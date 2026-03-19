@@ -241,7 +241,7 @@ prod docker-compose locally:
 ## Frontend Patterns (added 2026-03-08)
 
 - **Theming**: CSS custom properties only — no Tailwind dark: prefix. Variables in `:root` (dark by default) + `[data-theme="light"]` override in `index.css`. Toggle via `document.documentElement.dataset.theme`. Sidebar stays dark in both themes.
-- **ThemeContext**: `React.createContext` + `useState` + `localStorage` persistence. Wrap `<App>` in `<ThemeProvider>`.
+- **ThemeContext**: `React.createContext` + `useState`. Default = `prefers-color-scheme`; localStorage only written on explicit toggle (not in sync effect). Live OS changes followed when no localStorage key exists. Wrap `<App>` in `<ThemeProvider>`.
 - **@dnd-kit/sortable drag reorder**: `SortableContext` (horizontal strategy) → `useSortable` per item → `arrayMove` in `onDragEnd`. Drag handle element gets `{...listeners}`, container gets `{...attributes}` + `ref={setNodeRef}`.
 - **@dnd-kit pointer drag**: always add `activationConstraint: { distance: 8 }` to `PointerSensor` — without it, drag conflicts with click handlers and may not activate reliably.
 - **ErrorBoundary**: class component with `getDerivedStateFromError`. Wrap each route element in `App.tsx`.
@@ -426,6 +426,26 @@ render(<CalendarPage />)
 ```
 
 Add this wrapper whenever a component or any of its children uses `useNavigate`, `useParams`, `useLocation`, etc.
+
+### `window.matchMedia` not available in jsdom (added 2026-03-19)
+jsdom doesn't implement `matchMedia`. A global stub is in `frontend/src/tests/setup.ts` (default: `matches: false` = light mode). Override per-test before rendering:
+
+```typescript
+window.matchMedia = vi.fn().mockReturnValue({
+  matches: true, // true = dark mode
+  media: '(prefers-color-scheme: dark)',
+  onchange: null,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  dispatchEvent: vi.fn(),
+})
+```
+
+### ThemeContext localStorage write rule (added 2026-03-19)
+`localStorage.setItem('theme', ...)` belongs **only in `toggleTheme`**, not in the DOM-sync `useEffect`. Writing in the sync effect causes the live OS listener guard (`if (!localStorage.getItem('theme'))`) to always see a value and never fire — silently breaking OS-follow behaviour.
+
+### localStorage persistence scope (added 2026-03-19)
+localStorage lives in the **browser** — it is unaffected by Render cold restarts or hard browser refresh (Cmd+Shift+R). It is only cleared by: explicit site data clear, incognito mode, or `localStorage.removeItem()`. Cross-device sync requires a DB column; same-device persistence does not.
 
 ## FastAPI Optional Dependency Pattern (added 2026-03-09)
 
