@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.db.models import AthleteProfile, HRZone, PaceZone
+from src.core import cache
+from src.db.models import AthleteProfile, HRZone, PaceZone, WorkoutTemplate
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.zone_engine.hr_zones import HRZoneCalculator
 from src.zone_engine.models import ZoneConfig
@@ -14,10 +16,22 @@ from src.zone_engine.pace_zones import PaceZoneCalculator
 
 class ZoneService:
     async def get_hr_zones(self, session: AsyncSession, profile_id: int) -> list[HRZone]:
-        return await hr_zone_repository.get_by_profile(session, profile_id)
+        cache_key = f"hr_zones:{profile_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        zones = await hr_zone_repository.get_by_profile(session, profile_id)
+        cache.set(cache_key, zones)
+        return zones
 
     async def get_pace_zones(self, session: AsyncSession, profile_id: int) -> list[PaceZone]:
-        return await pace_zone_repository.get_by_profile(session, profile_id)
+        cache_key = f"pace_zones:{profile_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        zones = await pace_zone_repository.get_by_profile(session, profile_id)
+        cache.set(cache_key, zones)
+        return zones
 
     async def recalculate_hr_zones(
         self, session: AsyncSession, profile: AthleteProfile
@@ -46,8 +60,9 @@ class ZoneService:
             session.add(hr_zone)
             new_zones.append(hr_zone)
         await session.commit()
+        cache.invalidate(f"hr_zones:{profile.id}")
 
-        await self._cascade_re_resolve(session, profile.id, profile.user_id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id, hr_zones=new_zones)
         return new_zones
 
     async def recalculate_pace_zones(
@@ -77,8 +92,9 @@ class ZoneService:
             session.add(pace_zone)
             new_zones.append(pace_zone)
         await session.commit()
+        cache.invalidate(f"pace_zones:{profile.id}")
 
-        await self._cascade_re_resolve(session, profile.id, profile.user_id)
+        await self._cascade_re_resolve(session, profile.id, profile.user_id, pace_zones=new_zones)
         return new_zones
 
     async def set_hr_zones(
@@ -102,23 +118,33 @@ class ZoneService:
             session.add(hr_zone)
             new_zones.append(hr_zone)
         await session.commit()
+        cache.invalidate(f"hr_zones:{profile_id}")
 
         await self._cascade_re_resolve(session, profile_id, user_id)
         return new_zones
 
-    async def _cascade_re_resolve(self, session: AsyncSession, profile_id: int, user_id: int) -> None:
+    async def _cascade_re_resolve(
+        self,
+        session: AsyncSession,
+        profile_id: int,
+        user_id: int,
+        hr_zones: list[HRZone] | None = None,
+        pace_zones: list[PaceZone] | None = None,
+    ) -> None:
         """Re-resolve all unfinished ScheduledWorkouts after zone change.
 
         Includes past workouts (not just future ones) so that a workout scheduled
         for today or yesterday is also re-queued.  Completed workouts are excluded.
+
+        Accepts optional pre-loaded zones to avoid redundant DB queries when the
+        caller already has freshly-computed zones.
         """
-        from src.db.models import WorkoutTemplate
         from src.repositories.calendar import scheduled_workout_repository
         from src.workout_resolver.models import WorkoutStep
         from src.workout_resolver.resolver import resolve_workout
 
-        hr_zones_db = await hr_zone_repository.get_by_profile(session, profile_id)
-        pace_zones_db = await pace_zone_repository.get_by_profile(session, profile_id)
+        hr_zones_db = hr_zones if hr_zones is not None else await hr_zone_repository.get_by_profile(session, profile_id)
+        pace_zones_db = pace_zones if pace_zones is not None else await pace_zone_repository.get_by_profile(session, profile_id)
 
         hr_zone_map: dict[int, tuple[float, float]] = {
             z.zone_number: (z.lower_bpm, z.upper_bpm) for z in hr_zones_db
@@ -129,10 +155,25 @@ class ZoneService:
 
         future_workouts = await scheduled_workout_repository.get_all_incomplete(session, user_id)
 
+        # Batch-load all needed templates in one query (avoids N+1)
+        template_ids = {
+            sw.workout_template_id
+            for sw in future_workouts
+            if sw.workout_template_id is not None
+        }
+        templates_by_id: dict[int, WorkoutTemplate] = {}
+        if template_ids:
+            result = await session.exec(
+                select(WorkoutTemplate).where(
+                    WorkoutTemplate.id.in_(template_ids)  # type: ignore[union-attr]
+                )
+            )
+            templates_by_id = {t.id: t for t in result.all()}  # type: ignore[union-attr]
+
         for sw in future_workouts:
             if sw.workout_template_id is None:
                 continue
-            template = await session.get(WorkoutTemplate, sw.workout_template_id)
+            template = templates_by_id.get(sw.workout_template_id)
             if template is None or not template.steps:
                 continue
 

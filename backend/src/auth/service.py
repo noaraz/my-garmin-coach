@@ -96,10 +96,14 @@ async def bootstrap(
     await session.commit()
     await session.refresh(admin)
 
+    # Batch create 5 invite codes (inline to avoid per-invite commit overhead)
     codes: list[str] = []
     for _ in range(5):
-        invite = await create_invite(admin, session)
-        codes.append(invite.code)
+        code = secrets.token_urlsafe(16)
+        invite = InviteCode(code=code, created_by=admin.id)
+        session.add(invite)
+        codes.append(code)
+    await session.commit()
 
     return BootstrapResponse(invite_codes=codes)
 
@@ -181,23 +185,22 @@ async def reset_admins(
     Raises:
         HTTPException 403 if setup_token is wrong.
     """
+    from sqlalchemy import delete
+
     settings = get_settings()
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
         raise HTTPException(status_code=403, detail="Invalid setup token")
 
-    # Delete all invite codes first (FK constraint)
-    invite_codes = (await session.exec(select(InviteCode))).all()
-    for invite in invite_codes:
-        await session.delete(invite)
-    await session.commit()
-
-    # Delete all users
+    # Count users before deletion (for response)
     users = (await session.exec(select(User))).all()
-    for user in users:
-        await session.delete(user)
+    user_count = len(users)
+
+    # Bulk delete — FK order: invites first, then users
+    await session.execute(delete(InviteCode))
+    await session.execute(delete(User))
     await session.commit()
 
-    return ResetAdminsResponse(deleted=len(users))
+    return ResetAdminsResponse(deleted=user_count)
 
 
 async def refresh_token(

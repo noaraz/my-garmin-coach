@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from src.core import cache
 from src.db.models import AthleteProfile
 from src.repositories.profile import profile_repository
 
@@ -18,10 +19,15 @@ class ProfileService:
         for backward compatibility.
         """
         if user_id is not None:
+            cache_key = f"profile:{user_id}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
             profile = await profile_repository.get_by_user_id(session, user_id)
             if profile is None:
                 profile = AthleteProfile(name="Athlete", user_id=user_id)
                 profile = await profile_repository.create(session, profile)
+            cache.set(cache_key, profile)
         else:
             profile = await profile_repository.get_singleton(session)
             if profile is None:
@@ -47,6 +53,10 @@ class ProfileService:
         session.add(profile)
         await session.commit()
         await session.refresh(profile)
+
+        # Invalidate cache after profile update
+        if user_id is not None:
+            cache.invalidate(f"profile:{user_id}")
 
         # Trigger zone recalculation if threshold values changed
         if "lthr" in changed_fields or "threshold_pace" in changed_fields:

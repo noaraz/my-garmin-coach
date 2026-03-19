@@ -526,6 +526,19 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 ---
 
+## DB Query Guidelines — Neon Free Tier (added 2026-03-19)
+
+Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Follow these rules:
+
+- **No N+1 queries.** When loading related entities in a loop, batch-load with `SELECT ... WHERE id IN (...)` first, then look up from a dict. Never call `session.get()` inside a loop.
+- **Bulk operations.** Use `sqlalchemy.delete()` for multi-row deletes, not fetch-then-delete-each. Use `session.execute()` (not `session.exec()`) for non-SELECT statements (`delete()`, `update()`).
+- **Batch commits.** Call `session.add()` multiple times, then a single `session.commit()`. Never commit inside loops.
+- **Cache-aware writes.** Any service that writes to a cached entity must call `cache.invalidate()` after commit. Cached entities: User, AthleteProfile, HRZone, PaceZone. Cache module: `backend/src/core/cache.py`.
+- **Connection pool.** Production uses `pool_pre_ping=True` and `pool_recycle=270`. Don't change these without understanding Neon's scale-to-zero behavior (5-min idle timeout).
+- **No raw SQL.** Always use SQLAlchemy/SQLModel constructs — per Security rules above.
+
+---
+
 ## Nice to Have (future features)
 
 Ideas for future iterations, roughly in priority order.

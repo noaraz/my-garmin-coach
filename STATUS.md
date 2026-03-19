@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallback + live OS listener)
+Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TTL cache, connection pool tuning)
 
-## Current Focus: Next Feature
+## Current Focus: Neon DB Query Optimization
 
 ---
 
@@ -47,6 +47,12 @@ Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallb
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
 | Integration tests: TEST_DATABASE_URL env var support in conftest.py | ✅ |
 | Fix: naive UTC datetimes in User/InviteCode models (PostgreSQL TIMESTAMP WITHOUT TIME ZONE) | ✅ |
+| **Neon optimization**: Connection pool tuning (pool_pre_ping, pool_recycle) | ✅ |
+| **Neon optimization**: Bulk DELETE in zone repositories | ✅ |
+| **Neon optimization**: Fix N+1 in _cascade_re_resolve (batch template load) | ✅ |
+| **Neon optimization**: Fix N+1 in sync router (preload templates) | ✅ |
+| **Neon optimization**: Batch auth operations (bootstrap invites, reset_admins) | ✅ |
+| **Neon optimization**: In-memory TTL cache (User, Profile, Zones) | ✅ |
 
 ### Zone Engine
 | Task | Status |

@@ -141,8 +141,9 @@ async def sync_modified_workouts(
         workouts = await scheduled_workout_repository.get_by_status(
             session, ("modified", "failed"), current_user.id
         )
+        templates = await _preload_templates(session, workouts)
         for w in workouts:
-            await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map)
+            await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
         await session.commit()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Auto-sync after zone change failed (continuing): %s", exc)
@@ -213,12 +214,28 @@ async def _get_zone_maps(
     )
 
 
+async def _preload_templates(
+    session: AsyncSession, workouts: list[ScheduledWorkout]
+) -> dict[int, WorkoutTemplate]:
+    """Batch-load all WorkoutTemplates referenced by the given workouts."""
+    ids = {w.workout_template_id for w in workouts if w.workout_template_id is not None}
+    if not ids:
+        return {}
+    result = await session.exec(
+        select(WorkoutTemplate).where(
+            WorkoutTemplate.id.in_(ids)  # type: ignore[union-attr]
+        )
+    )
+    return {t.id: t for t in result.all()}  # type: ignore[union-attr]
+
+
 async def _sync_and_persist(
     session: AsyncSession,
     sync_service: SyncOrchestrator,
     workout: ScheduledWorkout,
     hr_zone_map: dict[int, tuple[float, float]] | None = None,
     pace_zone_map: dict[int, tuple[float, float]] | None = None,
+    templates: dict[int, WorkoutTemplate] | None = None,
 ) -> str | None:
     """Sync one workout against Garmin and update its status fields in-place.
 
@@ -249,10 +266,13 @@ async def _sync_and_persist(
             )
         workout.garmin_workout_id = None
 
-    # Load the template once (needed for name + possible fallback translation)
+    # Load the template (from pre-loaded dict if available, else single fetch)
     template: WorkoutTemplate | None = None
     if workout.workout_template_id is not None:
-        template = await session.get(WorkoutTemplate, workout.workout_template_id)
+        if templates is not None:
+            template = templates.get(workout.workout_template_id)
+        else:
+            template = await session.get(WorkoutTemplate, workout.workout_template_id)
 
     workout_name = template.name if template else ""
     workout_description = (template.description or "") if template else ""
@@ -306,8 +326,9 @@ async def sync_all(
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
+    templates = await _preload_templates(session, workouts)
     results = [
-        await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map)
+        await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
         for w in workouts
     ]
     await session.commit()
