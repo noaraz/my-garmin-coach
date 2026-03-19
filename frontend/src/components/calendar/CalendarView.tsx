@@ -1,4 +1,4 @@
-import type { ScheduledWorkout, WorkoutTemplate } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, GarminActivity } from '../../api/types'
 import { WeekView } from './WeekView'
 import { MonthView } from './MonthView'
 import { toDateString } from '../../utils/formatting'
@@ -7,8 +7,9 @@ import { addDays } from 'date-fns'
 interface CalendarViewProps {
   view: 'week' | 'month'
   currentDate: Date
-  workouts: ScheduledWorkout[]
+  workouts: ScheduledWorkoutWithActivity[]
   templates: WorkoutTemplate[]
+  unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
 }
@@ -18,6 +19,7 @@ export function CalendarView({
   currentDate,
   workouts,
   templates,
+  unplannedActivities,
   onAddWorkout,
   onRemove,
 }: CalendarViewProps) {
@@ -36,6 +38,7 @@ export function CalendarView({
       weekStart={weekStart}
       workouts={workouts}
       templates={templates}
+      unplannedActivities={unplannedActivities}
       onAddWorkout={onAddWorkout}
       onRemove={onRemove}
     />
@@ -44,6 +47,7 @@ export function CalendarView({
       currentDate={currentDate}
       workouts={workouts}
       templates={templates}
+      unplannedActivities={unplannedActivities}
       onAddWorkout={onAddWorkout}
       onRemove={onRemove}
     />

@@ -24,7 +24,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, loading, schedule, remove, syncAllWorkouts, loadRange } = useCalendar(
+  const { workouts, unplannedActivities, loading, schedule, remove, syncAllWorkouts, loadRange } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -250,6 +250,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           currentDate={currentDate}
           workouts={workouts}
           templates={templates}
+          unplannedActivities={unplannedActivities}
           onAddWorkout={handleAddWorkout}
           onRemove={remove}
         />

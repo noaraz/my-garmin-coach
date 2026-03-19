@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ScheduledWorkout, WorkoutTemplate, SyncStatus } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, SyncStatus, GarminActivity } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
+import { computeCompliance } from '../../utils/compliance'
 
 interface WorkoutCardProps {
-  workout: ScheduledWorkout
+  workout: ScheduledWorkoutWithActivity
   template: WorkoutTemplate | undefined
   onRemove: (id: number) => void
   displayName?: string
@@ -22,10 +23,10 @@ function syncStatusClass(status: SyncStatus): string {
 
 function syncStatusLabel(status: SyncStatus): string {
   const labels: Record<SyncStatus, string> = {
-    synced: '✓',
-    pending: '○',
+    synced: '\u2713',
+    pending: '\u25CB',
     modified: '~',
-    failed: '✗',
+    failed: '\u2717',
   }
   return labels[status]
 }
@@ -36,22 +37,37 @@ function zoneStripeColor(sportType: string | undefined): string {
   return 'var(--zone-default)'
 }
 
+function getComplianceStripeColor(
+  template: WorkoutTemplate | undefined,
+  activity: GarminActivity | null | undefined,
+  durationSec: number | null,
+  distanceM: number | null,
+): string | null {
+  if (!activity) return null
+  const planned = template ? { duration_sec: durationSec, distance_m: distanceM } : null
+  const actual = { duration_sec: activity.duration_sec, distance_m: activity.distance_m }
+  const result = computeCompliance(planned, actual)
+  return result.color
+}
+
 
 export function WorkoutCard({ workout, template, onRemove, displayName }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
   const navigate = useNavigate()
-  const stripeColor = zoneStripeColor(template?.sport_type)
+
+  const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
+  const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
+  const hasDuration = durationSec != null && durationSec > 0
+  const hasDistance = distanceM != null && distanceM > 0
+
+  const complianceColor = getComplianceStripeColor(template, workout.activity, durationSec, distanceM)
+  const stripeColor = complianceColor ?? zoneStripeColor(template?.sport_type)
 
   const handleCardClick = () => {
     if (workout.workout_template_id != null) {
       navigate(`/builder?id=${workout.workout_template_id}`)
     }
   }
-
-  const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
-  const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
-  const hasDuration = durationSec != null && durationSec > 0
-  const hasDistance = distanceM != null && distanceM > 0
 
   return (
     <div
@@ -70,7 +86,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
       }}
       data-testid="workout-card"
     >
-      {/* Left zone stripe */}
+      {/* Left compliance/zone stripe */}
       <div style={{ width: '4px', background: stripeColor, flexShrink: 0 }} />
 
       {/* Content */}
@@ -125,8 +141,46 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           </div>
         )}
 
+        {/* Actual activity data when matched */}
+        {workout.activity && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '6px',
+            marginTop: '3px',
+          }}>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '10px',
+              fontWeight: 600,
+              color: complianceColor ?? 'var(--text-muted)',
+              lineHeight: 1,
+            }}>
+              {formatClock(workout.activity.duration_sec)}
+            </span>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              lineHeight: 1,
+            }}>
+              {formatKm(workout.activity.distance_m)}
+            </span>
+            {workout.activity.avg_hr != null && (
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '10px',
+                color: 'var(--text-muted)',
+                lineHeight: 1,
+              }}>
+                {Math.round(workout.activity.avg_hr)} bpm
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Description — one row per comma-segment */}
-        {template?.description && (
+        {template?.description && !workout.activity && (
           <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
@@ -166,7 +220,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
             color: removeHover ? 'var(--color-zone-5)' : 'var(--text-secondary)',
             fontSize: '12px', padding: '0 2px', lineHeight: 1,
           }}
-        >✕</button>
+        >&#x2715;</button>
       </div>
     </div>
   )

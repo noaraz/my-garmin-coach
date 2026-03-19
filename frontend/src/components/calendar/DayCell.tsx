@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import type { ScheduledWorkout, WorkoutTemplate } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, GarminActivity } from '../../api/types'
 import { WorkoutCard } from './WorkoutCard'
+import { UnplannedActivityCard } from './UnplannedActivityCard'
 
 interface DayCellProps {
   date: string
-  workouts: ScheduledWorkout[]
+  workouts: ScheduledWorkoutWithActivity[]
   templates: WorkoutTemplate[]
+  unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
-  getDisplayName?: (workout: ScheduledWorkout) => string | undefined
+  getDisplayName?: (workout: ScheduledWorkoutWithActivity) => string | undefined
 }
 
 function parseDateParts(dateStr: string) {
@@ -19,11 +21,11 @@ function parseDateParts(dateStr: string) {
   return { dayName, dayNum, isToday }
 }
 
-export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, getDisplayName }: DayCellProps) {
+export function DayCell({ date, workouts, templates, unplannedActivities, onAddWorkout, onRemove, getDisplayName }: DayCellProps) {
   const [hovering, setHovering] = useState(false)
   const { dayName, dayNum, isToday } = parseDateParts(date)
 
-  const getTemplate = (workout: ScheduledWorkout) =>
+  const getTemplate = (workout: ScheduledWorkoutWithActivity) =>
     templates.find(t => t.id === workout.workout_template_id)
 
   return (
@@ -74,7 +76,7 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, get
         </div>
       </div>
 
-      {/* Workout cards — clicking empty area opens picker */}
+      {/* Workout cards + unplanned activities — clicking empty area opens picker */}
       <div
         style={{
           flex: 1,
@@ -95,6 +97,11 @@ export function DayCell({ date, workouts, templates, onAddWorkout, onRemove, get
               onRemove={onRemove}
               displayName={getDisplayName ? getDisplayName(workout) : undefined}
             />
+          </div>
+        ))}
+        {unplannedActivities.map(activity => (
+          <div key={`unplanned-${activity.id}`} onClick={e => e.stopPropagation()}>
+            <UnplannedActivityCard activity={activity} />
           </div>
         ))}
       </div>

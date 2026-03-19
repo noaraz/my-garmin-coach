@@ -1,28 +1,33 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth } from 'date-fns'
-import type { ScheduledWorkout, WorkoutTemplate } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, GarminActivity } from '../../api/types'
 import { WorkoutCard } from './WorkoutCard'
+import { UnplannedActivityCard } from './UnplannedActivityCard'
 import { toDateString } from '../../utils/formatting'
 
 interface MonthViewProps {
   currentDate: Date
-  workouts: ScheduledWorkout[]
+  workouts: ScheduledWorkoutWithActivity[]
   templates: WorkoutTemplate[]
+  unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
 }
 
-export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRemove }: MonthViewProps) {
+export function MonthView({ currentDate, workouts, templates, unplannedActivities, onAddWorkout, onRemove }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
-  const getTemplate = (workout: ScheduledWorkout) =>
+  const getTemplate = (workout: ScheduledWorkoutWithActivity) =>
     templates.find(t => t.id === workout.workout_template_id)
 
   const workoutsForDate = (date: string) =>
     workouts.filter(w => w.date === date)
+
+  const activitiesForDate = (date: string) =>
+    unplannedActivities.filter(a => a.date === date)
 
   return (
     <div data-testid="month-grid" style={{ flex: 1, overflow: 'auto', background: 'var(--bg-main)' }}>
@@ -50,6 +55,7 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
           const dateStr = toDateString(day)
           const isOutside = !isSameMonth(day, currentDate)
           const dayWorkouts = workoutsForDate(dateStr)
+          const dayActivities = activitiesForDate(dateStr)
           const isToday = new Date().toISOString().slice(0, 10) === dateStr
 
           return (
@@ -85,6 +91,12 @@ export function MonthView({ currentDate, workouts, templates, onAddWorkout, onRe
                     workout={workout}
                     template={getTemplate(workout)}
                     onRemove={onRemove}
+                  />
+                ))}
+                {dayActivities.map(activity => (
+                  <UnplannedActivityCard
+                    key={`unplanned-${activity.id}`}
+                    activity={activity}
                   />
                 ))}
               </div>

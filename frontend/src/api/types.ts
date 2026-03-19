@@ -91,9 +91,37 @@ export interface SyncStatusItem {
   garmin_workout_id: string | null
 }
 
+export interface GarminActivity {
+  id: number
+  garmin_activity_id: string
+  activity_type: string
+  name: string
+  start_time: string
+  date: string
+  duration_sec: number
+  distance_m: number
+  avg_hr: number | null
+  max_hr: number | null
+  avg_pace_sec_per_km: number | null
+  calories: number | null
+}
+
+export interface ScheduledWorkoutWithActivity extends ScheduledWorkout {
+  matched_activity_id: number | null
+  activity: GarminActivity | null
+}
+
+export interface CalendarResponse {
+  workouts: ScheduledWorkoutWithActivity[]
+  unplanned_activities: GarminActivity[]
+}
+
 export interface SyncAllResponse {
   synced: number
   failed: number
+  activities_fetched: number
+  activities_matched: number
+  fetch_error: string | null
 }
 
 export interface GarminStatusResponse {

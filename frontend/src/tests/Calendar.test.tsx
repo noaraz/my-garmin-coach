@@ -28,7 +28,8 @@ const baseWorkouts = [
 
 vi.mock('../hooks/useCalendar', () => ({
   useCalendar: () => ({
-    workouts: baseWorkouts,
+    workouts: baseWorkouts.map(w => ({ ...w, matched_activity_id: null, activity: null })),
+    unplannedActivities: [],
     loading: false,
     error: null,
     schedule: mockSchedule,
