@@ -185,6 +185,11 @@ Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TT
 ## Legend
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
+## Known Issues (to fix later)
+
+- **`google_auth` two sequential commits**: `auth/service.py` `google_auth()` has two `session.commit()` calls (line ~155: create user, line ~161: mark invite used). Should be batched into one commit for atomicity and to reduce DB round-trips. Requires restructuring the FK dependency (user must exist before invite references it). Related CLAUDE.md rule: "Batch commits. Call session.add() multiple times, then a single session.commit()."
+- **`reset_admins` has no rate limiting**: `POST /api/v1/auth/reset-admins` is a destructive endpoint (factory reset) with no rate limiting. An attacker who brute-forces the setup token can wipe all users. Needs `slowapi` or equivalent before public deployment. Flagged as Critical in PR #19 review. See CLAUDE.md "Nice to Have — Rate Limiting on Auth Routes."
+
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path
 - Docker binary at `/Applications/Docker.app/Contents/Resources/bin/docker` (not in default PATH — add to ~/.zshrc)

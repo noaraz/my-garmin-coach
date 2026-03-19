@@ -22,7 +22,7 @@ GarminCoach uses Neon PostgreSQL (free tier: 100 CU-hours/month, 0.5 GB storage,
 
 Conditionally configure the SQLAlchemy engine based on database type:
 
-- **PostgreSQL (Neon):** `pool_size=5`, `max_overflow=5`, `pool_recycle=300`, `pool_pre_ping=True`
+- **PostgreSQL (Neon):** `pool_size=5`, `max_overflow=5`, `pool_recycle=270`, `pool_pre_ping=True` (270s = 30s safety margin before Neon's 5-min idle timeout)
 - **SQLite (dev):** Keep current defaults
 
 `pool_pre_ping=True` is critical — it detects stale connections after Neon's scale-to-zero idle timeout, preventing connection errors on the first request after inactivity.

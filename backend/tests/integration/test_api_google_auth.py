@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
+import os
+
 import pytest
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
@@ -15,6 +17,9 @@ from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.auth.models import InviteCode, User
 from src.core.config import Settings
+
+_GA_TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+_GA_IS_SQLITE = _GA_TEST_DB_URL.startswith("sqlite")
 
 # ---------------------------------------------------------------------------
 # Fake Google userinfo returned by the mock
@@ -51,9 +56,11 @@ _test_settings = Settings(
 
 @pytest.fixture(name="ga_session")
 async def ga_session_fixture() -> AsyncGenerator[AsyncSession, None]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    engine = create_async_engine(_GA_TEST_DB_URL, echo=False)
+    if _GA_IS_SQLITE:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+    # PostgreSQL schema is handled by _setup_db_schema (session-scoped, via conftest.py)
 
     async_session_factory = sessionmaker(  # type: ignore[call-overload]
         engine, class_=AsyncSession, expire_on_commit=False

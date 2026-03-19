@@ -20,6 +20,7 @@ from src.auth.schemas import (
     ResetAdminsResponse,
     TokenResponse,
 )
+from src.core import cache
 from src.core.config import get_settings
 
 _GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
@@ -199,6 +200,9 @@ async def reset_admins(
     await session.execute(delete(InviteCode))
     await session.execute(delete(User))
     await session.commit()
+
+    # Invalidate all cached user entries (users are now deleted)
+    cache.clear()
 
     return ResetAdminsResponse(deleted=user_count)
 

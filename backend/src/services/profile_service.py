@@ -8,6 +8,20 @@ from src.core import cache
 from src.db.models import AthleteProfile
 from src.repositories.profile import profile_repository
 
+# Fields to cache for AthleteProfile (plain dict, not ORM object)
+_PROFILE_CACHE_FIELDS = (
+    "id", "name", "user_id", "lthr", "max_hr", "resting_hr",
+    "threshold_pace", "garmin_connected", "updated_at",
+)
+
+
+def _profile_to_dict(profile: AthleteProfile) -> dict:
+    return {f: getattr(profile, f) for f in _PROFILE_CACHE_FIELDS}
+
+
+def _dict_to_profile(d: dict) -> AthleteProfile:
+    return AthleteProfile(**d)
+
 
 class ProfileService:
     async def get_or_create(
@@ -22,12 +36,16 @@ class ProfileService:
             cache_key = f"profile:{user_id}"
             cached = cache.get(cache_key)
             if cached is not None:
-                return cached
+                # Cached as dict to avoid DetachedInstanceError across sessions
+                return _dict_to_profile(cached)
             profile = await profile_repository.get_by_user_id(session, user_id)
             if profile is None:
                 profile = AthleteProfile(name="Athlete", user_id=user_id)
                 profile = await profile_repository.create(session, profile)
-            cache.set(cache_key, profile)
+                # Don't cache on create — invalidate pattern per CLAUDE.md;
+                # next read will populate the cache.
+            else:
+                cache.set(cache_key, _profile_to_dict(profile))
         else:
             profile = await profile_repository.get_singleton(session)
             if profile is None:

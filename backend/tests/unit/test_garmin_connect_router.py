@@ -24,7 +24,7 @@ from src.db.models import AthleteProfile
 
 
 def _make_user(user_id: int = 1) -> User:
-    return User(id=user_id, email="test@example.com", password_hash="x", is_active=True)
+    return User(id=user_id, email="test@example.com", is_active=True)
 
 
 def _make_session() -> AsyncMock:
