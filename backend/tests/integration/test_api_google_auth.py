@@ -3,18 +3,23 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
+import os
+
 import pytest
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.auth.models import InviteCode, User
 from src.core.config import Settings
+
+_GA_TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+_GA_IS_SQLITE = _GA_TEST_DB_URL.startswith("sqlite")
 
 # ---------------------------------------------------------------------------
 # Fake Google userinfo returned by the mock
@@ -51,9 +56,11 @@ _test_settings = Settings(
 
 @pytest.fixture(name="ga_session")
 async def ga_session_fixture() -> AsyncGenerator[AsyncSession, None]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    engine = create_async_engine(_GA_TEST_DB_URL, echo=False)
+    if _GA_IS_SQLITE:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+    # PostgreSQL schema is handled by _setup_db_schema (session-scoped, via conftest.py)
 
     async_session_factory = sessionmaker(  # type: ignore[call-overload]
         engine, class_=AsyncSession, expire_on_commit=False
@@ -267,6 +274,60 @@ class TestBootstrapGoogleOAuth:
         body = resp.json()
         assert "invite_codes" in body
         assert len(body["invite_codes"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/reset-admins
+# ---------------------------------------------------------------------------
+
+
+class TestResetAdmins:
+    async def test_reset_admins_returns_403_on_wrong_setup_token(
+        self, ga_client: AsyncClient
+    ) -> None:
+        resp = await ga_client.post(
+            "/api/v1/auth/reset-admins",
+            json={"setup_token": "wrong-token"},
+        )
+        assert resp.status_code == 403
+
+    @patch("src.auth.service._google_userinfo", return_value=FAKE_GOOGLE_IDINFO)
+    async def test_reset_admins_deletes_all_users_and_invites(
+        self, _mock: object, ga_client: AsyncClient, ga_session: AsyncSession
+    ) -> None:
+        """Verify reset_admins uses bulk delete and removes all data."""
+        # Arrange — bootstrap creates 1 admin + 5 invites
+        resp = await ga_client.post(
+            "/api/v1/auth/bootstrap",
+            json={
+                "setup_token": _test_settings.bootstrap_secret,
+                "google_access_token": "valid.google.token",
+            },
+        )
+        assert resp.status_code == 201
+        assert len(resp.json()["invite_codes"]) == 5
+
+        # Verify DB state before reset
+        users_before = (await ga_session.exec(select(User))).all()
+        invites_before = (await ga_session.exec(select(InviteCode))).all()
+        assert len(users_before) == 1
+        assert len(invites_before) == 5
+
+        # Act — reset everything
+        resp = await ga_client.post(
+            "/api/v1/auth/reset-admins",
+            json={"setup_token": _test_settings.bootstrap_secret},
+        )
+
+        # Assert
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == 1
+
+        # Verify DB is empty
+        users_after = (await ga_session.exec(select(User))).all()
+        invites_after = (await ga_session.exec(select(InviteCode))).all()
+        assert len(users_after) == 0
+        assert len(invites_after) == 0
 
 
 # ---------------------------------------------------------------------------

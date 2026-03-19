@@ -196,8 +196,12 @@ class TestRecalculateHRZones:
             # Act
             await service.recalculate_hr_zones(mock_session, profile)
 
-        # Assert — cascade receives (session, profile_id, user_id)
-        mock_cascade.assert_awaited_once_with(mock_session, 1, 1)
+        # Assert — cascade receives (session, profile_id, user_id, hr_zones=<new zones>)
+        mock_cascade.assert_awaited_once()
+        call_args = mock_cascade.await_args
+        assert call_args[0][:3] == (mock_session, 1, 1)
+        assert "hr_zones" in call_args[1]
+        assert len(call_args[1]["hr_zones"]) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -292,8 +296,12 @@ class TestRecalculatePaceZones:
             # Act
             await service.recalculate_pace_zones(mock_session, profile)
 
-        # Assert — cascade receives (session, profile_id, user_id)
-        mock_cascade.assert_awaited_once_with(mock_session, 1, 1)
+        # Assert — cascade receives (session, profile_id, user_id, pace_zones=<new zones>)
+        mock_cascade.assert_awaited_once()
+        call_args = mock_cascade.await_args
+        assert call_args[0][:3] == (mock_session, 1, 1)
+        assert "pace_zones" in call_args[1]
+        assert len(call_args[1]["pace_zones"]) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +430,10 @@ class TestCascadeReResolve:
             sync_status="synced", resolved_steps=None,
         )
 
-        session.get = AsyncMock(return_value=template)
+        # Mock session.exec to return batch-loaded templates
+        mock_result = MagicMock()
+        mock_result.all.return_value = [template]
+        session.exec = AsyncMock(return_value=mock_result)
 
         with (
             patch("src.services.zone_service.hr_zone_repository") as mock_hr,
@@ -461,7 +472,10 @@ class TestCascadeReResolve:
             sync_status="synced", resolved_steps=None,
         )
 
-        session.get = AsyncMock(return_value=template)
+        # Mock session.exec to return batch-loaded templates
+        mock_result = MagicMock()
+        mock_result.all.return_value = [template]
+        session.exec = AsyncMock(return_value=mock_result)
 
         with (
             patch("src.services.zone_service.hr_zone_repository") as mock_hr,

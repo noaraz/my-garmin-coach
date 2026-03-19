@@ -20,7 +20,7 @@ from src.auth.models import User  # noqa: F401 — ensures User table is in SQLM
 # Shared test user stub — returned by the mocked get_current_user dependency
 # ---------------------------------------------------------------------------
 
-TEST_USER = User(id=1, email="test@example.com", password_hash="x", is_active=True)
+TEST_USER = User(id=1, email="test@example.com", is_active=True)
 
 
 async def _mock_get_current_user() -> User:
@@ -60,7 +60,6 @@ async def session_fixture() -> AsyncGenerator[AsyncSession, None]:
             User(
                 id=1,
                 email="test@example.com",
-                password_hash="x",
                 is_active=True,
             )
         )

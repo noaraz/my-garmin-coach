@@ -7,18 +7,15 @@ from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):
-    """Application user — supports password auth and/or Google OAuth."""
+    """Application user — Google OAuth only."""
 
     __tablename__ = "user"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
-    password_hash: Optional[str] = None
     google_oauth_sub: Optional[str] = Field(default=None, unique=True)
     is_active: bool = Field(default=True)
     is_admin: bool = Field(default=False)
-    failed_login_attempts: int = Field(default=0)
-    locked_until: Optional[datetime] = Field(default=None)  # must be naive UTC if set — use .replace(tzinfo=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 

@@ -4,6 +4,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.core import cache
+
+
+@pytest.fixture(autouse=True)
+def clear_cache() -> None:
+    """Clear cache before each test to prevent cross-test contamination."""
+    cache.clear()
+
 
 @pytest.fixture
 def mock_garmin_client() -> MagicMock:

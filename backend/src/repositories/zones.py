@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -17,10 +18,10 @@ class HRZoneRepository(BaseRepository[HRZone]):
         return list(result.all())
 
     async def delete_by_profile(self, session: AsyncSession, profile_id: int) -> None:
-        zones = await self.get_by_profile(session, profile_id)
-        for z in zones:
-            await session.delete(z)
-        await session.commit()
+        await session.execute(
+            delete(HRZone).where(HRZone.profile_id == profile_id)
+        )
+        # Do NOT commit — caller commits after creating new zones
 
 
 class PaceZoneRepository(BaseRepository[PaceZone]):
@@ -33,10 +34,10 @@ class PaceZoneRepository(BaseRepository[PaceZone]):
         return list(result.all())
 
     async def delete_by_profile(self, session: AsyncSession, profile_id: int) -> None:
-        zones = await self.get_by_profile(session, profile_id)
-        for z in zones:
-            await session.delete(z)
-        await session.commit()
+        await session.execute(
+            delete(PaceZone).where(PaceZone.profile_id == profile_id)
+        )
+        # Do NOT commit — caller commits after creating new zones
 
 
 hr_zone_repository = HRZoneRepository(HRZone)

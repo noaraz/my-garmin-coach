@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallback + live OS listener)
+Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TTL cache, connection pool tuning)
 
-## Current Focus: Next Feature
+## Current Focus: Neon DB Query Optimization
 
 ---
 
@@ -47,6 +47,12 @@ Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallb
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
 | Integration tests: TEST_DATABASE_URL env var support in conftest.py | ✅ |
 | Fix: naive UTC datetimes in User/InviteCode models (PostgreSQL TIMESTAMP WITHOUT TIME ZONE) | ✅ |
+| **Neon optimization**: Connection pool tuning (pool_pre_ping, pool_recycle) | ✅ |
+| **Neon optimization**: Bulk DELETE in zone repositories | ✅ |
+| **Neon optimization**: Fix N+1 in _cascade_re_resolve (batch template load) | ✅ |
+| **Neon optimization**: Fix N+1 in sync router (preload templates) | ✅ |
+| **Neon optimization**: Batch auth operations (bootstrap invites, reset_admins) | ✅ |
+| **Neon optimization**: In-memory TTL cache (User, Profile, Zones) | ✅ |
 
 ### Zone Engine
 | Task | Status |
@@ -178,6 +184,11 @@ Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallb
 
 ## Legend
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
+
+## Known Issues (to fix later)
+
+- **`google_auth` two sequential commits**: `auth/service.py` `google_auth()` has two `session.commit()` calls (line ~155: create user, line ~161: mark invite used). Should be batched into one commit for atomicity and to reduce DB round-trips. Requires restructuring the FK dependency (user must exist before invite references it). Related CLAUDE.md rule: "Batch commits. Call session.add() multiple times, then a single session.commit()."
+- **`reset_admins` has no rate limiting**: `POST /api/v1/auth/reset-admins` is a destructive endpoint (factory reset) with no rate limiting. An attacker who brute-forces the setup token can wipe all users. Needs `slowapi` or equivalent before public deployment. Flagged as Critical in PR #19 review. See CLAUDE.md "Nice to Have — Rate Limiting on Auth Routes."
 
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path

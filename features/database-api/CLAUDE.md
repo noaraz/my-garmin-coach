@@ -14,21 +14,17 @@ core/config.py    ← BaseSettings (pydantic-settings, @lru_cache)
 ## Integration Test conftest.py Pattern
 
 ```python
-# tests/integration/conftest.py
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlmodel import SQLModel
-from sqlmodel.ext.asyncio.session import AsyncSession
-from src.api.app import create_app
-from src.api.dependencies import get_session
+# tests/integration/conftest.py — respects TEST_DATABASE_URL for PostgreSQL
+_TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+_IS_SQLITE = _TEST_DB_URL.startswith("sqlite")
 
 @pytest.fixture(name="session")
 async def session_fixture():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    engine = create_async_engine(_TEST_DB_URL, echo=False)
+    if _IS_SQLITE:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+    # PostgreSQL: alembic migrations run via session-scoped _setup_db_schema fixture
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with async_session_factory() as session:
         yield session

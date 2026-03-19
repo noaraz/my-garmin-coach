@@ -14,7 +14,6 @@ import src.db.models  # noqa: F401 — register all SQLModel tables
 import src.auth.models  # noqa: F401 — register User/InviteCode tables
 from src.auth import service as auth_service
 from src.auth.models import User
-from src.auth.passwords import hash_password
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +41,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 class TestRefreshToken:
     async def _seed_user(self, db_session: AsyncSession) -> User:
-        user = User(email="user@example.com", password_hash=hash_password("password123"))
+        user = User(email="user@example.com")
         db_session.add(user)
         await db_session.commit()
         await db_session.refresh(user)
@@ -264,7 +263,7 @@ class TestCreateInvite:
         self, db_session: AsyncSession
     ) -> None:
         # Arrange
-        admin = User(email="admin@example.com", password_hash=hash_password("adminpass123"))
+        admin = User(email="admin@example.com")
         db_session.add(admin)
         await db_session.commit()
         await db_session.refresh(admin)

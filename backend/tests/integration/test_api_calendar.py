@@ -21,7 +21,7 @@ from src.services.calendar_service import CalendarService
 # Shared auth stub (mirrors the integration conftest pattern)
 # ---------------------------------------------------------------------------
 
-_TEST_USER = User(id=1, email="test@example.com", password_hash="x", is_active=True)
+_TEST_USER = User(id=1, email="test@example.com", is_active=True)
 
 
 async def _mock_get_current_user() -> User:
