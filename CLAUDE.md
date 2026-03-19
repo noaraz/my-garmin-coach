@@ -102,6 +102,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Workout Builder | `features/workout-builder/` | Drag-and-drop visual builder, library |
 | Auth | `features/auth/` | JWT, user accounts, invite system, token encryption |
 | Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
+| Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
 
 ---
 

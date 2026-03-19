@@ -1,8 +1,26 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TTL cache, connection pool tuning)
+Last updated: 2026-03-19 (Garmin Activity Fetch — bidirectional sync, compliance tracking)
 
-## Current Focus: Neon DB Query Optimization
+## Current Focus: Garmin Activity Fetch & Workout Completion Tracking
+
+Design spec: `docs/superpowers/specs/2026-03-19-garmin-activity-fetch-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-19-garmin-activity-fetch.md`
+
+### Activity Fetch
+| Task | Status |
+|------|--------|
+| GarminActivity model + alembic migration | ⬜ |
+| Extract GarminAdapter to shared module | ⬜ |
+| Compliance utility (frontend + backend) | ⬜ |
+| ActivityFetchService (fetch/dedup/match) | ⬜ |
+| API: pair/unpair endpoints, CalendarResponse wrapper | ⬜ |
+| Bidirectional sync (extend sync/all) | ⬜ |
+| Frontend: types, client, useCalendar hook updates | ⬜ |
+| Frontend: WorkoutCard compliance colors | ⬜ |
+| Frontend: UnplannedActivityCard component | ⬜ |
+| Frontend: auto-sync on mount, reschedule action | ⬜ |
+| Integration tests | ⬜ |
 
 ---
 
