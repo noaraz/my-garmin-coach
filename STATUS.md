@@ -10,15 +10,15 @@ Implementation plan: `docs/superpowers/plans/2026-03-19-garmin-activity-fetch.md
 ### Activity Fetch
 | Task | Status |
 |------|--------|
-| GarminActivity model + alembic migration | ⬜ |
-| Extract GarminAdapter to shared module | ⬜ |
-| Compliance utility (frontend + backend) | ⬜ |
-| ActivityFetchService (fetch/dedup/match) | ⬜ |
-| API: pair/unpair endpoints, CalendarResponse wrapper | ⬜ |
-| Bidirectional sync (extend sync/all) | ⬜ |
-| Frontend: types, client, useCalendar hook updates | ⬜ |
-| Frontend: WorkoutCard compliance colors | ⬜ |
-| Frontend: UnplannedActivityCard component | ⬜ |
+| GarminActivity model + alembic migration | ✅ |
+| Extract GarminAdapter to shared module | ✅ |
+| Compliance utility (frontend + backend) | ✅ |
+| ActivityFetchService (fetch/dedup/match) | ✅ |
+| API: pair/unpair endpoints, CalendarResponse wrapper | ✅ |
+| Bidirectional sync (extend sync/all) | ✅ |
+| Frontend: types, client, useCalendar hook updates | ✅ |
+| Frontend: WorkoutCard compliance colors | ✅ |
+| Frontend: UnplannedActivityCard component | ✅ |
 | Frontend: auto-sync on mount, reschedule action | ⬜ |
 | Integration tests | ⬜ |
 
