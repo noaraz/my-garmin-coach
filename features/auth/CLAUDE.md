@@ -178,10 +178,8 @@ If sub doesn't match and `invite_code` provided and valid → create new user.
 ```python
 class User(SQLModel, table=True):
     google_oauth_sub: str | None = Field(default=None, unique=True, index=True)
-    password_hash: str | None = Field(default=None)   # nullable — Google users have no password
+    # password_hash, failed_login_attempts, locked_until were dropped (migration b4e2f1a3c789)
 ```
-
-Requires Alembic migration — see "Alembic + SQLite" section below.
 
 ### Frontend patterns — React 19 gotcha
 
@@ -271,31 +269,12 @@ Do NOT mock `GoogleLogin` component — `LoginPage` doesn't use it.
 - `VITE_GOOGLE_CLIENT_ID` in frontend env (Vite bakes it in at build time)
 - `GOOGLE_CLIENT_ID` in backend env (not used for auth, but good to have for future)
 
-### Admin user creation (scripts)
+### Admin user creation
+
+Use the bootstrap endpoint (no shell access needed on Render free plan):
 ```bash
-docker compose exec backend python - <<'EOF'
-import asyncio, secrets
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from src.auth.models import User, InviteCode
-from src.auth.passwords import hash_password
-from src.core.config import get_settings
-
-async def main():
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with async_session() as session:
-        user = User(email="admin@garmincoach.com", password_hash=hash_password("YourPassword123"))
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        code = secrets.token_urlsafe(16)
-        invite = InviteCode(code=code, created_by=user.id)
-        session.add(invite)
-        await session.commit()
-        print(f"User id={user.id}, invite code={code}")
-
-asyncio.run(main())
-EOF
+curl -X POST https://garmincoach.onrender.com/api/v1/auth/bootstrap \
+  -H "Content-Type: application/json" \
+  -d '{"setup_token": "your-bootstrap-secret", "google_access_token": "<token from SetupPage>"}'
 ```
+The legacy `scripts/create_admin.py` still exists but uses dead `hash_password` — prefer bootstrap.

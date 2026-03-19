@@ -523,6 +523,8 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
   Remove the `disk:` block from `render.yaml` (was silently ignored anyway on free tier).
 - **Tests**: Integration tests default to SQLite in-memory. Set `TEST_DATABASE_URL=postgresql+asyncpg://...`
   to run the full integration suite against a real PostgreSQL DB.
+- **asyncpg rejects libpq-style query params.** `sslmode=require`, `channel_binding=prefer`, etc. cause `TypeError: connect() got an unexpected keyword argument`. asyncpg only accepts `ssl=require`. If Render's DATABASE_URL has libpq params, they must be stripped before `create_async_engine`.
+- **User model is Google OAuth only.** `password_hash`, `failed_login_attempts`, `locked_until` dropped (migration `b4e2f1a3c789`). Do not re-add password auth fields.
 
 ---
 
@@ -534,6 +536,8 @@ Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Fol
 - **Bulk operations.** Use `sqlalchemy.delete()` for multi-row deletes, not fetch-then-delete-each. Use `session.execute()` (not `session.exec()`) for non-SELECT statements (`delete()`, `update()`).
 - **Batch commits.** Call `session.add()` multiple times, then a single `session.commit()`. Never commit inside loops.
 - **Cache-aware writes.** Any service that writes to a cached entity must call `cache.invalidate()` after commit. Cached entities: User, AthleteProfile, HRZone, PaceZone. Cache module: `backend/src/core/cache.py`.
+- **Cache as dicts, not ORM objects.** SQLAlchemy ORM objects are bound to a session — caching them causes `DetachedInstanceError` on the next request. Serialize to a plain dict before `cache.set()`, reconstruct with `Model(**dict)` on hit. See `auth/dependencies.py` (User) and `services/profile_service.py` (AthleteProfile).
+- **Don't cache on write paths.** After creating/updating, call `cache.invalidate()` — don't `cache.set()`. Let the next read populate. Bulk deletes (e.g. `reset_admins`) must call `cache.clear()` after commit.
 - **Connection pool.** Production uses `pool_pre_ping=True` and `pool_recycle=270`. Don't change these without understanding Neon's scale-to-zero behavior (5-min idle timeout).
 - **No raw SQL.** Always use SQLAlchemy/SQLModel constructs — per Security rules above.
 
