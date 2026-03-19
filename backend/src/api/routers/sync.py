@@ -38,11 +38,11 @@ _PENDING_STATUSES = ("pending", "modified", "failed")
 # ---------------------------------------------------------------------------
 
 
-async def _get_garmin_sync_service(
+async def _get_garmin_adapter(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> SyncOrchestrator:
-    """Return a SyncOrchestrator wired to the user's stored Garmin token.
+) -> GarminAdapter:
+    """Return a GarminAdapter wired to the user's stored Garmin token.
 
     Raises:
         HTTPException 403: if the user has not connected their Garmin account.
@@ -75,11 +75,25 @@ async def _get_garmin_sync_service(
     garmin_client = garminconnect.Garmin()
     garmin_client.garth.loads(token_json)
 
+    return GarminAdapter(garmin_client)
+
+
+async def _get_garmin_sync_service(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SyncOrchestrator:
+    """Return a SyncOrchestrator wired to the user's stored Garmin token.
+
+    Raises:
+        HTTPException 403: if the user has not connected their Garmin account.
+    """
+    adapter = await _get_garmin_adapter(current_user=current_user, session=session)
+
     def _resolver(steps: list[Any], **_: Any) -> list[Any]:
         return steps
 
     return SyncOrchestrator(
-        sync_service=GarminSyncService(GarminAdapter(garmin_client)),
+        sync_service=GarminSyncService(adapter),
         formatter=format_workout,
         resolver=_resolver,
     )
@@ -139,6 +153,9 @@ class SyncSingleResponse(BaseModel):
 class SyncAllResponse(BaseModel):
     synced: int
     failed: int
+    activities_fetched: int = 0
+    activities_matched: int = 0
+    fetch_error: str | None = None
 
 
 class SyncStatusItem(BaseModel):
@@ -276,14 +293,18 @@ async def _sync_and_persist(
 
 @router.post("/all", response_model=SyncAllResponse)
 async def sync_all(
+    fetch_days: int = 30,
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(_get_garmin_sync_service),
     current_user: User = Depends(get_current_user),
 ) -> SyncAllResponse:
-    """Sync all workouts whose status is 'pending' or 'modified'.
+    """Sync all workouts whose status is 'pending' or 'modified', then fetch activities.
+
+    Args:
+        fetch_days: Number of days to fetch activities for (default 30).
 
     Returns:
-        Counts of workouts that were successfully synced or failed.
+        Counts of workouts synced/failed, activities fetched/matched, and any fetch error.
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
@@ -294,7 +315,43 @@ async def sync_all(
     ]
     await session.commit()
     synced = sum(1 for r in results if r is not None)
-    return SyncAllResponse(synced=synced, failed=len(results) - synced)
+    failed = len(results) - synced
+
+    # Fetch activities (best-effort)
+    activities_fetched = 0
+    activities_matched = 0
+    fetch_error = None
+    try:
+        from datetime import date as date_type, timedelta
+
+        from src.services.activity_fetch_service import activity_fetch_service
+
+        end_date = date_type.today()
+        start_date = end_date - timedelta(days=fetch_days)
+
+        # Get the adapter for activity fetching
+        adapter = await _get_garmin_adapter(current_user=current_user, session=session)
+
+        fetch_result = await activity_fetch_service.fetch_and_store(
+            adapter, session, current_user.id, str(start_date), str(end_date)
+        )
+        activities_fetched = fetch_result.stored
+
+        activities_matched = await activity_fetch_service.match_activities(
+            session, current_user.id, start_date, end_date
+        )
+        await session.commit()
+    except Exception as exc:  # noqa: BLE001
+        fetch_error = str(exc)
+        logger.warning("Activity fetch failed (continuing): %s", exc)
+
+    return SyncAllResponse(
+        synced=synced,
+        failed=failed,
+        activities_fetched=activities_fetched,
+        activities_matched=activities_matched,
+        fetch_error=fetch_error,
+    )
 
 
 @router.post("/{workout_id}", response_model=SyncSingleResponse)

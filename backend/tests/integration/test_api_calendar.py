@@ -112,8 +112,11 @@ class TestCalendarAPI:
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["date"] == "2026-03-10"
+        assert "workouts" in data
+        assert "unplanned_activities" in data
+        assert len(data["workouts"]) == 1
+        assert data["workouts"][0]["date"] == "2026-03-10"
+        assert len(data["unplanned_activities"]) == 0
 
     async def test_reschedule(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
