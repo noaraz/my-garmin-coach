@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (dynamic version string in sidebar — reads from package.json, strips -dev in prod)
+Last updated: 2026-03-19 (system theme as default — prefers-color-scheme fallback + live OS listener)
 
 ## Current Focus: Next Feature
 
@@ -130,6 +130,7 @@ Last updated: 2026-03-19 (dynamic version string in sidebar — reads from packa
 | Design polish (Field Monitor aesthetic — all components) | ✅ |
 | Post-ship: light theme card bg fix, sidebar tone, font scaling | ✅ |
 | Post-ship: remove drag-and-drop from calendar | ✅ |
+| Post-ship: system theme as default (prefers-color-scheme) | ✅ |
 | Post-ship: clock-format duration + distance summary on cards | ✅ |
 | Post-ship: description stacking (per comma-segment) | ✅ |
 | Post-ship: workoutStats.ts shared utils + 41 new edge-case tests | ✅ |
