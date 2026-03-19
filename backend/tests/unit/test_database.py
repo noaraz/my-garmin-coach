@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlmodel import SQLModel, text
+from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 import src.db.models  # noqa: F401 — register all SQLModel tables
