@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { addDays, addMonths, subDays, subMonths } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
-import { fetchWorkoutTemplates } from '../api/client'
+import { fetchWorkoutTemplates, getGarminStatus } from '../api/client'
 import type { WorkoutTemplate } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
@@ -35,6 +35,18 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     if (propTemplates) return
     fetchWorkoutTemplates().then(setTemplates).catch(() => {})
   }, [propTemplates])
+
+  // Auto-sync on mount if Garmin is connected
+  const autoSyncDone = useRef(false)
+  useEffect(() => {
+    if (autoSyncDone.current) return
+    autoSyncDone.current = true
+    getGarminStatus()
+      .then(status => {
+        if (status.connected) handleSyncAll()
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update range when currentDate or view changes
   useEffect(() => {

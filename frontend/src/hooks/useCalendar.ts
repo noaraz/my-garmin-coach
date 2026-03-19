@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
-import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll } from '../api/client'
+import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, pairActivity, unpairActivity } from '../api/client'
 import { toDateString } from '../utils/formatting'
 
 export function useCalendar(initialStart: Date, initialEnd: Date) {
@@ -47,5 +47,19 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     setUnplannedActivities(response.unplanned_activities)
   }
 
-  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, loadRange }
+  const pair = async (scheduledId: number, activityId: number) => {
+    const updated = await pairActivity(scheduledId, activityId)
+    setWorkouts(prev => prev.map(w => w.id === scheduledId ? updated : w))
+    setUnplannedActivities(prev => prev.filter(a => a.id !== activityId))
+  }
+
+  const unpair = async (scheduledId: number) => {
+    const updated = await unpairActivity(scheduledId)
+    setWorkouts(prev => prev.map(w => w.id === scheduledId ? updated : w))
+    // Refresh to get the freed activity back into unplanned list
+    const response = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
+    setUnplannedActivities(response.unplanned_activities)
+  }
+
+  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, pair, unpair, loadRange }
 }
