@@ -236,6 +236,15 @@ prod docker-compose locally:
   up --build
 ```
 
+### Frontend build outside Docker
+`npm run build` calls `tsc` which is not in PATH outside Docker. Use `npx tsc -b && npx vite build` when running the build locally.
+
+### pip-audit outside Docker
+`pip-audit` is not installed globally — run `pip install pip-audit` first. Use `pip-audit --local` to audit only project deps; without `--local` the output is flooded with unrelated system package CVEs.
+
+### `create_db_and_tables()` removed (2026-03-19)
+This function no longer exists in `src/db/database.py`. Alembic (`alembic upgrade head`) is the sole schema authority. Do not recreate it.
+
 ---
 
 ## Frontend Patterns (added 2026-03-08)
