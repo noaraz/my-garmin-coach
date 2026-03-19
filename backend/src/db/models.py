@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -93,6 +93,35 @@ class ScheduledWorkout(SQLModel, table=True):
     garmin_workout_id: Optional[str] = Field(default=None)
     sync_status: str = Field(default="pending")  # pending | synced | modified | failed
     completed: bool = Field(default=False)
+    matched_activity_id: Optional[int] = Field(
+        default=None, foreign_key="garminactivity.id"
+    )
     notes: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class GarminActivity(SQLModel, table=True):
+    """A running activity fetched from Garmin Connect."""
+
+    __tablename__ = "garminactivity"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    garmin_activity_id: str = Field(unique=True)
+    activity_type: str
+    name: str
+    start_time: datetime
+    date: date
+    duration_sec: float
+    distance_m: float
+    avg_hr: Optional[float] = Field(default=None)
+    max_hr: Optional[float] = Field(default=None)
+    avg_pace_sec_per_km: Optional[float] = Field(default=None)
+    calories: Optional[int] = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
