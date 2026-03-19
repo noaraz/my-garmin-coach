@@ -19,7 +19,6 @@ from src.api.routers.sync import router as sync_router
 from src.api.routers.workouts import router as workouts_router
 from src.api.routers.zones import router as zones_router
 from src.core.config import get_settings
-from src.db.database import create_db_and_tables
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -43,7 +42,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_db_and_tables()
     yield
 
 
