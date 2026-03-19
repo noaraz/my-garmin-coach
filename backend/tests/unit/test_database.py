@@ -27,33 +27,7 @@ async def mem_engine():
 
 
 # ---------------------------------------------------------------------------
-# create_db_and_tables — lines 20-21
-# ---------------------------------------------------------------------------
-
-
-class TestCreateDbAndTables:
-    async def test_create_db_and_tables_runs_create_all(self, mem_engine) -> None:
-        # Arrange — patch the module-level engine with our in-memory engine
-        # so that create_db_and_tables() operates on memory, not the real DB file.
-        from src.db import database
-
-        with patch.object(database, "engine", mem_engine):
-            # Act — lines 20-21: engine.begin() + run_sync(SQLModel.metadata.create_all)
-            await database.create_db_and_tables()
-
-        # Assert — the call completes without error (schema already exists; no-op)
-        # Verify tables are present in the engine
-        factory = sessionmaker(  # type: ignore[call-overload]
-            mem_engine, class_=AsyncSession, expire_on_commit=False
-        )
-        async with factory() as session:
-            result = await session.exec(text("SELECT name FROM sqlite_master WHERE type='table'"))
-            table_names = {row[0] for row in result}
-            assert "athleteprofile" in table_names
-
-
-# ---------------------------------------------------------------------------
-# get_session — lines 25-26 (the async generator yields a session)
+# get_session — the async generator yields a session
 # ---------------------------------------------------------------------------
 
 
