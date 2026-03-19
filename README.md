@@ -71,7 +71,7 @@ On container start, `alembic upgrade head` runs automatically before uvicorn —
 
 **Create the first user** (one-time):
 
-Navigate to `https://your-app.onrender.com/setup` and enter your email, password, and the `BOOTSTRAP_SECRET` value from the Render dashboard. This calls `POST /api/v1/auth/bootstrap` and creates the admin account.
+Navigate to `https://your-app.onrender.com/setup`, sign in with Google, and enter the `BOOTSTRAP_SECRET` value from the Render dashboard. This calls `POST /api/v1/auth/bootstrap` and creates the admin account. The endpoint disables itself once the first user exists.
 
 **Trigger a deploy:**
 
