@@ -329,8 +329,8 @@ async def sync_all(
         end_date = date_type.today()
         start_date = end_date - timedelta(days=fetch_days)
 
-        # Get the adapter for activity fetching
-        adapter = await _get_garmin_adapter(current_user=current_user, session=session)
+        # Reuse the adapter from the sync_service chain (avoid second token decrypt)
+        adapter = sync_service._sync_service._client
 
         fetch_result = await activity_fetch_service.fetch_and_store(
             adapter, session, current_user.id, str(start_date), str(end_date)

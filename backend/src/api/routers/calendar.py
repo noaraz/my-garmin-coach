@@ -121,6 +121,18 @@ async def pair_activity(
     if workout.matched_activity_id is not None:
         raise HTTPException(status_code=409, detail="Workout already paired")
 
+    # Check if activity is already paired with another workout
+    existing_pair = (
+        await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.matched_activity_id == activity_id,
+                ScheduledWorkout.id != scheduled_id,
+            )
+        )
+    ).first()
+    if existing_pair is not None:
+        raise HTTPException(status_code=409, detail="Activity is already paired with another workout")
+
     workout.matched_activity_id = activity.id
     workout.completed = True
     workout.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -203,67 +215,3 @@ async def delete_schedule(
     return Response(status_code=204)
 
 
-@router.post("/{scheduled_id}/pair/{activity_id}", response_model=ScheduledWorkoutRead)
-async def pair_activity(
-    scheduled_id: int,
-    activity_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> ScheduledWorkoutRead:
-    """Manually pair a scheduled workout with a Garmin activity.
-
-    Both the workout and activity must belong to the current user.
-    The activity must not already be paired with another workout.
-    """
-    workout = await session.get(ScheduledWorkout, scheduled_id)
-    if workout is None or workout.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Workout not found")
-
-    activity = await session.get(GarminActivity, activity_id)
-    if activity is None or activity.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Activity not found")
-
-    # Check if activity is already paired
-    existing_pair = (
-        await session.exec(
-            select(ScheduledWorkout).where(
-                ScheduledWorkout.matched_activity_id == activity_id,
-                ScheduledWorkout.id != scheduled_id,
-            )
-        )
-    ).first()
-    if existing_pair is not None:
-        raise HTTPException(status_code=409, detail="Activity is already paired with another workout")
-
-    workout.matched_activity_id = activity_id
-    workout.completed = True
-    workout.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    session.add(workout)
-    await session.commit()
-    await session.refresh(workout)
-
-    return ScheduledWorkoutRead.model_validate(workout)
-
-
-@router.post("/{scheduled_id}/unpair", response_model=ScheduledWorkoutRead)
-async def unpair_activity(
-    scheduled_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> ScheduledWorkoutRead:
-    """Remove the pairing between a scheduled workout and its matched activity."""
-    workout = await session.get(ScheduledWorkout, scheduled_id)
-    if workout is None or workout.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Workout not found")
-
-    if workout.matched_activity_id is None:
-        raise HTTPException(status_code=400, detail="Workout is not paired with any activity")
-
-    workout.matched_activity_id = None
-    workout.completed = False
-    workout.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    session.add(workout)
-    await session.commit()
-    await session.refresh(workout)
-
-    return ScheduledWorkoutRead.model_validate(workout)
