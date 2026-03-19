@@ -209,7 +209,16 @@ const isPanelOpen = selectedWorkout != null || selectedActivity != null
 
 ---
 
-## 7. Out of Scope (v1)
+## 7. Neon Free Tier Considerations
+
+- **Panel open = zero DB queries.** All data is already loaded in CalendarPage state from the initial `CalendarResponse` fetch. Opening the panel is purely frontend.
+- **Notes save:** Single-row `UPDATE scheduledworkout SET notes = ? WHERE id = ?` — minimal cost. The 500ms debounce + flush-on-blur ensures at most 1 query per user edit pause, not per keystroke.
+- **Reschedule/Remove/Unpair:** These reuse existing endpoints — no new query patterns introduced.
+- **No new N+1 risk:** The panel doesn't fetch additional data on open. Template lookup is done in-memory from the already-loaded `templates` array.
+
+---
+
+## 8. Out of Scope (v1)
 
 - Inline step editing (use Builder for that)
 - Charts or pace/HR graphs
