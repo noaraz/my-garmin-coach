@@ -16,6 +16,7 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.garmin.adapter import GarminAdapter
 from src.garmin.encryption import decrypt_token
 from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
@@ -30,46 +31,6 @@ router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
 
 # Include "failed" so a re-sync attempt retries previously failed workouts.
 _PENDING_STATUSES = ("pending", "modified", "failed")
-
-
-# ---------------------------------------------------------------------------
-# Garmin client adapter
-# GarminSyncService expects add_workout() / schedule_workout().
-# The installed garminconnect library exposes upload_workout() and a raw
-# schedule endpoint instead.  This adapter bridges the gap.
-# ---------------------------------------------------------------------------
-
-
-class _GarminAdapter:
-    """Wraps garminconnect.Garmin to match the interface GarminSyncService expects."""
-
-    def __init__(self, client: garminconnect.Garmin) -> None:
-        self._client = client
-
-    def add_workout(self, formatted_workout: dict[str, Any]) -> dict[str, Any]:
-        """Upload a workout and return the Garmin response (contains workoutId)."""
-        return self._client.upload_workout(formatted_workout)
-
-    def schedule_workout(self, workout_id: str, workout_date: str) -> None:
-        """Schedule a workout on a specific date via the Garmin Connect API."""
-        url = f"{self._client.garmin_workouts_schedule_url}/{workout_id}"
-        self._client.garth.post(
-            "connectapi", url, json={"date": workout_date}, api=True
-        )
-
-    def update_workout(
-        self, workout_id: str, formatted_workout: dict[str, Any]
-    ) -> None:
-        """Update an existing Garmin workout in-place."""
-        url = f"/workout-service/workout/{workout_id}"
-        self._client.garth.put(
-            "connectapi", url, json=formatted_workout, api=True
-        )
-
-    def delete_workout(self, workout_id: str) -> None:
-        """Permanently delete a workout from Garmin Connect."""
-        url = f"/workout-service/workout/{workout_id}"
-        self._client.garth.delete("connectapi", url, api=True)
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +79,7 @@ async def _get_garmin_sync_service(
         return steps
 
     return SyncOrchestrator(
-        sync_service=GarminSyncService(_GarminAdapter(garmin_client)),
+        sync_service=GarminSyncService(GarminAdapter(garmin_client)),
         formatter=format_workout,
         resolver=_resolver,
     )
