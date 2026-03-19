@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TTL cache, connection pool tuning)
+Last updated: 2026-03-19 (alembic as sole schema authority + InviteCode autogenerate fix)
 
 ## Current Focus: Neon DB Query Optimization
 
@@ -36,8 +36,8 @@ Last updated: 2026-03-19 (Neon DB query optimization — N+1 fixes, bulk ops, TT
 | Fix: pass GOOGLE_CLIENT_ID as VITE_GOOGLE_CLIENT_ID in prod Docker build | ✅ |
 | Fix: Google tokeninfo endpoint for audience validation (azp claim, not aud on userinfo) | ✅ |
 | Tag v0.2.1 + push (Google OAuth audience validation hotfix) | ✅ |
-| Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
-| Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
+| Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ✅ |
+| Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ✅ |
 | Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
 | Tag v0.2.2 + push (Fixie proxy) | ✅ |
 | Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
