@@ -8,11 +8,12 @@ import type { ValidateResult, ValidateRow, ActivePlan, DiffResult } from '../api
 // Hoisted mocks
 // ---------------------------------------------------------------------------
 
-const { mockValidatePlan, mockCommitPlan, mockGetActivePlan, mockDeletePlan, mockNavigate } = vi.hoisted(() => ({
+const { mockValidatePlan, mockCommitPlan, mockGetActivePlan, mockDeletePlan, mockGetChatHistory, mockNavigate } = vi.hoisted(() => ({
   mockValidatePlan: vi.fn(),
   mockCommitPlan: vi.fn(),
   mockGetActivePlan: vi.fn(),
   mockDeletePlan: vi.fn(),
+  mockGetChatHistory: vi.fn(),
   mockNavigate: vi.fn(),
 }))
 
@@ -24,6 +25,7 @@ vi.mock('../api/client', async (importOriginal) => {
     commitPlan: mockCommitPlan,
     getActivePlan: mockGetActivePlan,
     deletePlan: mockDeletePlan,
+    getChatHistory: mockGetChatHistory,
   }
 })
 
@@ -253,21 +255,30 @@ describe('PlanCoachPage', () => {
   beforeEach(() => {
     mockGetActivePlan.mockReset()
     mockGetActivePlan.mockResolvedValue(null)
+    mockGetChatHistory.mockResolvedValue([])
   })
 
-  it('renders Plan tab by default', async () => {
+  it('renders Chat tab as default with Import CSV tab also present', async () => {
     await renderPage()
-    expect(screen.getByRole('tab', { name: /plan/i })).toBeInTheDocument()
-    // Chat tab present but disabled
+    // Chat tab is selected by default
     const chatTab = screen.getByRole('tab', { name: /chat/i })
-    expect(chatTab).toBeDisabled()
+    expect(chatTab).toBeInTheDocument()
+    expect(chatTab).not.toBeDisabled()
+    expect(chatTab.getAttribute('aria-selected')).toBe('true')
+    // Import CSV tab present and not disabled
+    const csvTab = screen.getByRole('tab', { name: /import csv/i })
+    expect(csvTab).toBeInTheDocument()
+    expect(csvTab).not.toBeDisabled()
   })
 
-  it('shows CsvImportTab content on Plan tab', async () => {
+  it('shows CsvImportTab content when Import CSV tab is selected', async () => {
+    const user = userEvent.setup()
     await renderPage()
-    // The file input should be visible
-    const input = document.querySelector('input[type="file"]')
-    expect(input).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /import csv/i }))
+    await waitFor(() => {
+      const input = document.querySelector('input[type="file"]')
+      expect(input).toBeInTheDocument()
+    })
   })
 })
 
@@ -403,11 +414,20 @@ describe('PlanCoachPage with active plan', () => {
   beforeEach(() => {
     mockGetActivePlan.mockReset()
     mockDeletePlan.mockReset()
+    mockGetChatHistory.mockResolvedValue([])
     mockGetActivePlan.mockResolvedValue(activePlan)
   })
 
-  it('shows ActivePlanCard when active plan exists', async () => {
+  // Helper: render page and navigate to Import CSV tab (Chat is now default)
+  async function renderOnPlanTab() {
+    const user = userEvent.setup()
     await renderPage()
+    await user.click(screen.getByRole('tab', { name: /import csv/i }))
+    return user
+  }
+
+  it('shows ActivePlanCard when active plan exists', async () => {
+    await renderOnPlanTab()
     await waitFor(() => {
       expect(screen.getByTestId('active-plan-card')).toBeInTheDocument()
     })
@@ -415,7 +435,7 @@ describe('PlanCoachPage with active plan', () => {
   })
 
   it('does not show file upload until Upload New Plan is clicked', async () => {
-    await renderPage()
+    await renderOnPlanTab()
     await waitFor(() => {
       expect(screen.getByTestId('active-plan-card')).toBeInTheDocument()
     })
@@ -424,8 +444,7 @@ describe('PlanCoachPage with active plan', () => {
   })
 
   it('shows file upload after clicking Upload New Plan', async () => {
-    const user = userEvent.setup()
-    await renderPage()
+    const user = await renderOnPlanTab()
     await waitFor(() => {
       expect(screen.getByTestId('active-plan-card')).toBeInTheDocument()
     })
@@ -434,11 +453,8 @@ describe('PlanCoachPage with active plan', () => {
   })
 
   it('shows delete modal on Delete Plan click and calls deletePlan on confirm', async () => {
-    const user = userEvent.setup()
+    const user = await renderOnPlanTab()
     mockDeletePlan.mockResolvedValue(undefined)
-    // After delete, getActivePlan returns null
-    mockGetActivePlan.mockResolvedValue(activePlan)
-    await renderPage()
     await waitFor(() => {
       expect(screen.getByTestId('active-plan-card')).toBeInTheDocument()
     })

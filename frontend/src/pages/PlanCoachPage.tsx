@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { getActivePlan, deletePlan } from '../api/client'
 import type { ActivePlan } from '../api/types'
 import { CsvImportTab } from '../components/plan-coach/CsvImportTab'
+import { ChatTab } from '../components/plan-coach/ChatTab'
 import { ActivePlanCard } from '../components/plan-coach/ActivePlanCard'
 import { DeletePlanModal } from '../components/plan-coach/DeletePlanModal'
 
-type Tab = 'plan' | 'chat'
+type Tab = 'chat' | 'plan'
 
 const pageTitle: React.CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
@@ -23,7 +24,7 @@ const pageSubtitle: React.CSSProperties = {
   marginBottom: '24px',
 }
 
-const tabStyle = (active: boolean, disabled: boolean): React.CSSProperties => ({
+const tabStyle = (active: boolean): React.CSSProperties => ({
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontWeight: 700,
   fontSize: '11px',
@@ -33,14 +34,13 @@ const tabStyle = (active: boolean, disabled: boolean): React.CSSProperties => ({
   background: 'transparent',
   border: 'none',
   borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-  color: active ? 'var(--accent)' : disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  opacity: disabled ? 0.5 : 1,
+  color: active ? 'var(--accent)' : 'var(--text-secondary)',
+  cursor: 'pointer',
   transition: 'color 0.12s, border-color 0.12s',
 })
 
 export function PlanCoachPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('plan')
+  const [activeTab, setActiveTab] = useState<Tab>('chat')
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -56,7 +56,6 @@ export function PlanCoachPage() {
   }, [])
 
   const handlePlanImported = () => {
-    // After a successful import, re-fetch the active plan
     setShowUpload(false)
     getActivePlan().then(plan => {
       setActivePlan(plan)
@@ -92,7 +91,7 @@ export function PlanCoachPage() {
     }}>
       <h1 style={pageTitle}>Plan Coach</h1>
       <p style={pageSubtitle}>
-        Import a multi-week training plan from CSV or generate one with AI.
+        Generate a multi-week training plan with AI, or import one from CSV.
       </p>
 
       {/* Tab bar */}
@@ -104,27 +103,27 @@ export function PlanCoachPage() {
       }}>
         <button
           role="tab"
-          aria-selected={activeTab === 'plan'}
-          onClick={() => setActiveTab('plan')}
-          style={tabStyle(activeTab === 'plan', false)}
+          aria-selected={activeTab === 'chat'}
+          onClick={() => setActiveTab('chat')}
+          style={tabStyle(activeTab === 'chat')}
         >
-          Plan
+          Chat
         </button>
         <button
           role="tab"
-          aria-selected={activeTab === 'chat'}
-          disabled
-          style={tabStyle(activeTab === 'chat', true)}
-          title="Coming soon — Phase 4"
+          aria-selected={activeTab === 'plan'}
+          onClick={() => setActiveTab('plan')}
+          style={tabStyle(activeTab === 'plan')}
         >
-          Chat (coming soon)
+          Import CSV
         </button>
       </div>
 
       {/* Tab content */}
+      {activeTab === 'chat' && <ChatTab />}
+
       {activeTab === 'plan' && (
         <>
-          {/* Active plan card */}
           {activePlan && (
             <ActivePlanCard
               plan={activePlan}
@@ -133,7 +132,6 @@ export function PlanCoachPage() {
             />
           )}
 
-          {/* CSV import — shown when no active plan or upload requested */}
           {showCsvImport && (
             <CsvImportTab
               onImported={handlePlanImported}
@@ -154,7 +152,6 @@ export function PlanCoachPage() {
         </>
       )}
 
-      {/* Delete confirmation modal */}
       {showDeleteModal && activePlan && (
         <DeletePlanModal
           plan={activePlan}

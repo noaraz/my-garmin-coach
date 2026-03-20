@@ -214,6 +214,17 @@ export interface PlanWorkoutInput {
   description?: string
 }
 
+export interface PlanCoachMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+export interface SendMessageRequest {
+  content: string
+}
+
 export interface BootstrapResponse {
   invite_codes: string[]
 }

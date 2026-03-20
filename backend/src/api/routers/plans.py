@@ -1,4 +1,4 @@
-"""Plans router — validate/commit/delete training plans."""
+"""Plans router — validate/commit/delete training plans + Plan Coach chat."""
 from __future__ import annotations
 
 from typing import Any
@@ -12,7 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.db.models import ScheduledWorkout
+from src.db.models import PlanCoachMessage, ScheduledWorkout
 from src.services.plan_import_service import (
     CommitResult,
     ValidateResult,
@@ -21,6 +21,12 @@ from src.services.plan_import_service import (
     get_active_plan,
     validate_plan,
 )
+from src.services.plan_coach_service import (
+    get_chat_history,
+    send_chat_message,
+)
+from src.services.profile_service import get_or_create_profile
+from src.services.zone_service import get_hr_zones, get_pace_zones
 
 router = APIRouter(prefix="/api/v1/plans", tags=["plans"])
 
@@ -46,6 +52,26 @@ class ActivePlanResponse(BaseModel):
     status: str
     start_date: str
     workout_count: int | None = None
+
+
+class ChatMessageRequest(BaseModel):
+    content: str
+
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: str
+
+    @classmethod
+    def from_orm(cls, msg: PlanCoachMessage) -> "ChatMessageResponse":
+        return cls(
+            id=msg.id,  # type: ignore[arg-type]
+            role=msg.role,
+            content=msg.content,
+            created_at=msg.created_at.isoformat(),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -130,3 +156,47 @@ async def delete_plan_endpoint(
             raise HTTPException(status_code=403, detail=msg) from exc
         raise HTTPException(status_code=404, detail=msg) from exc
     return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Chat endpoints (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/chat/history", response_model=list[ChatMessageResponse])
+async def get_history(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[ChatMessageResponse]:
+    """Return full chat history for the current user."""
+    messages = await get_chat_history(session, user_id=current_user.id)  # type: ignore[arg-type]
+    return [ChatMessageResponse.from_orm(m) for m in messages]
+
+
+@router.post("/chat/message", response_model=ChatMessageResponse)
+async def post_chat_message(
+    body: ChatMessageRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> ChatMessageResponse:
+    """Append user message, call Gemini Flash, return assistant reply."""
+    if not body.content.strip():
+        raise HTTPException(status_code=422, detail="Message content cannot be empty")
+
+    profile = await get_or_create_profile(session, user_id=current_user.id)
+    hr_zones = await get_hr_zones(session, profile_id=profile.id)  # type: ignore[arg-type]
+    pace_zones = await get_pace_zones(session, profile_id=profile.id)  # type: ignore[arg-type]
+
+    try:
+        assistant_msg = await send_chat_message(
+            session,
+            user_id=current_user.id,  # type: ignore[arg-type]
+            content=body.content,
+            profile=profile,
+            hr_zones=hr_zones,
+            pace_zones=pace_zones,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return ChatMessageResponse.from_orm(assistant_msg)

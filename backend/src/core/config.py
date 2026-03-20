@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # Fixie proxy for Garmin OAuth (production only — avoids 429 from shared IPs)
     fixie_url: str = ""
 
+    # Gemini Flash for Plan Coach chat (empty = chat disabled)
+    gemini_api_key: str = ""
+
     @field_validator("fixie_url")
     @classmethod
     def validate_fixie_url(cls, v: str) -> str:
