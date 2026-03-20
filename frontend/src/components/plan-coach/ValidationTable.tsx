@@ -57,7 +57,7 @@ export function ValidationTable({ rows }: ValidationTableProps) {
         <span style={{
           fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '10px',
-          color: allValid ? '#22c55e' : '#ef4444',
+          color: allValid ? 'var(--color-success)' : 'var(--color-error)',
           fontWeight: 600,
         }}>
           {allValid ? '✓ All valid' : `${rows.filter(r => !r.valid).length} error${rows.filter(r => !r.valid).length > 1 ? 's' : ''}`}
@@ -75,7 +75,7 @@ export function ValidationTable({ rows }: ValidationTableProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.row} style={{ background: row.valid ? 'transparent' : 'rgba(239,68,68,0.05)' }}>
+            <tr key={row.row} style={{ background: row.valid ? 'transparent' : 'var(--color-error-bg)' }}>
               <td style={{ ...td, color: 'var(--text-muted)' }}>{row.row}</td>
               <td style={td}>{row.date}</td>
               <td style={{ ...td, color: 'var(--text-primary)', fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontWeight: 500 }}>
@@ -84,12 +84,12 @@ export function ValidationTable({ rows }: ValidationTableProps) {
               <td style={td}>
                 <span>{row.steps_spec}</span>
                 {row.error && (
-                  <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '3px' }}>
+                  <div style={{ color: 'var(--color-error)', fontSize: '10px', marginTop: '3px' }}>
                     {row.error}
                   </div>
                 )}
               </td>
-              <td style={{ ...td, textAlign: 'center', color: row.valid ? '#22c55e' : '#ef4444', fontSize: '14px' }}>
+              <td style={{ ...td, textAlign: 'center', color: row.valid ? 'var(--color-success)' : 'var(--color-error)', fontSize: '14px' }}>
                 {row.valid ? '✓' : '✗'}
               </td>
             </tr>

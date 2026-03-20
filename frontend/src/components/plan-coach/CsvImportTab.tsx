@@ -263,7 +263,7 @@ export function CsvImportTab() {
         <p style={{
           fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '11px',
-          color: '#ef4444',
+          color: 'var(--color-error)',
           marginBottom: '12px',
         }}>
           {error}
