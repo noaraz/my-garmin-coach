@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-21 (Smart Plan Merge — Phase 5 complete)
+Last updated: 2026-03-21 (Plan Coach Phase 4b + Smart Plan Merge code review fixes)
 
 ## Current Focus: Plan Coach
 
@@ -89,13 +89,15 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | ChatTab.tsx (thread, plan detection, validate/commit flow) | ✅ |
 | Unit + integration + RTL tests | ✅ |
 
-### Plan Coach — Phase 4b: Prompt Builder (replaces Chat tab) `feature/plan-coach-phase-4`
+### Plan Coach — Phase 4b: Prompt Builder (replaces Chat tab) `feature/plan-coach-phase-4` ✅
 | Task | Status |
 |------|--------|
 | Hide Chat tab — PlanCoachPage simplified to CSV-only flow | ✅ |
 | PlanPromptBuilder.tsx — form-driven prompt generator | ✅ |
 | CsvImportTab uses PlanPromptBuilder instead of LlmPromptTemplate | ✅ |
 | Prompt includes "output CSV only, no markdown" instruction | ✅ |
+| ActivePlanCard: rename "Upload New Plan" → "Upload / Update Plan" | ✅ |
+| Frontend tests: fix tab-bar + empty state text for Phase 4b changes | ✅ |
 
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
@@ -110,6 +112,12 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Frontend: WorkoutDiff + DiffResult types | ✅ |
 | Frontend: DiffTable — 5 row variants + before→after changed | ✅ |
 | Frontend: DiffTable RTL tests (4 tests) | ✅ |
+| **Code review fix**: chat transaction safety — call Gemini before any DB commit | ✅ |
+| **Code review fix**: bulk UPDATE training_plan_id on kept ScheduledWorkouts | ✅ |
+| **Code review fix**: remove wasted session.refresh() calls after commit | ✅ |
+| **SDK upgrade**: google-generativeai → google-genai>=1.0 (genai.Client, gemini-2.0-flash-lite) | ✅ |
+| plan_step_parser: accept `+` as top-level step separator (LLM output format) | ✅ |
+| calendar_service: detect distance steps by key presence (plan-imported steps) | ✅ |
 
 ### Workout Detail Panel (previous focus) ✅
 | Task | Status |
@@ -290,6 +298,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: Zone manager Friel-only + threshold guide card | ✅ |
 | Post-ship: App font refresh → IBM Plex Sans family | ✅ |
 | Post-ship: Dynamic sidebar version from package.json (`__APP_VERSION__` via Vite define, strips `-dev` in prod) | ✅ |
+| Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
+| Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
 | Mobile responsive | ⬜ |
 
 ### Auth + Deployment
