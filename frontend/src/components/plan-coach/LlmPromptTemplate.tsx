@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 const PROMPT_TEXT = `Generate a multi-week running training plan as a CSV with these columns:
 date,name,steps_spec,sport_type,description
@@ -37,16 +37,45 @@ const code: React.CSSProperties = {
   overflowX: 'auto' as const,
 }
 
+type CopyState = 'idle' | 'copied' | 'error'
+
 export function LlmPromptTemplate() {
-  const [copied, setCopied] = useState(false)
+  const [copyState, setCopyState] = useState<CopyState>('idle')
+  const codeRef = useRef<HTMLElement>(null)
 
   const handleCopy = async () => {
+    const succeed = () => {
+      setCopyState('copied')
+      setTimeout(() => setCopyState('idle'), 1800)
+    }
+    const fail = () => {
+      setCopyState('error')
+      setTimeout(() => setCopyState('idle'), 2000)
+    }
+
+    // Try modern clipboard API first
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(PROMPT_TEXT)
+        succeed()
+        return
+      } catch { /* fall through to execCommand */ }
+    }
+
+    // Fallback: select text from the code element and execCommand
     try {
-      await navigator.clipboard.writeText(PROMPT_TEXT)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+      const el = codeRef.current
+      if (!el) { fail(); return }
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+      const ok = document.execCommand('copy')
+      sel?.removeAllRanges()
+      ok ? succeed() : fail()
     } catch {
-      // clipboard not available in test env — ignore
+      fail()
     }
   }
 
@@ -73,22 +102,23 @@ export function LlmPromptTemplate() {
           aria-label="Copy prompt"
           style={{
             background: 'transparent',
-            border: '1px solid var(--border)',
+            border: `1px solid ${copyState === 'copied' ? 'var(--color-success)' : copyState === 'error' ? 'var(--color-error)' : 'var(--border)'}`,
             borderRadius: '4px',
             padding: '3px 8px',
             cursor: 'pointer',
-            color: 'var(--text-secondary)',
+            color: copyState === 'copied' ? 'var(--color-success)' : copyState === 'error' ? 'var(--color-error)' : 'var(--text-secondary)',
             fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
             fontSize: '10px',
             fontWeight: 600,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
+            transition: 'color 0.15s, border-color 0.15s',
           }}
         >
-          {copied ? 'Copied!' : 'Copy'}
+          {copyState === 'copied' ? '✓ Copied' : copyState === 'error' ? 'Failed' : 'Copy'}
         </button>
       </div>
-      <code style={code}>{PROMPT_TEXT}</code>
+      <code ref={codeRef} style={code}>{PROMPT_TEXT}</code>
     </div>
   )
 }
