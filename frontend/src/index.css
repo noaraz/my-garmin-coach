@@ -112,3 +112,9 @@ html, body, #root {
   transform-box: fill-box;
   transform-origin: center;
 }
+
+/* Panel slide-in animation */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
