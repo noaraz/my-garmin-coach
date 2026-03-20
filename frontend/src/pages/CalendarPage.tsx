@@ -258,10 +258,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 width: '7px',
                 height: '7px',
                 borderRadius: '50%',
-                background: garminConnected ? '#22c55e' : '#ef4444',
+                background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
                 boxShadow: garminConnected
-                  ? '0 0 0 2px rgba(34,197,94,0.2)'
-                  : '0 0 0 2px rgba(239,68,68,0.2)',
+                  ? '0 0 0 2px var(--color-success-glow)'
+                  : '0 0 0 2px var(--color-error-glow)',
                 flexShrink: 0,
               }} />
               Garmin

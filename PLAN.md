@@ -98,7 +98,7 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | 9 | Activity Fetch | `features/garmin-activity-fetch/` | garmin-sync, calendar | ✅ |
 | 10 | Workout Detail Panel | `features/calendar/` | calendar, garmin-activity-fetch | ✅ |
 | 11 | Plan Coach | `features/plan-coach/` | calendar, garmin-activity-fetch | 🟡 |
-| 12 | Status Indicators | `features/status-indicators/` | calendar, settings | 🟡 |
+| 12 | Status Indicators | `features/status-indicators/` | calendar, settings | ✅ |
 
 Features 2–4 are pure logic with zero I/O. Feature 5 adds persistence.
 Features 6–7 are frontend. Feature 8 is auth. Deploy after auth.

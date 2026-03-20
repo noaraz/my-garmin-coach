@@ -48,6 +48,7 @@ export function ZoneManager() {
     try {
       await recalcHR()
       setLocalZones([])
+      refreshZones()
       showToast('success', 'HR zones recalculated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
@@ -57,6 +58,7 @@ export function ZoneManager() {
   const handleRecalcPace = async () => {
     try {
       await recalcPace()
+      refreshZones()
       showToast('success', 'Pace zones recalculated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
