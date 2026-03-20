@@ -7,6 +7,7 @@ interface TemplateCardProps {
   onSchedule: (template: WorkoutTemplate) => void
   onDelete: (template: WorkoutTemplate) => void
   onDuplicate: (template: WorkoutTemplate) => void
+  planName?: string
 }
 
 
@@ -25,7 +26,7 @@ const btnBase: React.CSSProperties = {
   transition: 'background 0.1s, color 0.1s',
 }
 
-export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplicate }: TemplateCardProps) {
+export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplicate, planName }: TemplateCardProps) {
   const durationSec = template.estimated_duration_sec ?? computeDurationFromSteps(template.steps)
   const distanceM = template.estimated_distance_m ?? computeDistanceFromSteps(template.steps)
   const hasDuration = durationSec != null && durationSec > 0
@@ -48,16 +49,34 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
     >
       {/* Left: name + meta */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-          fontWeight: 600,
-          fontSize: '13px',
-          color: 'var(--text-primary)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {template.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <div style={{
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+            fontWeight: 600,
+            fontSize: '13px',
+            color: 'var(--text-primary)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {template.name}
+          </div>
+          {planName && (
+            <span style={{
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--accent)',
+              background: 'var(--accent-subtle)',
+              borderRadius: '3px',
+              padding: '1px 5px',
+              flexShrink: 0,
+            }}>
+              {planName}
+            </span>
+          )}
         </div>
         {template.description && (
           <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '1px' }}>

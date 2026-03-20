@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getActivePlan, deletePlan } from '../api/client'
+import type { ActivePlan } from '../api/types'
 import { CsvImportTab } from '../components/plan-coach/CsvImportTab'
+import { ActivePlanCard } from '../components/plan-coach/ActivePlanCard'
+import { DeletePlanModal } from '../components/plan-coach/DeletePlanModal'
 
 type Tab = 'plan' | 'chat'
 
@@ -37,6 +41,48 @@ const tabStyle = (active: boolean, disabled: boolean): React.CSSProperties => ({
 
 export function PlanCoachPage() {
   const [activeTab, setActiveTab] = useState<Tab>('plan')
+  const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
+  const [showUpload, setShowUpload] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getActivePlan().then(plan => {
+      setActivePlan(plan)
+    }).catch(() => {
+      setActivePlan(null)
+    })
+  }, [])
+
+  const handlePlanImported = () => {
+    // After a successful import, re-fetch the active plan
+    setShowUpload(false)
+    getActivePlan().then(plan => {
+      setActivePlan(plan)
+    }).catch(() => {
+      setActivePlan(null)
+    })
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!activePlan) return
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await deletePlan(activePlan.plan_id)
+      setActivePlan(null)
+      setShowDeleteModal(false)
+      setShowUpload(false)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : String(err))
+      setShowDeleteModal(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const showCsvImport = !activePlan || showUpload
 
   return (
     <div style={{
@@ -76,7 +122,47 @@ export function PlanCoachPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'plan' && <CsvImportTab />}
+      {activeTab === 'plan' && (
+        <>
+          {/* Active plan card */}
+          {activePlan && (
+            <ActivePlanCard
+              plan={activePlan}
+              onUploadNew={() => setShowUpload(v => !v)}
+              onDelete={() => setShowDeleteModal(true)}
+            />
+          )}
+
+          {/* CSV import — shown when no active plan or upload requested */}
+          {showCsvImport && (
+            <CsvImportTab
+              onImported={handlePlanImported}
+              initialPlanName={activePlan?.name}
+            />
+          )}
+
+          {deleteError && (
+            <p style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '11px',
+              color: 'var(--color-error)',
+              marginTop: '8px',
+            }}>
+              {deleteError}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && activePlan && (
+        <DeletePlanModal
+          plan={activePlan}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => { setShowDeleteModal(false); setDeleteError(null) }}
+          isDeleting={isDeleting}
+        />
+      )}
     </div>
   )
 }

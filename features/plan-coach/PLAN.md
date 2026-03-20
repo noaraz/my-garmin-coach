@@ -79,18 +79,21 @@ RTL: CSV parse, ValidationTable, Import button state, redirect on success.
 
 ---
 
-## Phase 3 — Active Plan View + Re-import Diff `feature/plan-coach-phase-3`
+## Phase 3 — Active Plan View + Re-import Diff `feature/plan-coach-phase-3` ✅
 
 ### Active plan state
-- `ActivePlanCard.tsx` — name, start date, workout count, progress placeholder
-- `DeletePlanModal.tsx` — confirmation before destructive delete
-- `DiffTable.tsx` — added/removed/changed rows from `validate` response
-
-### Plan badge on workout cards
-Subtle badge on `WorkoutCard.tsx` + `TemplateCard.tsx` when `training_plan_id` is set.
+- [x] `ActivePlanCard.tsx` — name, start date, workout count, Upload New Plan + Delete Plan buttons
+- [x] `DeletePlanModal.tsx` — confirmation before destructive delete (count in body)
+- [x] `DiffTable.tsx` — added/removed/changed rows from `validate` response
+- [x] `CsvImportTab.tsx` — shows DiffTable when `result.diff != null`; button label "Apply Changes" vs "Import"
+- [x] `PlanCoachPage.tsx` — fetches active plan on mount; shows ActivePlanCard; toggles CSV upload view; delete flow
+- [x] `training_plan_id` added to `ScheduledWorkout` frontend type
+- [x] Plan badge on `WorkoutCard.tsx` + `TemplateCard.tsx` when `training_plan_id` is set
+- [x] `CalendarPage.tsx` fetches active plan name; threads through CalendarView → WeekView/MonthView → DayCell → WorkoutCard
 
 ### Tests
-RTL: active plan card, delete modal, diff table on re-upload, Apply Changes calls commit.
+- [x] RTL: active plan card, delete modal, diff table on re-upload, Apply Changes calls commit
+- [x] 29 total PlanCoach.test.tsx tests (17 new in Phase 3)
 
 ---
 

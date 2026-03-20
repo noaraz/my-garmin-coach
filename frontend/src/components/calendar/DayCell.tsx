@@ -13,6 +13,7 @@ interface DayCellProps {
   onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
   onActivityClick?: (activity: GarminActivity) => void
   getDisplayName?: (workout: ScheduledWorkoutWithActivity) => string | undefined
+  activePlanName?: string
 }
 
 function parseDateParts(dateStr: string) {
@@ -23,7 +24,7 @@ function parseDateParts(dateStr: string) {
   return { dayName, dayNum, isToday }
 }
 
-export function DayCell({ date, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick, getDisplayName }: DayCellProps) {
+export function DayCell({ date, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick, getDisplayName, activePlanName }: DayCellProps) {
   const [hovering, setHovering] = useState(false)
   const { dayName, dayNum, isToday } = parseDateParts(date)
 
@@ -99,6 +100,7 @@ export function DayCell({ date, workouts, templates, unplannedActivities, onAddW
               onRemove={onRemove}
               onCardClick={onWorkoutClick}
               displayName={getDisplayName ? getDisplayName(workout) : undefined}
+              planName={workout.training_plan_id != null ? activePlanName : undefined}
             />
           </div>
         ))}
