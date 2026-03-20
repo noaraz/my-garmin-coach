@@ -224,6 +224,8 @@ describe('ChatTab', () => {
           added: [{ date: '2027-04-08', name: 'Tempo Run' }],
           removed: [],
           changed: [],
+          unchanged: [],
+          completed_locked: [],
         },
       }
       mockValidatePlan.mockResolvedValue(diffResult)

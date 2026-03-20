@@ -144,7 +144,6 @@ class TestValidate:
     ) -> None:
         """Completed workouts appear in completed_locked, not changed, on re-validate."""
         from src.db.models import WorkoutTemplate
-        from sqlmodel import select
 
         # Create an active plan with one workout
         plan = TrainingPlan(
