@@ -2,18 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import type { ValidateResult, ValidateRow, ActivePlan, DiffResult } from '../api/types'
+import type { ValidateResult, ValidateRow, ActivePlan, DiffResult, PlanCoachMessage } from '../api/types'
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
 
-const { mockValidatePlan, mockCommitPlan, mockGetActivePlan, mockDeletePlan, mockGetChatHistory, mockNavigate } = vi.hoisted(() => ({
+const { mockValidatePlan, mockCommitPlan, mockGetActivePlan, mockDeletePlan, mockGetChatHistory, mockSendChatMessage, mockNavigate } = vi.hoisted(() => ({
   mockValidatePlan: vi.fn(),
   mockCommitPlan: vi.fn(),
   mockGetActivePlan: vi.fn(),
   mockDeletePlan: vi.fn(),
   mockGetChatHistory: vi.fn(),
+  mockSendChatMessage: vi.fn(),
   mockNavigate: vi.fn(),
 }))
 
@@ -26,6 +27,7 @@ vi.mock('../api/client', async (importOriginal) => {
     getActivePlan: mockGetActivePlan,
     deletePlan: mockDeletePlan,
     getChatHistory: mockGetChatHistory,
+    sendChatMessage: mockSendChatMessage,
   }
 })
 
@@ -299,6 +301,8 @@ const diffResult: DiffResult = {
   added: [{ date: '2026-04-21', name: 'New Long Run' }],
   removed: [{ date: '2026-04-14', name: 'Old Tempo' }],
   changed: [{ date: '2026-04-07', name: 'Easy Run' }],
+  unchanged: [],
+  completed_locked: [],
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +405,7 @@ describe('DiffTable', () => {
 
   it('renders nothing when diff has no changes', async () => {
     const { DiffTable } = await import('../components/plan-coach/DiffTable')
-    const { container } = render(<DiffTable diff={{ added: [], removed: [], changed: [] }} />)
+    const { container } = render(<DiffTable diff={{ added: [], removed: [], changed: [], unchanged: [], completed_locked: [] }} />)
     expect(container.firstChild).toBeNull()
   })
 })
@@ -540,6 +544,175 @@ describe('CsvImportTab diff flow', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /import plan/i })).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 4 — ChatTab fixtures
+// ---------------------------------------------------------------------------
+
+const makeMsg = (overrides: Partial<PlanCoachMessage> = {}): PlanCoachMessage => ({
+  id: 1,
+  role: 'user',
+  content: 'I want to run a half marathon in 10 weeks',
+  created_at: '2026-04-01T10:00:00',
+  ...overrides,
+})
+
+const PLAN_JSON_CONTENT =
+  '```json\n[{"date":"2026-04-07","name":"Easy Run","description":"Recovery","steps_spec":"30m@Z2","sport_type":"running"}]\n```'
+
+const renderChatTab = async () => {
+  const { ChatTab } = await import('../components/plan-coach/ChatTab')
+  return render(
+    <MemoryRouter>
+      <ChatTab />
+    </MemoryRouter>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ChatTab
+// ---------------------------------------------------------------------------
+
+describe('ChatTab', () => {
+  beforeEach(() => {
+    mockGetChatHistory.mockReset()
+    mockSendChatMessage.mockReset()
+    mockValidatePlan.mockReset()
+    mockCommitPlan.mockReset()
+  })
+
+  it('shows empty state prompt when no messages exist', async () => {
+    mockGetChatHistory.mockResolvedValue([])
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByText(/tell me about your race goal/i)).toBeInTheDocument()
+    })
+  })
+
+  it('displays loaded chat messages', async () => {
+    mockGetChatHistory.mockResolvedValue([
+      makeMsg({ id: 1, role: 'user', content: 'Plan me a 5K' }),
+      makeMsg({ id: 2, role: 'assistant', content: 'Great! Here is your plan.' }),
+    ])
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByText('Plan me a 5K')).toBeInTheDocument()
+      expect(screen.getByText('Great! Here is your plan.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error message when history fails to load', async () => {
+    mockGetChatHistory.mockRejectedValue(new Error('Network error'))
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByText(/failed to load chat history/i)).toBeInTheDocument()
+    })
+  })
+
+  it('send button is disabled when input is empty', async () => {
+    mockGetChatHistory.mockResolvedValue([])
+    await renderChatTab()
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+  })
+
+  it('sends a message and reloads history', async () => {
+    const user = userEvent.setup()
+    const assistantMsg = makeMsg({ id: 2, role: 'assistant', content: 'Here is your plan!' })
+    mockGetChatHistory
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([
+        makeMsg({ id: 1, role: 'user', content: 'Help me train' }),
+        assistantMsg,
+      ])
+    mockSendChatMessage.mockResolvedValue(assistantMsg)
+
+    await renderChatTab()
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText(/describe your training goal/i), 'Help me train')
+    await user.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(mockSendChatMessage).toHaveBeenCalledWith('Help me train')
+      expect(screen.getByText('Here is your plan!')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error when send fails', async () => {
+    const user = userEvent.setup()
+    mockGetChatHistory.mockResolvedValue([])
+    mockSendChatMessage.mockRejectedValue(new Error('Service unavailable'))
+
+    await renderChatTab()
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText(/describe your training goal/i), 'Hello')
+    await user.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/service unavailable/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows Preview & Validate button when assistant message contains JSON plan', async () => {
+    mockGetChatHistory.mockResolvedValue([
+      makeMsg({ id: 1, role: 'user', content: 'Give me a plan' }),
+      makeMsg({ id: 2, role: 'assistant', content: PLAN_JSON_CONTENT }),
+    ])
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /preview & validate/i })).toBeInTheDocument()
+    })
+  })
+
+  it('does not show Preview & Validate button for user messages', async () => {
+    // User message with JSON block (edge case) — no validate button should appear
+    mockGetChatHistory.mockResolvedValue([
+      makeMsg({ id: 1, role: 'user', content: PLAN_JSON_CONTENT }),
+    ])
+    await renderChatTab()
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /preview & validate/i })).not.toBeInTheDocument()
+  })
+
+  it('clicking Preview & Validate triggers validatePlan and shows ValidationPanel', async () => {
+    const user = userEvent.setup()
+    mockGetChatHistory.mockResolvedValue([
+      makeMsg({ id: 1, role: 'user', content: 'Give me a plan' }),
+      makeMsg({ id: 2, role: 'assistant', content: PLAN_JSON_CONTENT }),
+    ])
+    mockValidatePlan.mockResolvedValue({
+      plan_id: 55,
+      rows: [{ row: 1, date: '2026-04-07', name: 'Easy Run', steps_spec: '30m@Z2', sport_type: 'running', valid: true, error: null }],
+      diff: null,
+    } satisfies ValidateResult)
+
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /preview & validate/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /preview & validate/i }))
+
+    await waitFor(() => {
+      expect(mockValidatePlan).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Easy Run')).toBeInTheDocument()
+    })
+  })
+
+  it('strips JSON block from displayed assistant message content', async () => {
+    mockGetChatHistory.mockResolvedValue([
+      makeMsg({ id: 2, role: 'assistant', content: `Here is your plan:\n\n${PLAN_JSON_CONTENT}` }),
+    ])
+    await renderChatTab()
+    await waitFor(() => {
+      expect(screen.getByText('Here is your plan:')).toBeInTheDocument()
+      // Raw JSON block should not be visible
+      expect(screen.queryByText(/```json/)).not.toBeInTheDocument()
     })
   })
 })

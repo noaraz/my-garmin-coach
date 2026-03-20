@@ -176,12 +176,17 @@ export interface ValidateRow {
 export interface WorkoutDiff {
   date: string
   name: string
+  old_name?: string
+  old_steps_spec?: string
+  new_steps_spec?: string
 }
 
 export interface DiffResult {
   added: WorkoutDiff[]
   removed: WorkoutDiff[]
   changed: WorkoutDiff[]
+  unchanged: WorkoutDiff[]
+  completed_locked: WorkoutDiff[]
 }
 
 export interface ValidateResult {
