@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-20 (Fire-and-forget Garmin sync + Neon query optimizations)
+Last updated: 2026-03-20 (Smart Plan Merge — Phase 5 in progress)
 
 ## Current Focus: Plan Coach
 
@@ -96,6 +96,20 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | PlanPromptBuilder.tsx — form-driven prompt generator | ✅ |
 | CsvImportTab uses PlanPromptBuilder instead of LlmPromptTemplate | ✅ |
 | Prompt includes "output CSV only, no markdown" instruction | ✅ |
+
+### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` 🟡
+| Task | Status |
+|------|--------|
+| Docs: PLAN.md, CLAUDE.md, STATUS.md, root CLAUDE.md | 🟡 |
+| Backend: enrich WorkoutDiff + DiffResult schema | ⬜ |
+| Backend: _compute_diff with completed_dates + 5 buckets | ⬜ |
+| Backend: validate_plan completed_dates query | ⬜ |
+| Backend: commit_plan smart merge (batch load, classify, bulk delete) | ⬜ |
+| Backend unit tests: _compute_diff (3 tests) | ⬜ |
+| Backend integration tests: commit_plan smart merge (3 tests) | ⬜ |
+| Frontend: WorkoutDiff + DiffResult types | ⬜ |
+| Frontend: DiffTable — 5 row variants + before→after changed | ⬜ |
+| Frontend: DiffTable RTL tests (4 tests) | ⬜ |
 
 ### Workout Detail Panel (previous focus) ✅
 | Task | Status |
