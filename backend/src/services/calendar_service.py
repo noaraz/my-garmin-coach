@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -178,7 +178,7 @@ class CalendarService:
             scheduled.date = new_date
         if notes is not None:
             scheduled.notes = notes
-        scheduled.updated_at = datetime.utcnow()
+        scheduled.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(scheduled)
         await session.commit()
         await session.refresh(scheduled)

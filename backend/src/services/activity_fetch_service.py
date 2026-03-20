@@ -38,21 +38,23 @@ class ActivityFetchService:
         avg_speed = raw.get("averageSpeed", 0.0) or 0.0
         avg_pace = speed_to_pace(avg_speed) if avg_speed > 0 else None
 
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
         start_time_local = raw.get("startTimeLocal", "")
         try:
             local_dt = datetime.fromisoformat(start_time_local)
             activity_date = local_dt.date()
+            activity_start = local_dt.replace(tzinfo=None)
         except (ValueError, TypeError):
             activity_date = date.today()
-
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+            activity_start = now
 
         return GarminActivity(
             user_id=user_id,
             garmin_activity_id=str(raw["activityId"]),
             activity_type=type_key,
             name=raw.get("activityName", "Activity"),
-            start_time=now,
+            start_time=activity_start,
             date=activity_date,
             duration_sec=float(raw.get("duration", 0)),
             distance_m=float(raw.get("distance", 0)),
@@ -158,6 +160,7 @@ class ActivityFetchService:
                 workout.matched_activity_id = best.id
                 workout.completed = True
                 workout.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                session.add(workout)
                 candidates.remove(best)
                 paired_ids.add(best.id)
                 match_count += 1
