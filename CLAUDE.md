@@ -314,6 +314,11 @@ style={{ background: 'var(--color-zone-1)' }}   // not Tailwind bg-blue-500
 - `bg-white`, `text-gray-*`, `bg-gray-*` — use CSS vars instead
 - `dark:` prefix — we use `[data-theme="light"]` overrides in index.css, not Tailwind dark mode
 
+### Additional tokens (added 2026-03-21)
+- `--color-success-glow` / `--color-error-glow` — rgba glow variants for `box-shadow` on status dots (e.g. `0 0 0 2px var(--color-success-glow)`)
+- `--color-success-bg` / `--color-error-bg` — subtle background fill for status badges
+- **Sidebar.tsx is the only component exempt from the zero-hex rule** — it's always dark and uses its own named constants (`SIDE_GARMIN_CONNECTED` etc.). No other component has this exemption.
+
 ## workoutStats Utilities (added 2026-03-09)
 
 Four pure helpers in `frontend/src/utils/workoutStats.ts` — shared between `WorkoutCard` and `TemplateCard`:
@@ -603,6 +608,18 @@ The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TI
 - **States**: `success` (live), `in_progress` (building), `inactive` (spun down, wakes on request), `failure` (check logs)
 
 ---
+
+## Context Refresh Pattern (added 2026-03-21)
+
+When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Example: `ZoneManager` must call `refreshZones()` after `handleSave`, `handleRecalcHR`, and `handleRecalcPace`. Missing any handler leaves the sidebar indicator stale until the next page load.
+
+## PLAN.md Tracking (added 2026-03-21)
+
+Root `PLAN.md` feature table emoji must be updated to ✅ when a feature is complete — same cadence as `STATUS.md`. Easy to miss since STATUS.md is the primary tracking file.
+
+## Git Rebase Without Editor (added 2026-03-21)
+
+`GIT_EDITOR=true git rebase --continue` — skips the commit message editor when continuing a rebase after resolving conflicts.
 
 ## Status Indicators (added 2026-03-20)
 
