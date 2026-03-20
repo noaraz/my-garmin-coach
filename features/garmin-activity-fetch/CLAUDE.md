@@ -21,6 +21,11 @@
 3. Pick longest `duration_sec` when multiple matches
 4. Set `completed = True` on paired workout
 
+## Activity Fetch Gotchas (added 2026-03-20)
+
+- **`start_time` must come from Garmin's `startTimeLocal`** — never use `datetime.now()`. Parse with `datetime.fromisoformat(activity["startTimeLocal"])`, strip tzinfo for DB storage
+- **`session.add(workout)` required after matching** — async SQLAlchemy doesn't always track in-place attribute changes on existing ORM objects. Without explicit `session.add()`, `workout.completed = True` and `workout.matched_activity_id = ...` may not persist
+
 ## Testing
 - Mock `garminconnect.Garmin.get_activities_by_date` in unit tests
 - Integration tests use in-memory SQLite by default

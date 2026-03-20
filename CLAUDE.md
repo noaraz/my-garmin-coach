@@ -34,7 +34,7 @@ Replaces TrainingPeaks for self-coached athletes.
 ## Conventions
 
 ### Python
-- `ruff` for lint + format
+- `ruff` for lint + format (includes `DTZ` rules — bans `datetime.utcnow()` etc.)
 - Type hints on all signatures
 - Pydantic for request/response schemas
 - `from __future__ import annotations`
@@ -552,6 +552,30 @@ Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Fol
 - **Don't cache on write paths.** After creating/updating, call `cache.invalidate()` — don't `cache.set()`. Let the next read populate. Bulk deletes (e.g. `reset_admins`) must call `cache.clear()` after commit.
 - **Connection pool.** Production uses `pool_pre_ping=True` and `pool_recycle=270`. Don't change these without understanding Neon's scale-to-zero behavior (5-min idle timeout).
 - **No raw SQL.** Always use SQLAlchemy/SQLModel constructs — per Security rules above.
+- **`session.add()` after ORM mutation.** Async SQLAlchemy does not always track in-place attribute changes. After mutating an existing ORM object (e.g. `workout.completed = True`), call `session.add(workout)` before commit.
+
+---
+
+## Ruff DTZ Rules — Datetime Convention Enforcement (added 2026-03-20)
+
+`pyproject.toml` enables `extend-select = ["DTZ"]` (flake8-datetimez). This bans:
+- `datetime.utcnow()` → use `datetime.now(timezone.utc).replace(tzinfo=None)`
+- `datetime.utcfromtimestamp()` → use `datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)`
+- `date.today()` in prod code → use `datetime.now(timezone.utc).date()`
+
+`tests/**` are exempt from `DTZ011` (`date.today()` is fine in tests).
+
+The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TIME ZONE` columns reject aware datetimes.
+
+---
+
+## Render Preview Deployments (added 2026-03-20)
+
+- **Trigger**: PR title containing `[Render Preview]` triggers a Render preview deployment via GitHub Deployments API
+- **Preview env vars are separate** from the main Render service. They don't auto-inherit updates — must be set independently in Render dashboard → "Preview Environments" settings
+- **Common failure**: `DATABASE_URL=postgresql://...` (missing `+asyncpg`) → `psycopg2 is not async` error. Must be `postgresql+asyncpg://...`
+- **Check deployment status**: `gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id'` → `gh api .../deployments/{id}/statuses -q '.[0] | {state, environment_url}'`
+- **States**: `success` (live), `in_progress` (building), `inactive` (spun down, wakes on request), `failure` (check logs)
 
 ---
 
