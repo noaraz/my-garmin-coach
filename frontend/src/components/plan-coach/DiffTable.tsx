@@ -6,9 +6,9 @@ interface DiffTableProps {
 
 function DiffRow({ item, kind }: { item: WorkoutDiff; kind: 'added' | 'removed' | 'changed' }) {
   const colors = {
-    added: { bg: 'rgba(34, 197, 94, 0.08)', text: '#22c55e', symbol: '+' },
-    removed: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444', symbol: '−' },
-    changed: { bg: 'rgba(234, 179, 8, 0.08)', text: '#ca8a04', symbol: '~' },
+    added: { bg: 'var(--color-success-bg)', text: 'var(--color-success)', symbol: '+' },
+    removed: { bg: 'var(--color-error-bg)', text: 'var(--color-error)', symbol: '−' },
+    changed: { bg: 'var(--color-warning-bg)', text: 'var(--color-warning)', symbol: '~' },
   }
   const c = colors[kind]
   return (
@@ -83,17 +83,17 @@ export function DiffTable({ diff }: DiffTableProps) {
         </span>
         <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
           {totalAdded > 0 && (
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#22c55e' }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--color-success)' }}>
               +{totalAdded} added
             </span>
           )}
           {totalRemoved > 0 && (
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#ef4444' }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--color-error)' }}>
               −{totalRemoved} removed
             </span>
           )}
           {totalChanged > 0 && (
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#ca8a04' }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--color-warning)' }}>
               ~{totalChanged} changed
             </span>
           )}

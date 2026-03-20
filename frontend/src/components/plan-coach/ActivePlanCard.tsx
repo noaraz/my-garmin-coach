@@ -7,7 +7,7 @@ interface ActivePlanCardProps {
 }
 
 export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardProps) {
-  const startDate = new Date(plan.start_date).toLocaleDateString('en-GB', {
+  const startDate = new Date(plan.start_date + 'T00:00:00').toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

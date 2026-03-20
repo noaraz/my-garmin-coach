@@ -96,12 +96,14 @@ const btn = (primary: boolean, disabled: boolean): React.CSSProperties => ({
 interface CsvImportTabProps {
   /** Called after a successful import instead of navigating. Omit to navigate to /calendar. */
   onImported?: () => void
+  /** Pre-fill the plan name field (e.g. when re-importing over an existing plan). */
+  initialPlanName?: string
 }
 
-export function CsvImportTab({ onImported }: CsvImportTabProps = {}) {
+export function CsvImportTab({ onImported, initialPlanName }: CsvImportTabProps = {}) {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [planName, setPlanName] = useState('My Training Plan')
+  const [planName, setPlanName] = useState(initialPlanName ?? 'My Training Plan')
   const [fileName, setFileName] = useState<string | null>(null)
   const [workouts, setWorkouts] = useState<PlanWorkoutInput[]>([])
   const [result, setResult] = useState<ValidateResult | null>(null)

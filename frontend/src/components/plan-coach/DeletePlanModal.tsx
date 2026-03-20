@@ -18,7 +18,7 @@ export function DeletePlanModal({ plan, onConfirm, onCancel, isDeleting }: Delet
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'var(--overlay-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -33,7 +33,7 @@ export function DeletePlanModal({ plan, onConfirm, onCancel, isDeleting }: Delet
         padding: '28px 32px',
         maxWidth: '420px',
         width: '100%',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        boxShadow: '0 8px 32px var(--shadow-overlay)',
       }}>
         <h2
           id="delete-plan-title"
@@ -114,8 +114,8 @@ export function DeletePlanModal({ plan, onConfirm, onCancel, isDeleting }: Delet
               padding: '8px 16px',
               borderRadius: '4px',
               border: 'none',
-              background: '#ef4444',
-              color: '#fff',
+              background: 'var(--color-error)',
+              color: 'var(--text-on-accent)',
               cursor: isDeleting ? 'not-allowed' : 'pointer',
               opacity: isDeleting ? 0.65 : 1,
             }}

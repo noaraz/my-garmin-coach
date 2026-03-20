@@ -76,6 +76,7 @@ export function PlanCoachPage() {
       setShowUpload(false)
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : String(err))
+      setShowDeleteModal(false)
     } finally {
       setIsDeleting(false)
     }
@@ -134,7 +135,10 @@ export function PlanCoachPage() {
 
           {/* CSV import — shown when no active plan or upload requested */}
           {showCsvImport && (
-            <CsvImportTab onImported={handlePlanImported} />
+            <CsvImportTab
+              onImported={handlePlanImported}
+              initialPlanName={activePlan?.name}
+            />
           )}
 
           {deleteError && (
