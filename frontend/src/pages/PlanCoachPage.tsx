@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react'
 import { getActivePlan, deletePlan } from '../api/client'
 import type { ActivePlan } from '../api/types'
 import { CsvImportTab } from '../components/plan-coach/CsvImportTab'
-import { ChatTab } from '../components/plan-coach/ChatTab'
 import { ActivePlanCard } from '../components/plan-coach/ActivePlanCard'
 import { DeletePlanModal } from '../components/plan-coach/DeletePlanModal'
-
-type Tab = 'chat' | 'plan'
 
 const pageTitle: React.CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
@@ -24,23 +21,7 @@ const pageSubtitle: React.CSSProperties = {
   marginBottom: '24px',
 }
 
-const tabStyle = (active: boolean): React.CSSProperties => ({
-  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-  fontWeight: 700,
-  fontSize: '11px',
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  padding: '7px 16px',
-  background: 'transparent',
-  border: 'none',
-  borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-  color: active ? 'var(--accent)' : 'var(--text-secondary)',
-  cursor: 'pointer',
-  transition: 'color 0.12s, border-color 0.12s',
-})
-
 export function PlanCoachPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('chat')
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -91,65 +72,33 @@ export function PlanCoachPage() {
     }}>
       <h1 style={pageTitle}>Plan Coach</h1>
       <p style={pageSubtitle}>
-        Generate a multi-week training plan with AI, or import one from CSV.
+        Build a prompt for your AI assistant, copy it, and import the generated CSV.
       </p>
 
-      {/* Tab bar */}
-      <div style={{
-        display: 'flex',
-        borderBottom: '1px solid var(--border)',
-        marginBottom: '24px',
-        gap: '2px',
-      }}>
-        <button
-          role="tab"
-          aria-selected={activeTab === 'chat'}
-          onClick={() => setActiveTab('chat')}
-          style={tabStyle(activeTab === 'chat')}
-        >
-          Chat
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === 'plan'}
-          onClick={() => setActiveTab('plan')}
-          style={tabStyle(activeTab === 'plan')}
-        >
-          Import CSV
-        </button>
-      </div>
+      {activePlan && (
+        <ActivePlanCard
+          plan={activePlan}
+          onUploadNew={() => setShowUpload(v => !v)}
+          onDelete={() => setShowDeleteModal(true)}
+        />
+      )}
 
-      {/* Tab content */}
-      {activeTab === 'chat' && <ChatTab />}
+      {showCsvImport && (
+        <CsvImportTab
+          onImported={handlePlanImported}
+          initialPlanName={activePlan?.name}
+        />
+      )}
 
-      {activeTab === 'plan' && (
-        <>
-          {activePlan && (
-            <ActivePlanCard
-              plan={activePlan}
-              onUploadNew={() => setShowUpload(v => !v)}
-              onDelete={() => setShowDeleteModal(true)}
-            />
-          )}
-
-          {showCsvImport && (
-            <CsvImportTab
-              onImported={handlePlanImported}
-              initialPlanName={activePlan?.name}
-            />
-          )}
-
-          {deleteError && (
-            <p style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: '11px',
-              color: 'var(--color-error)',
-              marginTop: '8px',
-            }}>
-              {deleteError}
-            </p>
-          )}
-        </>
+      {deleteError && (
+        <p style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: '11px',
+          color: 'var(--color-error)',
+          marginTop: '8px',
+        }}>
+          {deleteError}
+        </p>
       )}
 
       {showDeleteModal && activePlan && (

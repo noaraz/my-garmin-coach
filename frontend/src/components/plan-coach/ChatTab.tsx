@@ -271,6 +271,19 @@ export function ChatTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '600px' }}>
+      {/* Empty state hint — above the message box */}
+      {!loadingHistory && messages.length === 0 && (
+        <p style={{
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+          fontSize: '13px',
+          color: 'var(--text-muted)',
+          marginBottom: '10px',
+          marginTop: 0,
+        }}>
+          To get started, share: your goal race (distance + date), how many days per week you can train, and your current weekly mileage.
+        </p>
+      )}
+
       {/* Message thread */}
       <div style={{
         flex: 1,
@@ -284,11 +297,6 @@ export function ChatTab() {
         {loadingHistory && (
           <p style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>
             Loading…
-          </p>
-        )}
-        {!loadingHistory && messages.length === 0 && (
-          <p style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '48px' }}>
-            Tell me about your race goal, timeline, and current weekly mileage — I'll build you a training plan.
           </p>
         )}
         {messages.map((msg) => (
