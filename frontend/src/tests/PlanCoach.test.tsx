@@ -305,7 +305,7 @@ describe('ActivePlanCard', () => {
     const { ActivePlanCard } = await import('../components/plan-coach/ActivePlanCard')
     const onUploadNew = vi.fn()
     render(<ActivePlanCard plan={activePlan} onUploadNew={onUploadNew} onDelete={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: /upload new plan/i }))
+    await user.click(screen.getByRole('button', { name: /upload or update plan/i }))
     expect(onUploadNew).toHaveBeenCalledTimes(1)
   })
 
@@ -433,7 +433,7 @@ describe('PlanCoachPage with active plan', () => {
     await waitFor(() => {
       expect(screen.getByTestId('active-plan-card')).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: /upload new plan/i }))
+    await user.click(screen.getByRole('button', { name: /upload or update plan/i }))
     expect(document.querySelector('input[type="file"]')).toBeInTheDocument()
   })
 
