@@ -122,6 +122,20 @@ class TrainingPlan(SQLModel, table=True):
     )
 
 
+class PlanCoachMessage(SQLModel, table=True):
+    """A single message in the Plan Coach chat thread (one global thread per user)."""
+
+    __tablename__ = "plancoachMessage"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    role: str  # "user" | "assistant"
+    content: str
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+
 class GarminActivity(SQLModel, table=True):
     """A running activity fetched from Garmin Connect."""
 

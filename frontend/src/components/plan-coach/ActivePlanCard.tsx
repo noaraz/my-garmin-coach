@@ -79,7 +79,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
         <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
           <button
             onClick={onUploadNew}
-            aria-label="Upload new plan"
+            aria-label="Upload or update plan"
             style={{
               fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontWeight: 700,
@@ -94,7 +94,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
               cursor: 'pointer',
             }}
           >
-            Upload New Plan
+            Upload / Update Plan
           </button>
           <button
             onClick={onDelete}

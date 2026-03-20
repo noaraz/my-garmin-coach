@@ -10,6 +10,7 @@ import type {
   BootstrapResponse,
   TokenResponse,
   ValidateResult, CommitResult, ActivePlan, PlanWorkoutInput,
+  PlanCoachMessage,
 } from './types'
 
 const BASE = '/api/v1'
@@ -165,3 +166,12 @@ export const getActivePlan = () =>
 
 export const deletePlan = (planId: number) =>
   request<void>(`/plans/${planId}`, { method: 'DELETE' })
+
+export const getChatHistory = () =>
+  request<PlanCoachMessage[]>('/plans/chat/history')
+
+export const sendChatMessage = (content: string) =>
+  request<PlanCoachMessage>('/plans/chat/message', {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })

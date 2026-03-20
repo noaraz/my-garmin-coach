@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { validatePlan, commitPlan } from '../../api/client'
 import type { ValidateResult, PlanWorkoutInput } from '../../api/types'
-import { LlmPromptTemplate } from './LlmPromptTemplate'
+import { PlanPromptBuilder } from './PlanPromptBuilder'
 import { ValidationTable } from './ValidationTable'
 import { DiffTable } from './DiffTable'
 
@@ -10,8 +10,25 @@ import { DiffTable } from './DiffTable'
 // CSV parsing (frontend) — produces PlanWorkoutInput[]
 // ---------------------------------------------------------------------------
 
+/** Thrown when the file format is unrecognisable so callers can surface a message. */
+export class CsvParseError extends Error {}
+
 function parseCsv(text: string): PlanWorkoutInput[] {
-  const lines = text.trim().split(/\r?\n/)
+  // Strip BOM and markdown fences that LLMs sometimes add
+  let cleaned = text.replace(/^\uFEFF/, '').trim()
+
+  // Detect RTF — produced when AI saves output via a word processor
+  if (cleaned.startsWith('{\\rtf')) {
+    throw new CsvParseError(
+      'This file is RTF, not CSV. Open it in a text editor, copy the CSV content, and save as a plain .csv file.'
+    )
+  }
+
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '').trim()
+  }
+
+  const lines = cleaned.split(/\r?\n/)
   if (lines.length < 2) return []
 
   const header = lines[0].split(',').map(h => h.trim().toLowerCase())
@@ -127,8 +144,13 @@ export function CsvImportTab({ onImported, initialPlanName }: CsvImportTabProps 
     const reader = new FileReader()
     reader.onload = (evt) => {
       const text = evt.target?.result as string
-      const parsed = parseCsv(text)
-      setWorkouts(parsed)
+      try {
+        const parsed = parseCsv(text)
+        setWorkouts(parsed)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse file')
+        setWorkouts([])
+      }
     }
     reader.readAsText(file)
   }
@@ -176,8 +198,13 @@ export function CsvImportTab({ onImported, initialPlanName }: CsvImportTabProps 
   }
 
   return (
-    <div>
-      <LlmPromptTemplate />
+    <div style={{
+      background: 'var(--bg-surface)',
+      border: '1px solid var(--border)',
+      borderRadius: '8px',
+      padding: '20px 20px 24px',
+    }}>
+      <PlanPromptBuilder />
 
       {/* Plan name */}
       <div style={{ marginBottom: '16px' }}>
@@ -242,6 +269,16 @@ export function CsvImportTab({ onImported, initialPlanName }: CsvImportTabProps 
           </span>
           {hasFile && !fileName && null}
         </div>
+        {fileName && !hasFile && (
+          <p style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: '10px',
+            color: 'var(--color-error)',
+            marginTop: '5px',
+          }}>
+            0 rows parsed — check the file has columns: date, name, steps_spec
+          </p>
+        )}
         {hasFile && (
           <p style={{
             fontFamily: "'IBM Plex Mono', monospace",

@@ -53,29 +53,39 @@ def _builder_steps_to_formatter(
             })
             continue
 
-        # End condition — accept both builder keys (duration_sec) and resolver
-        # keys (duration_value / duration_unit) so both stored formats work.
-        duration_type = step.get("duration_type", "time")
-        if duration_type == "time":
-            end_condition = "time"
-            end_condition_value = step.get("duration_sec") or step.get("duration_value")
-        elif duration_type == "distance":
+        # End condition — accept both builder keys (duration_sec / duration_distance_m)
+        # and resolver keys. Plan-imported steps use duration_distance_m without
+        # setting duration_type, so detect by key presence.
+        duration_type = step.get("duration_type")
+        has_distance = step.get("duration_distance_m") or step.get("duration_m")
+
+        if duration_type == "distance" or (duration_type is None and has_distance):
             end_condition = "distance"
             end_condition_value = (
                 step.get("duration_distance_m")
                 or step.get("duration_m")
                 or step.get("duration_value")
             )
+        elif duration_type == "time" or step.get("duration_sec") or step.get("duration_value"):
+            end_condition = "time"
+            end_condition_value = step.get("duration_sec") or step.get("duration_value")
         else:
             end_condition = "lap_button"
             end_condition_value = None
 
-        # Target — accept both builder keys (zone) and resolver keys (target_zone).
-        # Falls back to open when zone lookup fails.
-        target_type = step.get("target_type", "open")
+        # Target — accept builder keys (zone + target_type) and plan-import keys
+        # (zone only, no target_type). Infer target_type from whichever zone map
+        # has the zone number (pace for running, HR for others).
+        target_type = step.get("target_type")
         zone = step.get("zone") or step.get("target_zone")
         target_value_one = 0.0
         target_value_two = 0.0
+
+        if target_type is None and zone:
+            if zone in pace_zone_map:
+                target_type = "pace_zone"
+            elif zone in hr_zone_map:
+                target_type = "hr_zone"
 
         if target_type == "hr_zone" and zone and zone in hr_zone_map:
             target_value_one, target_value_two = hr_zone_map[zone]

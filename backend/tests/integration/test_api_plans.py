@@ -1,13 +1,14 @@
-"""Integration tests for the plans API (Phase 1)."""
+"""Integration tests for the plans API (Phase 1 + Phase 4 chat)."""
 from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Any
+from unittest.mock import patch
 
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.db.models import ScheduledWorkout, TrainingPlan
+from src.db.models import PlanCoachMessage, ScheduledWorkout, TrainingPlan
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +138,50 @@ class TestValidate:
             "workouts": [{"name": "Run", "sport_type": "running"}],  # missing date + steps_spec
         })
         assert resp.status_code == 422
+
+    async def test_validate_shows_completed_locked_when_workout_is_done(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Completed workouts appear in completed_locked, not changed, on re-validate."""
+        from src.db.models import WorkoutTemplate
+
+        # Create an active plan with one workout
+        plan = TrainingPlan(
+            user_id=1,
+            name="Old Plan",
+            source="csv",
+            status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+
+        # Create the corresponding template and scheduled workout (completed)
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1,
+            date=date(2027, 6, 1),
+            workout_template_id=template.id,
+            training_plan_id=plan.id,
+            matched_activity_id=42,  # marks as completed
+        )
+        session.add(sw)
+        await session.commit()
+
+        # Re-validate with different steps on the same date
+        resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New Plan",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "40m@Z2"}],
+        })
+
+        assert resp.status_code == 200
+        diff = resp.json()["diff"]
+        assert len(diff["completed_locked"]) == 1
+        assert diff["completed_locked"][0]["date"] == "2027-06-01"
+        assert len(diff["changed"]) == 0
 
     async def test_validate_stale_draft_cleanup(
         self, client: AsyncClient, session: AsyncSession
@@ -307,6 +352,142 @@ class TestCommit:
         resp = await client.post(f"/api/v1/plans/{plan.id}/commit")
         assert resp.status_code == 403
 
+    async def test_commit_keeps_unchanged_sw_row_and_garmin_id(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Unchanged workout: existing ScheduledWorkout row is kept (same id), not recreated."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        # Create active plan + SW with a garmin_workout_id
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+            garmin_workout_id="garmin-123",
+        )
+        session.add(sw)
+        await session.commit()
+        original_sw_id = sw.id
+
+        # Validate + commit with identical workout
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        commit_resp = await client.post(f"/api/v1/plans/{plan_id}/commit")
+        assert commit_resp.status_code == 200
+
+        # The original SW row must still exist with same id and garmin_workout_id
+        result = await session.exec(
+            select(ScheduledWorkout).where(ScheduledWorkout.id == original_sw_id)
+        )
+        kept = result.first()
+        assert kept is not None
+        assert kept.garmin_workout_id == "garmin-123"
+
+    async def test_commit_skips_completed_sw_even_when_changed(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Completed workout (matched_activity_id set) is not touched even if steps changed."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+            matched_activity_id=99,
+        )
+        session.add(sw)
+        await session.commit()
+        original_sw_id = sw.id
+
+        # Validate + commit with changed steps
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "50m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        await client.post(f"/api/v1/plans/{plan_id}/commit")
+
+        # Completed SW must still exist with matched_activity_id intact
+        result = await session.exec(
+            select(ScheduledWorkout).where(ScheduledWorkout.id == original_sw_id)
+        )
+        kept = result.first()
+        assert kept is not None
+        assert kept.matched_activity_id == 99
+
+    async def test_commit_replaces_changed_workout(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Changed workout: old SW row deleted, new SW row created for new plan."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        old_plan_id = plan.id
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+        )
+        session.add(sw)
+        await session.commit()
+
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "50m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        await client.post(f"/api/v1/plans/{plan_id}/commit")
+
+        # No SW should belong to the old plan anymore
+        old_plan_sws = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == old_plan_id,
+            )
+        )
+        assert old_plan_sws.first() is None
+
+        # New SW must exist for same date, linked to new plan
+        new_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.user_id == 1,
+                ScheduledWorkout.date == date(2027, 6, 1),
+                ScheduledWorkout.training_plan_id == plan_id,
+            )
+        )
+        assert new_result.first() is not None
+
 
 class TestGetActive:
     async def test_get_active_when_no_plan_returns_204(
@@ -405,3 +586,165 @@ class TestDelete:
 
         resp = await client.delete(f"/api/v1/plans/{plan.id}")
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Chat endpoints
+# ---------------------------------------------------------------------------
+
+_FAKE_REPLY = "Great goal! Let me put together a 10-week plan for you."
+_FAKE_PLAN_REPLY = (
+    "Here is your plan:\n\n"
+    "```json\n"
+    '[{"date":"2027-04-07","name":"Easy Run","description":"Recovery","steps_spec":"30m@Z2","sport_type":"running"}]\n'
+    "```"
+)
+
+
+class TestChatHistory:
+    async def test_history_empty_when_no_messages(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        resp = await client.get("/api/v1/plans/chat/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_history_returns_messages_oldest_first(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        from datetime import datetime, timezone
+
+        # Seed two messages directly
+        msg1 = PlanCoachMessage(
+            user_id=1,
+            role="user",
+            content="Hello",
+            created_at=datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None),
+        )
+        msg2 = PlanCoachMessage(
+            user_id=1,
+            role="assistant",
+            content="Hi there!",
+            created_at=datetime(2026, 4, 1, 10, 0, 1, tzinfo=timezone.utc).replace(tzinfo=None),
+        )
+        session.add(msg1)
+        session.add(msg2)
+        await session.commit()
+
+        resp = await client.get("/api/v1/plans/chat/history")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert data[0]["role"] == "user"
+        assert data[0]["content"] == "Hello"
+        assert data[1]["role"] == "assistant"
+
+    async def test_history_excludes_other_users_messages(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        # Message owned by user_id=2 — should not appear for user 1
+        msg = PlanCoachMessage(
+            user_id=2,
+            role="user",
+            content="Other user's message",
+        )
+        session.add(msg)
+        await session.commit()
+
+        resp = await client.get("/api/v1/plans/chat/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+
+class TestSendChatMessage:
+    async def test_send_message_returns_assistant_reply(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        with patch(
+            "src.services.plan_coach_service.chat_completion",
+            return_value=_FAKE_REPLY,
+        ):
+            resp = await client.post(
+                "/api/v1/plans/chat/message",
+                json={"content": "I want to run a half marathon in 10 weeks"},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "assistant"
+        assert data["content"] == _FAKE_REPLY
+        assert "id" in data
+        assert "created_at" in data
+
+    async def test_send_message_persists_both_messages(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        from sqlmodel import select
+
+        with patch(
+            "src.services.plan_coach_service.chat_completion",
+            return_value=_FAKE_REPLY,
+        ):
+            await client.post(
+                "/api/v1/plans/chat/message",
+                json={"content": "Plan me a 5K"},
+            )
+
+        result = await session.exec(
+            select(PlanCoachMessage)
+            .where(PlanCoachMessage.user_id == 1)
+            .order_by(PlanCoachMessage.created_at)
+        )
+        messages = result.all()
+        assert len(messages) == 2
+        assert messages[0].role == "user"
+        assert messages[0].content == "Plan me a 5K"
+        assert messages[1].role == "assistant"
+        assert messages[1].content == _FAKE_REPLY
+
+    async def test_send_empty_content_returns_422(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        resp = await client.post(
+            "/api/v1/plans/chat/message",
+            json={"content": "   "},
+        )
+        assert resp.status_code == 422
+
+    async def test_send_message_no_api_key_returns_503(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        with patch(
+            "src.services.plan_coach_service.chat_completion",
+            side_effect=RuntimeError("GEMINI_API_KEY is not configured"),
+        ):
+            resp = await client.post(
+                "/api/v1/plans/chat/message",
+                json={"content": "Help me train"},
+            )
+        assert resp.status_code == 503
+        assert "GEMINI_API_KEY" in resp.json()["detail"]
+
+    async def test_send_message_history_grows_with_each_turn(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        with patch(
+            "src.services.plan_coach_service.chat_completion",
+            return_value="First reply",
+        ):
+            await client.post(
+                "/api/v1/plans/chat/message",
+                json={"content": "Turn 1"},
+            )
+
+        with patch(
+            "src.services.plan_coach_service.chat_completion",
+            return_value="Second reply",
+        ):
+            await client.post(
+                "/api/v1/plans/chat/message",
+                json={"content": "Turn 2"},
+            )
+
+        resp = await client.get("/api/v1/plans/chat/history")
+        assert resp.status_code == 200
+        assert len(resp.json()) == 4  # 2 user + 2 assistant
