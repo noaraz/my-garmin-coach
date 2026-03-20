@@ -103,6 +103,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Auth | `features/auth/` | JWT, user accounts, invite system, token encryption |
 | Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
 | Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
+| Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
 
 ---
 
@@ -322,6 +323,16 @@ const hasDistance = distanceM   != null && distanceM   > 0
 ```
 
 **Why steps fallback is necessary**: workout templates created by the builder typically have `estimated_duration_sec: null` in the DB (the builder doesn't compute/save it). The steps JSON always exists and contains the ground truth.
+
+## WorkoutDetailPanel Patterns (added 2026-03-20)
+
+- **Panel trigger**: `WorkoutCard` and `UnplannedActivityCard` fire `onCardClick` callback instead of navigating
+- **State management**: `CalendarPage` holds `selectedWorkout` / `selectedActivity` state; panel is purely presentational
+- **Data source**: All data already in CalendarPage state from `CalendarResponse` — panel open = zero DB queries
+- **Notes save**: Debounced 500ms on input change, flush on blur. Uses extended PATCH `/calendar/{id}` with optional `notes` field
+- **Compliance badge mapping**: `on_target` → "ON TARGET", `close` → "CLOSE", `off_target` → "OFF TARGET", `completed_no_plan` → "COMPLETED"
+- **formatPace**: Already exists in `frontend/src/utils/formatting.ts` — `formatPace(secPerKm)` → `"6:00/km"`
+- **Panel close**: X button, click backdrop, Escape key — all handled in `WorkoutDetailPanel.tsx`
 
 ## Alembic + SQLite Gotchas (added 2026-03-17)
 
