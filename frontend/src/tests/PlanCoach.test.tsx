@@ -716,3 +716,67 @@ describe('ChatTab', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// DiffTable smart merge rows
+// ---------------------------------------------------------------------------
+
+describe('DiffTable smart merge rows', () => {
+  const baseDiff = {
+    added: [],
+    removed: [],
+    changed: [],
+    unchanged: [],
+    completed_locked: [],
+  }
+
+  it('returns null when only unchanged rows (no actionable changes)', async () => {
+    const { DiffTable } = await import('../components/plan-coach/DiffTable')
+    const diff = { ...baseDiff, unchanged: [{ date: '2026-06-01', name: 'Easy Run' }] }
+    const { container } = render(<DiffTable diff={diff} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders completed_locked row with lock symbol when other changes exist', async () => {
+    const { DiffTable } = await import('../components/plan-coach/DiffTable')
+    const diff = {
+      ...baseDiff,
+      added: [{ date: '2026-06-02', name: 'Tempo' }],
+      completed_locked: [{ date: '2026-06-01', name: 'Easy Run' }],
+    }
+    render(<DiffTable diff={diff} />)
+    expect(screen.getByTestId('diff-table')).toBeInTheDocument()
+    expect(screen.getByText('⊘')).toBeInTheDocument()
+    expect(screen.getByText(/locked/i)).toBeInTheDocument()
+  })
+
+  it('renders changed row with before→after steps_spec', async () => {
+    const { DiffTable } = await import('../components/plan-coach/DiffTable')
+    const diff = {
+      ...baseDiff,
+      changed: [{
+        date: '2026-06-01',
+        name: 'Easy Run',
+        old_name: 'Easy Run',
+        old_steps_spec: '30m@Z2',
+        new_steps_spec: '40m@Z2',
+      }],
+    }
+    render(<DiffTable diff={diff} />)
+    expect(screen.getByText('30m@Z2')).toBeInTheDocument()
+    expect(screen.getByText('40m@Z2')).toBeInTheDocument()
+  })
+
+  it('header shows unchanged and locked counts when non-zero', async () => {
+    const { DiffTable } = await import('../components/plan-coach/DiffTable')
+    const diff = {
+      ...baseDiff,
+      added: [{ date: '2026-06-02', name: 'Tempo' }],
+      unchanged: [{ date: '2026-06-03', name: 'Rest' }],
+      completed_locked: [{ date: '2026-06-01', name: 'Easy Run' }],
+    }
+    render(<DiffTable diff={diff} />)
+    expect(screen.getByText(/=1\s*unchanged/)).toBeInTheDocument()
+    expect(screen.getByText(/⊘1\s*locked/)).toBeInTheDocument()
+  })
+})
