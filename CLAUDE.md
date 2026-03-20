@@ -5,6 +5,7 @@ Replaces TrainingPeaks for self-coached athletes.
 
 - **STATUS.md** — what's done, in progress, next. Read before starting, update when done.
 - **features/** — each feature has its own PLAN.md and CLAUDE.md.
+- **docs/superpowers/specs/** — design specs (brainstorming output). **docs/superpowers/plans/** — implementation plans (writing-plans output).
 - **.claude/agents/** — specialist agents for parallel work.
 
 ---
@@ -104,6 +105,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
 | Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
 | Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
+| Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline |
 
 ---
 
