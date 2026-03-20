@@ -10,9 +10,11 @@ interface WeekViewProps {
   unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
+  onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
+  onActivityClick?: (activity: GarminActivity) => void
 }
 
-export function WeekView({ weekStart, workouts, templates, unplannedActivities, onAddWorkout, onRemove }: WeekViewProps) {
+export function WeekView({ weekStart, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick }: WeekViewProps) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i)
     return toDateString(date)
@@ -55,6 +57,8 @@ export function WeekView({ weekStart, workouts, templates, unplannedActivities, 
             unplannedActivities={activitiesForDate(date)}
             onAddWorkout={onAddWorkout}
             onRemove={onRemove}
+            onWorkoutClick={onWorkoutClick}
+            onActivityClick={onActivityClick}
             getDisplayName={getDisplayName}
           />
         </div>

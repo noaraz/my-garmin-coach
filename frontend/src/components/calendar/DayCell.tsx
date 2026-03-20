@@ -10,6 +10,8 @@ interface DayCellProps {
   unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
+  onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
+  onActivityClick?: (activity: GarminActivity) => void
   getDisplayName?: (workout: ScheduledWorkoutWithActivity) => string | undefined
 }
 
@@ -21,7 +23,7 @@ function parseDateParts(dateStr: string) {
   return { dayName, dayNum, isToday }
 }
 
-export function DayCell({ date, workouts, templates, unplannedActivities, onAddWorkout, onRemove, getDisplayName }: DayCellProps) {
+export function DayCell({ date, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick, getDisplayName }: DayCellProps) {
   const [hovering, setHovering] = useState(false)
   const { dayName, dayNum, isToday } = parseDateParts(date)
 
@@ -95,13 +97,14 @@ export function DayCell({ date, workouts, templates, unplannedActivities, onAddW
               workout={workout}
               template={getTemplate(workout)}
               onRemove={onRemove}
+              onCardClick={onWorkoutClick}
               displayName={getDisplayName ? getDisplayName(workout) : undefined}
             />
           </div>
         ))}
         {unplannedActivities.map(activity => (
           <div key={`unplanned-${activity.id}`} onClick={e => e.stopPropagation()}>
-            <UnplannedActivityCard activity={activity} />
+            <UnplannedActivityCard activity={activity} onCardClick={onActivityClick} />
           </div>
         ))}
       </div>

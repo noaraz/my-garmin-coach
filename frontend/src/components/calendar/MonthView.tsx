@@ -11,9 +11,11 @@ interface MonthViewProps {
   unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
+  onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
+  onActivityClick?: (activity: GarminActivity) => void
 }
 
-export function MonthView({ currentDate, workouts, templates, unplannedActivities, onAddWorkout, onRemove }: MonthViewProps) {
+export function MonthView({ currentDate, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -91,12 +93,16 @@ export function MonthView({ currentDate, workouts, templates, unplannedActivitie
                     workout={workout}
                     template={getTemplate(workout)}
                     onRemove={onRemove}
+                    onCardClick={onWorkoutClick}
+                    compact
                   />
                 ))}
                 {dayActivities.map(activity => (
                   <UnplannedActivityCard
                     key={`unplanned-${activity.id}`}
                     activity={activity}
+                    onCardClick={onActivityClick}
+                    compact
                   />
                 ))}
               </div>

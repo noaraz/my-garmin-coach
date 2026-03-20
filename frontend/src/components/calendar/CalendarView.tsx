@@ -12,6 +12,8 @@ interface CalendarViewProps {
   unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
+  onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
+  onActivityClick?: (activity: GarminActivity) => void
 }
 
 export function CalendarView({
@@ -22,6 +24,8 @@ export function CalendarView({
   unplannedActivities,
   onAddWorkout,
   onRemove,
+  onWorkoutClick,
+  onActivityClick,
 }: CalendarViewProps) {
   const getWeekStart = (date: Date): Date => {
     const d = new Date(date)
@@ -41,6 +45,8 @@ export function CalendarView({
       unplannedActivities={unplannedActivities}
       onAddWorkout={onAddWorkout}
       onRemove={onRemove}
+      onWorkoutClick={onWorkoutClick}
+      onActivityClick={onActivityClick}
     />
   ) : (
     <MonthView
@@ -50,6 +56,8 @@ export function CalendarView({
       unplannedActivities={unplannedActivities}
       onAddWorkout={onAddWorkout}
       onRemove={onRemove}
+      onWorkoutClick={onWorkoutClick}
+      onActivityClick={onActivityClick}
     />
   )
 }
