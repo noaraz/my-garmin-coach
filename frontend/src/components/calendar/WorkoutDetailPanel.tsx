@@ -66,6 +66,9 @@ function WorkoutDetailPlanned({
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
   const stripeColor = zoneStripeColor(template?.sport_type)
 
+  // Clean up debounce timer on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+
   const flushNotes = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = null
@@ -368,6 +371,9 @@ function WorkoutDetailCompleted({
     : null
   const compliance = computeCompliance(planned, actual)
 
+  // Clean up debounce timer on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+
   const flushNotes = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = null
@@ -441,7 +447,7 @@ function WorkoutDetailCompleted({
               fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontSize: '12px',
               fontWeight: 700,
-              color: '#ffffff',
+              color: 'var(--text-on-accent)',
               letterSpacing: '0.05em',
             }}
           >
@@ -812,7 +818,7 @@ function WorkoutDetailUnplanned({
               fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
               fontSize: '12px',
               fontWeight: 700,
-              color: '#ffffff',
+              color: 'var(--text-on-accent)',
               letterSpacing: '0.05em',
             }}
           >

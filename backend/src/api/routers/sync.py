@@ -293,7 +293,7 @@ async def _sync_and_persist(
 
 @router.post("/all", response_model=SyncAllResponse)
 async def sync_all(
-    fetch_days: int = 1825,  # TODO: revert to 30 after testing — temporarily 5 years for old activities
+    fetch_days: int = 30,
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(_get_garmin_sync_service),
     current_user: User = Depends(get_current_user),
@@ -329,8 +329,8 @@ async def sync_all(
         end_date = date_type.today()
         start_date = end_date - timedelta(days=fetch_days)
 
-        # Reuse the adapter from the sync_service chain (avoid second token decrypt)
-        adapter = sync_service._sync_service._client
+        # Reuse the adapter from the orchestrator (avoid second token decrypt)
+        adapter = sync_service.adapter
 
         fetch_result = await activity_fetch_service.fetch_and_store(
             adapter, session, current_user.id, str(start_date), str(end_date)
