@@ -1,18 +1,16 @@
-# Garmin Status Indicator — Design Spec
+# Status Indicators — Design Spec
 
 **Date:** 2026-03-20
-**Feature:** Garmin connection status indicator in sidebar and calendar toolbar
+**Feature:** Garmin connection status + zones configuration status indicators
 
 ---
 
 ## Overview
 
-Show a live Garmin connection status indicator in two places:
+Two status indicators added to the sidebar (and Garmin also in the calendar toolbar):
 
-1. **Sidebar** — a dedicated "Garmin" row below the Settings nav item, visible on every page
-2. **Calendar toolbar** — a minimal text button inside the right-aligned button group (left of Sync All), visible on the calendar page
-
-Both are clickable and navigate to `/settings` so the user can connect or disconnect.
+1. **Garmin status** — dedicated row below Settings nav item; also a text button in the calendar toolbar. Shows connected (green) / not connected (red). Clickable → `/settings`.
+2. **Zones status** — inline warning on the Zones nav item itself. Shows amber dot + "Not set" when `threshold_pace` is null. Hidden once configured. Clickable → `/zones` (already a NavLink).
 
 ---
 
@@ -48,6 +46,114 @@ Both are clickable and navigate to `/settings` so the user can connect or discon
 ### Active state on /settings
 
 The Garmin sidebar row is intentionally **not** a `<NavLink>` — it represents connection status, not a page. It has no active styling when the user is on `/settings`.
+
+---
+
+## Zones Status Indicator
+
+### Visual design
+
+The existing Zones `<NavLink>` in the sidebar gains an inline amber dot + "Not set" label when `threshold_pace === null`:
+
+```
+〰 Zones                     ← normal (configured)
+〰 Zones  ● Not set          ← warning (threshold_pace is null)
+```
+
+- Amber dot: `SIDE_ZONES_WARN = '#f59e0b'`, `7px × 7px`, `box-shadow: 0 0 0 2px rgba(245,158,11,0.2)`
+- "Not set" label: same amber color, `9px`, `700` weight, `0.06em` letter-spacing, `margin-left: auto` on the dot group
+- The dot + label sit inside the existing NavLink render-prop span, after the "Zones" text
+- Loading (`null` state): no indicator rendered
+- On error from `fetchProfile()`: state stays `null`, no indicator
+- Configured state (`threshold_pace !== null`): indicator not rendered — Zones nav item appears normal
+- No separate "Zones" status row — the nav item itself is the indicator
+
+### Condition
+
+`zonesConfigured = profile.threshold_pace !== null`
+
+- `true` → no indicator shown
+- `false` → amber dot + "Not set" shown
+- `null` → loading or error; no indicator shown
+
+### Architecture
+
+**New: `ZonesStatusContext`**
+
+```
+frontend/src/contexts/ZonesStatusContext.tsx
+```
+
+Exports `ZonesStatusProvider` and `useZonesStatus`.
+
+```ts
+interface ZonesStatusContextValue {
+  zonesConfigured: boolean | null  // null = loading or error
+  refreshZones: () => void         // re-fetches fetchProfile()
+}
+```
+
+- Fetches `fetchProfile()` on mount; derives `zonesConfigured = profile.threshold_pace !== null`
+- On error: stays `null`
+- `refreshZones()` re-fetches and resets to `null` while loading
+- Provider mounted in `AppShell.tsx` alongside `GarminStatusProvider`
+
+**Modified: `Sidebar.tsx`**
+
+Consumes `useZonesStatus()`. Inside the Zones `<NavLink>` render-prop, conditionally renders the amber dot + "Not set" label when `zonesConfigured === false`:
+
+```tsx
+<NavLink to="/zones" style={({ isActive }) => navStyle(isActive)}>
+  {({ isActive }) => (
+    <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+      <ZonesIcon />
+      Zones
+      {zonesConfigured === false && (
+        <>
+          <div style={{ marginLeft: 'auto', marginRight: '4px', width: '7px', height: '7px', borderRadius: '50%', background: SIDE_ZONES_WARN, boxShadow: '0 0 0 2px rgba(245,158,11,0.2)', flexShrink: 0 }} />
+          <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', color: SIDE_ZONES_WARN, marginLeft: 0 }}>Not set</span>
+        </>
+      )}
+    </span>
+  )}
+</NavLink>
+```
+
+**Modified: `ZoneManager.tsx`**
+
+After `handleSave` successfully calls `updateProfile`, call `refreshZones()` from context so the sidebar indicator clears:
+
+```ts
+const { refreshZones } = useZonesStatus()
+
+// In handleSave, after successful updateProfile:
+refreshZones()
+```
+
+### Files added/changed (zones)
+
+| File | Change |
+|------|--------|
+| `frontend/src/contexts/ZonesStatusContext.tsx` | **New** — context + `useZonesStatus` hook |
+| `frontend/src/components/layout/AppShell.tsx` | Add `<ZonesStatusProvider>` alongside `<GarminStatusProvider>` |
+| `frontend/src/components/layout/Sidebar.tsx` | Inline amber indicator in Zones NavLink; add `SIDE_ZONES_WARN` constant |
+| `frontend/src/components/zones/ZoneManager.tsx` | Call `refreshZones()` after successful save |
+
+### Tests (zones additions to `Sidebar.test.tsx`)
+
+Add `mockFetchProfile` to the `vi.hoisted` block and `vi.mock('../api/client', ...)` factory:
+
+```ts
+mockFetchProfile: vi.fn().mockResolvedValue({ threshold_pace: null, lthr: null }),
+
+// In mock factory:
+fetchProfile: mockFetchProfile,
+```
+
+New test cases:
+- `threshold_pace: null` → "Not set" label visible in Zones nav item
+- `threshold_pace: 280` → "Not set" label not rendered
+- Loading (never-resolving): no label rendered
 
 ---
 
@@ -260,6 +366,7 @@ New test cases:
 
 ## Out of Scope
 
-- Polling / live refresh of Garmin status (single fetch on mount + explicit `refresh()` is sufficient)
+- Polling / live refresh of either status (single fetch on mount + explicit refresh is sufficient)
 - Toast or notification when Garmin disconnects mid-session
-- Status indicator on pages other than sidebar + calendar toolbar
+- Zones indicator on pages other than sidebar
+- Warning when `lthr` is null but `threshold_pace` is set (threshold_pace is the primary condition)
