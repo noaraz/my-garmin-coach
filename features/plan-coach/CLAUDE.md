@@ -77,6 +77,52 @@ No re-parsing at commit time — `parsed_workouts` JSON is the source of truth.
 
 Frontend renders `DiffTable` when `diff != null`. "Apply Changes" calls commit.
 
+### Re-import Diff — Smart Merge (Phase 5)
+
+`DiffResult` now has 5 buckets. `WorkoutDiff` carries optional before/after fields:
+
+```python
+class WorkoutDiff(BaseModel):
+    date: str
+    name: str
+    old_name: str | None = None        # changed only
+    old_steps_spec: str | None = None  # changed only
+    new_steps_spec: str | None = None  # changed only
+
+class DiffResult(BaseModel):
+    added: list[WorkoutDiff]
+    removed: list[WorkoutDiff]
+    changed: list[WorkoutDiff]
+    unchanged: list[WorkoutDiff]        # kept as-is (no DB change)
+    completed_locked: list[WorkoutDiff] # matched_activity_id IS NOT NULL — never touched
+```
+
+`_compute_diff` signature (third arg defaults to `None`, resolved to `set()` inside):
+
+```python
+def _compute_diff(
+    incoming: list[ParsedWorkout],
+    active_parsed: list[dict],
+    completed_dates: set[str] | None = None,
+) -> DiffResult
+```
+
+### Smart Merge in `commit_plan`
+
+`commit_plan` accepts an optional `garmin: Any | None = None` parameter and does:
+1. Batch-load all SWs for active plan — one query
+2. Batch-load their templates — one query (`WHERE id IN (template_ids)`)
+3. Classify: completed_locked/unchanged → skip; changed/added → recreate; removed → delete
+4. Garmin cleanup for deleted garmin_workout_ids
+5. Bulk `DELETE WHERE id IN (...)` — single statement
+6. Batch `session.add()` all new SWs — single `session.commit()`
+
+### Neon Rules
+- No N+1: SWs and templates loaded in 2 queries, looked up from dicts
+- `completed_dates`: only the `date` column loaded (not full ORM objects)
+- Bulk delete via `sqlalchemy.delete(...).where(ScheduledWorkout.id.in_(ids))`
+- Single commit after all mutations
+
 ### One-Plan Constraint + Atomic Replace
 ```python
 # in commit_plan():
@@ -123,16 +169,27 @@ created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).
 ```
 frontend/src/
   pages/
-    PlanCoachPage.tsx           # route /plan-coach, tab switcher
+    PlanCoachPage.tsx           # route /plan-coach — no tabs, CSV-only flow
   components/plan-coach/
-    CsvImportTab.tsx            # LLM prompt + upload + validate + commit (Phase 2)
-    ValidationTable.tsx         # per-row ✓/✗ table (Phase 2, reused in 3 + 4)
-    LlmPromptTemplate.tsx       # prompt with filled placeholders (Phase 2)
+    CsvImportTab.tsx            # prompt builder + upload + validate + commit
+    ValidationTable.tsx         # per-row ✓/✗ table (reused in Phase 3)
+    PlanPromptBuilder.tsx       # form-driven prompt generator (Phase 4b, replaces LlmPromptTemplate)
+    LlmPromptTemplate.tsx       # legacy static prompt — no longer used (kept for reference)
     ActivePlanCard.tsx          # shows active plan name/count/actions (Phase 3)
     DiffTable.tsx               # added/removed/changed rows (Phase 3)
     DeletePlanModal.tsx         # confirmation modal (Phase 3)
-    ChatTab.tsx                 # Gemini chat thread + plan detection (Phase 4)
+    ChatTab.tsx                 # Gemini chat — hidden, backend still present
 ```
+
+### PlanPromptBuilder (Phase 4b)
+Form inputs → generated prompt that the user copies to Claude/ChatGPT/Gemini:
+- **Goal distance**: select (5K / 10K / Half Marathon / Marathon / 50K Ultra)
+- **Race date**: date picker → auto-computes weeks until race
+- **Preferred training days**: Mon–Sun toggle buttons (multi-select); count shown as Nx/week
+- **Long run day**: select filtered to chosen training days (falls back to all days if none selected)
+- Generated prompt updates live; "Copy" button → clipboard (with `execCommand` fallback)
+- Prompt ends with: `"Output the full CSV only — no explanation, no markdown fences."`
+- `LlmPromptTemplate.tsx` is superseded — do not re-use it in new code
 
 ---
 
