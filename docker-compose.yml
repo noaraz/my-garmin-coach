@@ -10,6 +10,7 @@ services:
       - BOOTSTRAP_SECRET=local-dev-bootstrap-secret
       - APP_URL=http://localhost:5173
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - ./backend/src:/app/src
       - ./backend/tests:/app/tests
