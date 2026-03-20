@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -112,7 +113,8 @@ class ScheduleCreate(BaseModel):
 
 
 class RescheduleUpdate(BaseModel):
-    date: date
+    date: "dt.date | None" = None
+    notes: str | None = None
 
 
 class ScheduledWorkoutRead(BaseModel):

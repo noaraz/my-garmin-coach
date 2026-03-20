@@ -474,3 +474,64 @@ class TestCalendarGarminCascade:
         mock_garmin.delete_workout.assert_not_called()
         deleted = await session.get(ScheduledWorkout, sw.id)
         assert deleted is None
+
+
+class TestCalendarNotesUpdate:
+    """Tests for PATCH /calendar/{id} optional notes field."""
+
+    async def test_patch_scheduled_workout_notes(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """PATCH /calendar/{id} with notes only (no date change)."""
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10), workout_template_id=template.id, user_id=1
+        )
+        session.add(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
+
+        # Act
+        response = await client.patch(
+            f"/api/v1/calendar/{scheduled.id}",
+            json={"notes": "Felt strong today"},
+        )
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["notes"] == "Felt strong today"
+
+    async def test_patch_scheduled_workout_date_and_notes(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """PATCH /calendar/{id} with both date and notes."""
+        # Arrange
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10), workout_template_id=template.id, user_id=1
+        )
+        session.add(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
+
+        # Act
+        response = await client.patch(
+            f"/api/v1/calendar/{scheduled.id}",
+            json={"date": "2026-04-01", "notes": "Moved to next week"},
+        )
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["date"] == "2026-04-01"
+        assert data["notes"] == "Moved to next week"

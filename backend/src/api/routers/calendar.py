@@ -182,9 +182,9 @@ async def patch_reschedule(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> ScheduledWorkoutRead:
-    """Move a scheduled workout to a new date."""
+    """Move a scheduled workout to a new date and/or update notes."""
     try:
-        sw = await reschedule(session, scheduled_id, body.date, current_user.id)
+        sw = await reschedule(session, scheduled_id, body.date, current_user.id, notes=body.notes)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return ScheduledWorkoutRead.model_validate(sw)
