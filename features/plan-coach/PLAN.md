@@ -119,3 +119,22 @@ Alembic migration: `add_plan_coach_message`.
 Unit: system prompt with/without activities, truncation, detection regex.
 Integration: chat message round-trip with mocked Gemini.
 RTL: JSON detection → Validate → DiffTable → Import.
+
+---
+
+## Phase 5 — Smart Plan Merge `feature/smart-plan-merge`
+
+### Backend
+- `_compute_diff` — new `completed_dates: set[str]` param; 5 output buckets
+- `validate_plan` — one extra query for completed dates
+- `commit_plan` — smart merge: batch-load SWs + templates, classify, bulk delete, batch add
+
+### Frontend
+- `WorkoutDiff` type — add `old_name?`, `old_steps_spec?`, `new_steps_spec?`
+- `DiffResult` type — add `unchanged[]`, `completed_locked[]`
+- `DiffTable.tsx` — 5 row variants + before→after for changed
+
+### Tests
+- Backend unit: `test_compute_diff_*` (3 new)
+- Backend integration: `test_commit_plan_*` (3 new)
+- Frontend: `DiffTable` (4 new RTL tests)
