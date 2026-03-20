@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -167,15 +167,18 @@ class CalendarService:
         return await scheduled_workout_repository.get_range(session, start, end, user_id)
 
     async def reschedule(
-        self, session: AsyncSession, scheduled_id: int, new_date: date, user_id: int
+        self, session: AsyncSession, scheduled_id: int, new_date: date | None, user_id: int, notes: str | None = None
     ) -> ScheduledWorkout:
-        """Move a ScheduledWorkout to a new date. Raises ValueError if not found or not owned."""
+        """Update a ScheduledWorkout date and/or notes. Raises ValueError if not found or not owned."""
         scheduled = await scheduled_workout_repository.get(session, scheduled_id)
         if scheduled is None or scheduled.user_id != user_id:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
 
-        scheduled.date = new_date
-        scheduled.updated_at = datetime.utcnow()
+        if new_date is not None:
+            scheduled.date = new_date
+        if notes is not None:
+            scheduled.notes = notes
+        scheduled.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(scheduled)
         await session.commit()
         await session.refresh(scheduled)
@@ -230,9 +233,9 @@ async def get_range(
 
 
 async def reschedule(
-    session: AsyncSession, scheduled_id: int, new_date: date, user_id: int
+    session: AsyncSession, scheduled_id: int, new_date: date | None, user_id: int, notes: str | None = None
 ) -> ScheduledWorkout:
-    return await calendar_service.reschedule(session, scheduled_id, new_date, user_id)
+    return await calendar_service.reschedule(session, scheduled_id, new_date, user_id, notes=notes)
 
 
 async def unschedule(

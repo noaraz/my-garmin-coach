@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import garminconnect
@@ -16,6 +16,7 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.garmin.adapter import GarminAdapter
 from src.garmin.encryption import decrypt_token
 from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
@@ -33,55 +34,15 @@ _PENDING_STATUSES = ("pending", "modified", "failed")
 
 
 # ---------------------------------------------------------------------------
-# Garmin client adapter
-# GarminSyncService expects add_workout() / schedule_workout().
-# The installed garminconnect library exposes upload_workout() and a raw
-# schedule endpoint instead.  This adapter bridges the gap.
-# ---------------------------------------------------------------------------
-
-
-class _GarminAdapter:
-    """Wraps garminconnect.Garmin to match the interface GarminSyncService expects."""
-
-    def __init__(self, client: garminconnect.Garmin) -> None:
-        self._client = client
-
-    def add_workout(self, formatted_workout: dict[str, Any]) -> dict[str, Any]:
-        """Upload a workout and return the Garmin response (contains workoutId)."""
-        return self._client.upload_workout(formatted_workout)
-
-    def schedule_workout(self, workout_id: str, workout_date: str) -> None:
-        """Schedule a workout on a specific date via the Garmin Connect API."""
-        url = f"{self._client.garmin_workouts_schedule_url}/{workout_id}"
-        self._client.garth.post(
-            "connectapi", url, json={"date": workout_date}, api=True
-        )
-
-    def update_workout(
-        self, workout_id: str, formatted_workout: dict[str, Any]
-    ) -> None:
-        """Update an existing Garmin workout in-place."""
-        url = f"/workout-service/workout/{workout_id}"
-        self._client.garth.put(
-            "connectapi", url, json=formatted_workout, api=True
-        )
-
-    def delete_workout(self, workout_id: str) -> None:
-        """Permanently delete a workout from Garmin Connect."""
-        url = f"/workout-service/workout/{workout_id}"
-        self._client.garth.delete("connectapi", url, api=True)
-
-
-# ---------------------------------------------------------------------------
 # Garmin sync service dependency (auth-aware, avoids circular import)
 # ---------------------------------------------------------------------------
 
 
-async def _get_garmin_sync_service(
+async def _get_garmin_adapter(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> SyncOrchestrator:
-    """Return a SyncOrchestrator wired to the user's stored Garmin token.
+) -> GarminAdapter:
+    """Return a GarminAdapter wired to the user's stored Garmin token.
 
     Raises:
         HTTPException 403: if the user has not connected their Garmin account.
@@ -114,11 +75,25 @@ async def _get_garmin_sync_service(
     garmin_client = garminconnect.Garmin()
     garmin_client.garth.loads(token_json)
 
+    return GarminAdapter(garmin_client)
+
+
+async def _get_garmin_sync_service(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SyncOrchestrator:
+    """Return a SyncOrchestrator wired to the user's stored Garmin token.
+
+    Raises:
+        HTTPException 403: if the user has not connected their Garmin account.
+    """
+    adapter = await _get_garmin_adapter(current_user=current_user, session=session)
+
     def _resolver(steps: list[Any], **_: Any) -> list[Any]:
         return steps
 
     return SyncOrchestrator(
-        sync_service=GarminSyncService(_GarminAdapter(garmin_client)),
+        sync_service=GarminSyncService(adapter),
         formatter=format_workout,
         resolver=_resolver,
     )
@@ -178,6 +153,9 @@ class SyncSingleResponse(BaseModel):
 class SyncAllResponse(BaseModel):
     synced: int
     failed: int
+    activities_fetched: int = 0
+    activities_matched: int = 0
+    fetch_error: str | None = None
 
 
 class SyncStatusItem(BaseModel):
@@ -315,14 +293,18 @@ async def _sync_and_persist(
 
 @router.post("/all", response_model=SyncAllResponse)
 async def sync_all(
+    fetch_days: int = 30,
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(_get_garmin_sync_service),
     current_user: User = Depends(get_current_user),
 ) -> SyncAllResponse:
-    """Sync all workouts whose status is 'pending' or 'modified'.
+    """Sync all workouts whose status is 'pending' or 'modified', then fetch activities.
+
+    Args:
+        fetch_days: Number of days to fetch activities for (default 30).
 
     Returns:
-        Counts of workouts that were successfully synced or failed.
+        Counts of workouts synced/failed, activities fetched/matched, and any fetch error.
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
@@ -333,7 +315,43 @@ async def sync_all(
     ]
     await session.commit()
     synced = sum(1 for r in results if r is not None)
-    return SyncAllResponse(synced=synced, failed=len(results) - synced)
+    failed = len(results) - synced
+
+    # Fetch activities (best-effort)
+    activities_fetched = 0
+    activities_matched = 0
+    fetch_error = None
+    try:
+        from datetime import timedelta
+
+        from src.services.activity_fetch_service import activity_fetch_service
+
+        end_date = datetime.now(timezone.utc).date()
+        start_date = end_date - timedelta(days=fetch_days)
+
+        # Reuse the adapter from the orchestrator (avoid second token decrypt)
+        adapter = sync_service.adapter
+
+        fetch_result = await activity_fetch_service.fetch_and_store(
+            adapter, session, current_user.id, str(start_date), str(end_date)
+        )
+        activities_fetched = fetch_result.stored
+
+        activities_matched = await activity_fetch_service.match_activities(
+            session, current_user.id, start_date, end_date
+        )
+        await session.commit()
+    except Exception as exc:  # noqa: BLE001
+        fetch_error = str(exc)
+        logger.warning("Activity fetch failed (continuing): %s", exc)
+
+    return SyncAllResponse(
+        synced=synced,
+        failed=failed,
+        activities_fetched=activities_fetched,
+        activities_matched=activities_matched,
+        fetch_error=fetch_error,
+    )
 
 
 @router.post("/{workout_id}", response_model=SyncSingleResponse)

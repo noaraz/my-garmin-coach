@@ -1,17 +1,20 @@
-import type { ScheduledWorkout, WorkoutTemplate } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, GarminActivity } from '../../api/types'
 import { DayCell } from './DayCell'
 import { toDateString } from '../../utils/formatting'
 import { addDays } from 'date-fns'
 
 interface WeekViewProps {
   weekStart: Date
-  workouts: ScheduledWorkout[]
+  workouts: ScheduledWorkoutWithActivity[]
   templates: WorkoutTemplate[]
+  unplannedActivities: GarminActivity[]
   onAddWorkout: (date: string) => void
   onRemove: (id: number) => void
+  onWorkoutClick?: (workout: ScheduledWorkoutWithActivity) => void
+  onActivityClick?: (activity: GarminActivity) => void
 }
 
-export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemove }: WeekViewProps) {
+export function WeekView({ weekStart, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick }: WeekViewProps) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i)
     return toDateString(date)
@@ -19,6 +22,9 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
 
   const workoutsForDate = (date: string) =>
     workouts.filter(w => w.date === date)
+
+  const activitiesForDate = (date: string) =>
+    unplannedActivities.filter(a => a.date === date)
 
   // Display name deduplication: first occurrence of a template gets plain name,
   // duplicates get a zero-width space suffix to satisfy React key uniqueness
@@ -37,7 +43,7 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
     }
   }
 
-  const getDisplayName = (workout: ScheduledWorkout): string | undefined =>
+  const getDisplayName = (workout: ScheduledWorkoutWithActivity): string | undefined =>
     workoutDisplayNames.get(workout.id)
 
   return (
@@ -48,8 +54,11 @@ export function WeekView({ weekStart, workouts, templates, onAddWorkout, onRemov
             date={date}
             workouts={workoutsForDate(date)}
             templates={templates}
+            unplannedActivities={activitiesForDate(date)}
             onAddWorkout={onAddWorkout}
             onRemove={onRemove}
+            onWorkoutClick={onWorkoutClick}
+            onActivityClick={onActivityClick}
             getDisplayName={getDisplayName}
           />
         </div>

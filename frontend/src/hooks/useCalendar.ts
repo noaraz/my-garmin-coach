@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { ScheduledWorkout } from '../api/types'
-import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll } from '../api/client'
+import type { ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
+import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
 import { toDateString } from '../utils/formatting'
 
 export function useCalendar(initialStart: Date, initialEnd: Date) {
-  const [workouts, setWorkouts] = useState<ScheduledWorkout[]>([])
+  const [workouts, setWorkouts] = useState<ScheduledWorkoutWithActivity[]>([])
+  const [unplannedActivities, setUnplannedActivities] = useState<GarminActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState({ start: initialStart, end: initialEnd })
@@ -16,19 +17,22 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
   useEffect(() => {
     setLoading(true)
     fetchCalendarRange(toDateString(range.start), toDateString(range.end))
-      .then(setWorkouts)
+      .then(response => {
+        setWorkouts(response.workouts)
+        setUnplannedActivities(response.unplanned_activities)
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [range.start, range.end])
 
   const schedule = async (templateId: number, date: string) => {
     const sw = await scheduleWorkout({ template_id: templateId, date })
-    setWorkouts(prev => [...prev, sw])
+    setWorkouts(prev => [...prev, { ...sw, matched_activity_id: null, activity: null }])
   }
 
   const reschedule = async (id: number, date: string) => {
     const sw = await rescheduleWorkout(id, date)
-    setWorkouts(prev => prev.map(w => w.id === id ? sw : w))
+    setWorkouts(prev => prev.map(w => w.id === id ? { ...sw, matched_activity_id: w.matched_activity_id, activity: w.activity } : w))
   }
 
   const remove = async (id: number) => {
@@ -38,9 +42,29 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
 
   const syncAllWorkouts = async () => {
     await syncAll()
-    const updated = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
-    setWorkouts(updated)
+    const response = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
+    setWorkouts(response.workouts)
+    setUnplannedActivities(response.unplanned_activities)
   }
 
-  return { workouts, loading, error, schedule, reschedule, remove, syncAllWorkouts, loadRange }
+  const pair = async (scheduledId: number, activityId: number) => {
+    const updated = await pairActivity(scheduledId, activityId)
+    setWorkouts(prev => prev.map(w => w.id === scheduledId ? updated : w))
+    setUnplannedActivities(prev => prev.filter(a => a.id !== activityId))
+  }
+
+  const unpair = async (scheduledId: number) => {
+    const updated = await unpairActivity(scheduledId)
+    setWorkouts(prev => prev.map(w => w.id === scheduledId ? updated : w))
+    // Refresh to get the freed activity back into unplanned list
+    const response = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
+    setUnplannedActivities(response.unplanned_activities)
+  }
+
+  const updateNotes = async (id: number, notes: string) => {
+    const updated = await updateWorkoutNotes(id, notes)
+    setWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes: updated.notes } : w))
+  }
+
+  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, pair, unpair, loadRange, updateNotes }
 }

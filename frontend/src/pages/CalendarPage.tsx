@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { addDays, addMonths, subDays, subMonths } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
-import { fetchWorkoutTemplates } from '../api/client'
-import type { WorkoutTemplate } from '../api/types'
+import { fetchWorkoutTemplates, getGarminStatus } from '../api/client'
+import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
+import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { toDateString } from '../utils/formatting'
 
 interface CalendarPageProps {
@@ -13,6 +15,7 @@ interface CalendarPageProps {
 }
 
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
+  const navigate = useNavigate()
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
@@ -20,11 +23,16 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [syncing, setSyncing] = useState(false)
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Panel state
+  const [selectedWorkout, setSelectedWorkout] = useState<ScheduledWorkoutWithActivity | null>(null)
+  const [selectedActivity, setSelectedActivity] = useState<GarminActivity | null>(null)
+  const isPanelOpen = selectedWorkout != null || selectedActivity != null
+
   // Compute range for calendar hook
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, loading, schedule, remove, syncAllWorkouts, loadRange } = useCalendar(
+  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, unpair, loadRange, updateNotes } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -35,6 +43,18 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     if (propTemplates) return
     fetchWorkoutTemplates().then(setTemplates).catch(() => {})
   }, [propTemplates])
+
+  // Auto-sync on mount if Garmin is connected
+  const autoSyncDone = useRef(false)
+  useEffect(() => {
+    if (autoSyncDone.current) return
+    autoSyncDone.current = true
+    getGarminStatus()
+      .then(status => {
+        if (status.connected) handleSyncAll()
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update range when currentDate or view changes
   useEffect(() => {
@@ -96,6 +116,22 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         syncDebounceRef.current = null
       }
     }, 2000)
+  }
+
+  // Panel handlers
+  const handleWorkoutClick = (workout: ScheduledWorkoutWithActivity) => {
+    setSelectedWorkout(workout)
+    setSelectedActivity(null)
+  }
+
+  const handleActivityClick = (activity: GarminActivity) => {
+    setSelectedActivity(activity)
+    setSelectedWorkout(null)
+  }
+
+  const handlePanelClose = () => {
+    setSelectedWorkout(null)
+    setSelectedActivity(null)
   }
 
   const displayDateLabel = () => {
@@ -250,8 +286,11 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           currentDate={currentDate}
           workouts={workouts}
           templates={templates}
+          unplannedActivities={unplannedActivities}
           onAddWorkout={handleAddWorkout}
           onRemove={remove}
+          onWorkoutClick={handleWorkoutClick}
+          onActivityClick={handleActivityClick}
         />
       </div>
 
@@ -261,6 +300,21 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           templates={templates}
           onSchedule={handleSchedule}
           onClose={() => setPickerDate(null)}
+        />
+      )}
+
+      {/* Workout detail panel */}
+      {isPanelOpen && (
+        <WorkoutDetailPanel
+          workout={selectedWorkout}
+          activity={selectedActivity}
+          template={selectedWorkout ? templates.find(t => t.id === selectedWorkout.workout_template_id) : undefined}
+          onClose={handlePanelClose}
+          onReschedule={async (id, date) => { await reschedule(id, date); handlePanelClose() }}
+          onRemove={async (id) => { await remove(id); handlePanelClose() }}
+          onUnpair={async (id) => { await unpair(id); handlePanelClose() }}
+          onUpdateNotes={updateNotes}
+          onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
         />
       )}
     </div>

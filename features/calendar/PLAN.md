@@ -58,6 +58,22 @@ Track progress in **STATUS.md**.
 - [x] Implement API client functions
 - [x] Run tests → GREEN
 
+### Workout Detail Panel (2026-03-20)
+- [ ] Backend: extend PATCH /calendar/{id} to accept optional `notes` field
+- [ ] Backend: tests for notes update
+- [ ] Frontend: `formatPace` utility (already exists in formatting.ts)
+- [ ] Frontend: `WorkoutDetailPanel.tsx` — panel shell (overlay, slide, close)
+- [ ] Frontend: `WorkoutDetailPlanned.tsx` — planned workout content
+- [ ] Frontend: `WorkoutDetailCompleted.tsx` — completed workout content
+- [ ] Frontend: `WorkoutDetailUnplanned.tsx` — unplanned activity content
+- [ ] Frontend: Update `WorkoutCard` — replace navigate with `onCardClick` callback
+- [ ] Frontend: Update `UnplannedActivityCard` — add `onCardClick` callback
+- [ ] Frontend: Thread `onCardClick` through CalendarView, WeekView, MonthView, DayCell
+- [ ] Frontend: `CalendarPage` — panel state management + render panel
+- [ ] Frontend: `useCalendar` hook — add `updateNotes` method
+- [ ] Frontend: API client — add `updateWorkoutNotes` function
+- [ ] Frontend: Tests for WorkoutDetailPanel
+
 ---
 
 ## Tests
@@ -122,7 +138,7 @@ Design spec (from CLAUDE.md):
 frontend/src/
   api/ — client.ts, types.ts
   components/zones/ — ZoneManager, HRZoneTable, PaceZoneTable, ThresholdInput, MethodSelector
-  components/calendar/ — CalendarView, WeekView, MonthView, DayCell, WorkoutCard, WorkoutPicker
+  components/calendar/ — CalendarView, WeekView, MonthView, DayCell, WorkoutCard, WorkoutPicker, WorkoutDetailPanel, WorkoutDetailPlanned, WorkoutDetailCompleted, WorkoutDetailUnplanned
   components/layout/ — AppShell, Sidebar
   pages/ — CalendarPage, ZonesPage, SettingsPage
   hooks/ — useProfile, useZones, useCalendar

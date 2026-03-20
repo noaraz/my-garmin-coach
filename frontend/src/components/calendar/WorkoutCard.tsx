@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import type { ScheduledWorkout, WorkoutTemplate, SyncStatus } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, WorkoutTemplate, SyncStatus, GarminActivity } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
+import { computeCompliance } from '../../utils/compliance'
 
 interface WorkoutCardProps {
-  workout: ScheduledWorkout
+  workout: ScheduledWorkoutWithActivity
   template: WorkoutTemplate | undefined
   onRemove: (id: number) => void
+  onCardClick?: (workout: ScheduledWorkoutWithActivity) => void
   displayName?: string
+  compact?: boolean
 }
 
 function syncStatusClass(status: SyncStatus): string {
@@ -22,10 +24,10 @@ function syncStatusClass(status: SyncStatus): string {
 
 function syncStatusLabel(status: SyncStatus): string {
   const labels: Record<SyncStatus, string> = {
-    synced: '✓',
-    pending: '○',
+    synced: '\u2713',
+    pending: '\u25CB',
     modified: '~',
-    failed: '✗',
+    failed: '\u2717',
   }
   return labels[status]
 }
@@ -36,22 +38,36 @@ function zoneStripeColor(sportType: string | undefined): string {
   return 'var(--zone-default)'
 }
 
+function getComplianceStripeColor(
+  template: WorkoutTemplate | undefined,
+  activity: GarminActivity | null | undefined,
+  durationSec: number | null,
+  distanceM: number | null,
+): string | null {
+  if (!activity) return null
+  const planned = template ? { duration_sec: durationSec, distance_m: distanceM } : null
+  const actual = { duration_sec: activity.duration_sec, distance_m: activity.distance_m }
+  const result = computeCompliance(planned, actual)
+  return result.color
+}
 
-export function WorkoutCard({ workout, template, onRemove, displayName }: WorkoutCardProps) {
+
+export function WorkoutCard({ workout, template, onRemove, onCardClick, displayName, compact }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
-  const navigate = useNavigate()
-  const stripeColor = zoneStripeColor(template?.sport_type)
-
-  const handleCardClick = () => {
-    if (workout.workout_template_id != null) {
-      navigate(`/builder?id=${workout.workout_template_id}`)
-    }
-  }
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
   const hasDuration = durationSec != null && durationSec > 0
   const hasDistance = distanceM != null && distanceM > 0
+
+  const complianceColor = getComplianceStripeColor(template, workout.activity, durationSec, distanceM)
+  const stripeColor = complianceColor ?? zoneStripeColor(template?.sport_type)
+
+  const handleCardClick = () => {
+    if (onCardClick) {
+      onCardClick(workout)
+    }
+  }
 
   return (
     <div
@@ -61,25 +77,25 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         display: 'flex',
         alignItems: 'stretch',
         background: 'var(--card-bg)',
-        borderRadius: '5px',
+        borderRadius: compact ? '3px' : '5px',
         border: '1px solid var(--border)',
         userSelect: 'none',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+        boxShadow: compact ? 'none' : '0 1px 3px rgba(0,0,0,0.12)',
         overflow: 'hidden',
-        cursor: workout.workout_template_id != null ? 'pointer' : 'default',
+        cursor: onCardClick ? 'pointer' : 'default',
       }}
       data-testid="workout-card"
     >
-      {/* Left zone stripe */}
-      <div style={{ width: '4px', background: stripeColor, flexShrink: 0 }} />
+      {/* Left compliance/zone stripe */}
+      <div style={{ width: compact ? '3px' : '4px', background: stripeColor, flexShrink: 0 }} />
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, padding: '8px 0 8px 8px' }}>
+      <div style={{ flex: 1, minWidth: 0, padding: compact ? '3px 4px' : '8px 0 8px 8px' }}>
 
         {/* Workout name */}
         <div style={{
           fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-          fontSize: '14px',
+          fontSize: compact ? '10px' : '14px',
           fontWeight: 600,
           letterSpacing: '0.02em',
           color: 'var(--text-primary)',
@@ -96,14 +112,14 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           <div style={{
             display: 'flex',
             alignItems: 'baseline',
-            gap: '8px',
-            marginTop: '4px',
+            gap: compact ? '4px' : '8px',
+            marginTop: compact ? '1px' : '4px',
             flexWrap: 'wrap',
           }}>
             {hasDuration && (
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '13px',
+                fontSize: compact ? '9px' : '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
                 lineHeight: 1,
@@ -114,7 +130,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
             {hasDistance && (
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '12px',
+                fontSize: compact ? '9px' : '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
                 lineHeight: 1,
@@ -125,8 +141,46 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           </div>
         )}
 
-        {/* Description — one row per comma-segment */}
-        {template?.description && (
+        {/* Actual activity data when matched */}
+        {workout.activity && !compact && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '6px',
+            marginTop: '3px',
+          }}>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '10px',
+              fontWeight: 600,
+              color: complianceColor ?? 'var(--text-muted)',
+              lineHeight: 1,
+            }}>
+              {formatClock(workout.activity.duration_sec)}
+            </span>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              lineHeight: 1,
+            }}>
+              {formatKm(workout.activity.distance_m)}
+            </span>
+            {workout.activity.avg_hr != null && (
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '10px',
+                color: 'var(--text-muted)',
+                lineHeight: 1,
+              }}>
+                {Math.round(workout.activity.avg_hr)} bpm
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Description — one row per comma-segment (hide in compact mode) */}
+        {template?.description && !workout.activity && !compact && (
           <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
@@ -145,8 +199,8 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         )}
       </div>
 
-      {/* Right column: sync icon + remove */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 6px 6px 2px', gap: '4px', flexShrink: 0 }}>
+      {/* Right column: sync icon + remove (hidden in compact/month view) */}
+      <div style={{ display: compact ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 6px 6px 2px', gap: '4px', flexShrink: 0 }}>
         <span
           data-sync={workout.sync_status}
           className={`text-xs font-mono ${syncStatusClass(workout.sync_status)}`}
@@ -166,7 +220,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
             color: removeHover ? 'var(--color-zone-5)' : 'var(--text-secondary)',
             fontSize: '12px', padding: '0 2px', lineHeight: 1,
           }}
-        >✕</button>
+        >&#x2715;</button>
       </div>
     </div>
   )

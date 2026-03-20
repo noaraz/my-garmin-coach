@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -42,7 +42,7 @@ class TestAthleteProfile:
 
         # Act
         profile.lthr = 162
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(profile)
         await session.commit()
         await session.refresh(profile)

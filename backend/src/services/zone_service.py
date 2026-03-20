@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -192,7 +192,7 @@ class ZoneService:
 
             # Always mark modified so the next sync re-pushes with fresh zone maps.
             sw.sync_status = "modified"
-            sw.updated_at = datetime.utcnow()
+            sw.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             session.add(sw)
 
         await session.commit()

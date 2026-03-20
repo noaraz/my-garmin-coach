@@ -27,6 +27,11 @@ class SyncOrchestrator:
         self._formatter = formatter
         self._resolver = resolver
 
+    @property
+    def adapter(self) -> Any:
+        """Expose the underlying Garmin adapter for reuse (e.g. activity fetch)."""
+        return self._sync_service._client
+
     # ------------------------------------------------------------------
     # Single-workout sync
     # ------------------------------------------------------------------

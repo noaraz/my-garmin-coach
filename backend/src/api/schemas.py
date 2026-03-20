@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -112,7 +113,8 @@ class ScheduleCreate(BaseModel):
 
 
 class RescheduleUpdate(BaseModel):
-    date: date
+    date: "dt.date | None" = None
+    notes: str | None = None
 
 
 class ScheduledWorkoutRead(BaseModel):
@@ -128,3 +130,33 @@ class ScheduledWorkoutRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Garmin Activity schemas ────────────────────────────────────────────────
+
+class GarminActivityRead(BaseModel):
+    id: int
+    garmin_activity_id: str
+    activity_type: str
+    name: str
+    start_time: datetime
+    date: date
+    duration_sec: float
+    distance_m: float
+    avg_hr: Optional[float] = None
+    max_hr: Optional[float] = None
+    avg_pace_sec_per_km: Optional[float] = None
+    calories: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ScheduledWorkoutWithActivity(ScheduledWorkoutRead):
+    """ScheduledWorkoutRead extended with matched activity data."""
+    matched_activity_id: Optional[int] = None
+    activity: Optional[GarminActivityRead] = None
+
+
+class CalendarResponse(BaseModel):
+    workouts: list[ScheduledWorkoutWithActivity]
+    unplanned_activities: list[GarminActivityRead]

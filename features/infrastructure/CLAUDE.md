@@ -144,6 +144,14 @@ Default (no env var) = SQLite in-memory, unchanged.
 
 ---
 
+## Render Preview Environments (added 2026-03-20)
+
+- **Preview env vars are separate** from the main Render service — they don't auto-inherit updates. Set `DATABASE_URL`, `GARMINCOACH_SECRET_KEY`, `GOOGLE_CLIENT_ID` independently in Render dashboard → service → "Preview Environments" settings
+- **`DATABASE_URL` must use `+asyncpg`** driver: `postgresql+asyncpg://...`. Plain `postgresql://...` causes `psycopg2 is not async` crash at startup
+- **Deployment status via GitHub API**: `gh api repos/noaraz/my-garmin-coach/deployments` → get latest deployment ID → check `statuses` endpoint for `state`, `environment_url`, `log_url`
+
+---
+
 ## FastAPI Static File Mount (Production)
 
 `StaticFiles(html=True)` does NOT do SPA fallback — it returns 404 for paths like `/login`

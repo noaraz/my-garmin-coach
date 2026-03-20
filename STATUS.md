@@ -1,8 +1,40 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-19 (alembic as sole schema authority + InviteCode autogenerate fix)
+Last updated: 2026-03-20 (Workout Detail Panel — slide-out Quick View)
 
-## Current Focus: Neon DB Query Optimization
+## Current Focus: Workout Detail Panel
+
+Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-20-workout-detail-panel.md`
+
+### Workout Detail Panel
+| Task | Status |
+|------|--------|
+| Docs: root PLAN.md, CLAUDE.md, feature docs, STATUS.md | ✅ |
+| Backend: extend PATCH /calendar/{id} for notes | ✅ |
+| Frontend: WorkoutDetailPanel shell (overlay, slide, close) | ✅ |
+| Frontend: WorkoutDetailPlanned content | ✅ |
+| Frontend: WorkoutDetailCompleted content | ✅ |
+| Frontend: WorkoutDetailUnplanned content | ✅ |
+| Frontend: Card click → panel (replace builder navigation) | ✅ |
+| Frontend: CalendarPage panel state + render | ✅ |
+| Frontend: Notes save (debounced, useCalendar hook) | ✅ |
+| Frontend: Tests | ✅ |
+
+### Activity Fetch (previous focus)
+| Task | Status |
+|------|--------|
+| GarminActivity model + alembic migration | ✅ |
+| Extract GarminAdapter to shared module | ✅ |
+| Compliance utility (frontend + backend) | ✅ |
+| ActivityFetchService (fetch/dedup/match) | ✅ |
+| API: pair/unpair endpoints, CalendarResponse wrapper | ✅ |
+| Bidirectional sync (extend sync/all) | ✅ |
+| Frontend: types, client, useCalendar hook updates | ✅ |
+| Frontend: WorkoutCard compliance colors | ✅ |
+| Frontend: UnplannedActivityCard component | ✅ |
+| Frontend: auto-sync on mount, reschedule action | ✅ |
+| Integration tests | ⬜ |
 
 ---
 

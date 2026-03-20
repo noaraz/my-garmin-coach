@@ -4,6 +4,7 @@ import type {
   PaceZone,
   WorkoutTemplate, WorkoutTemplateCreate,
   ScheduledWorkout, ScheduleCreate,
+  CalendarResponse, ScheduledWorkoutWithActivity,
   SyncAllResponse, SyncStatusItem,
   GarminStatusResponse,
   BootstrapResponse,
@@ -82,7 +83,7 @@ export const deleteTemplate = (id: number) =>
   request<void>(`/workouts/${id}`, { method: 'DELETE' })
 
 export const fetchCalendarRange = (start: string, end: string) =>
-  request<ScheduledWorkout[]>(`/calendar?start=${start}&end=${end}`)
+  request<CalendarResponse>(`/calendar?start=${start}&end=${end}`)
 export const scheduleWorkout = (body: ScheduleCreate) =>
   request<ScheduledWorkout>('/calendar', { method: 'POST', body: JSON.stringify(body) })
 export const rescheduleWorkout = (id: number, date: string) =>
@@ -90,8 +91,18 @@ export const rescheduleWorkout = (id: number, date: string) =>
     method: 'PATCH',
     body: JSON.stringify({ date }),
   })
+export const updateWorkoutNotes = (id: number, notes: string) =>
+  request<ScheduledWorkout>(`/calendar/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ notes }),
+  })
 export const unscheduleWorkout = (id: number) =>
   request<void>(`/calendar/${id}`, { method: 'DELETE' })
+
+export const pairActivity = (scheduledId: number, activityId: number) =>
+  request<ScheduledWorkoutWithActivity>(`/calendar/${scheduledId}/pair/${activityId}`, { method: 'POST' })
+export const unpairActivity = (scheduledId: number) =>
+  request<ScheduledWorkoutWithActivity>(`/calendar/${scheduledId}/unpair`, { method: 'POST' })
 
 export const syncAll = () =>
   request<SyncAllResponse>('/sync/all', { method: 'POST' })

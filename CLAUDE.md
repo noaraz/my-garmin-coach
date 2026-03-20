@@ -34,7 +34,7 @@ Replaces TrainingPeaks for self-coached athletes.
 ## Conventions
 
 ### Python
-- `ruff` for lint + format
+- `ruff` for lint + format (includes `DTZ` rules — bans `datetime.utcnow()` etc.)
 - Type hints on all signatures
 - Pydantic for request/response schemas
 - `from __future__ import annotations`
@@ -102,6 +102,8 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Workout Builder | `features/workout-builder/` | Drag-and-drop visual builder, library |
 | Auth | `features/auth/` | JWT, user accounts, invite system, token encryption |
 | Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
+| Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
+| Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
 
 ---
 
@@ -331,6 +333,16 @@ const hasDistance = distanceM   != null && distanceM   > 0
 
 **Why steps fallback is necessary**: workout templates created by the builder typically have `estimated_duration_sec: null` in the DB (the builder doesn't compute/save it). The steps JSON always exists and contains the ground truth.
 
+## WorkoutDetailPanel Patterns (added 2026-03-20)
+
+- **Panel trigger**: `WorkoutCard` and `UnplannedActivityCard` fire `onCardClick` callback instead of navigating
+- **State management**: `CalendarPage` holds `selectedWorkout` / `selectedActivity` state; panel is purely presentational
+- **Data source**: All data already in CalendarPage state from `CalendarResponse` — panel open = zero DB queries
+- **Notes save**: Debounced 500ms on input change, flush on blur. Uses extended PATCH `/calendar/{id}` with optional `notes` field
+- **Compliance badge mapping**: `on_target` → "ON TARGET", `close` → "CLOSE", `off_target` → "OFF TARGET", `completed_no_plan` → "COMPLETED"
+- **formatPace**: Already exists in `frontend/src/utils/formatting.ts` — `formatPace(secPerKm)` → `"6:00/km"`
+- **Panel close**: X button, click backdrop, Escape key — all handled in `WorkoutDetailPanel.tsx`
+
 ## Alembic + SQLite Gotchas (added 2026-03-17)
 
 ### Always set `render_as_batch=True`
@@ -549,6 +561,30 @@ Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Fol
 - **Don't cache on write paths.** After creating/updating, call `cache.invalidate()` — don't `cache.set()`. Let the next read populate. Bulk deletes (e.g. `reset_admins`) must call `cache.clear()` after commit.
 - **Connection pool.** Production uses `pool_pre_ping=True` and `pool_recycle=270`. Don't change these without understanding Neon's scale-to-zero behavior (5-min idle timeout).
 - **No raw SQL.** Always use SQLAlchemy/SQLModel constructs — per Security rules above.
+- **`session.add()` after ORM mutation.** Async SQLAlchemy does not always track in-place attribute changes. After mutating an existing ORM object (e.g. `workout.completed = True`), call `session.add(workout)` before commit.
+
+---
+
+## Ruff DTZ Rules — Datetime Convention Enforcement (added 2026-03-20)
+
+`pyproject.toml` enables `extend-select = ["DTZ"]` (flake8-datetimez). This bans:
+- `datetime.utcnow()` → use `datetime.now(timezone.utc).replace(tzinfo=None)`
+- `datetime.utcfromtimestamp()` → use `datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)`
+- `date.today()` in prod code → use `datetime.now(timezone.utc).date()`
+
+`tests/**` are exempt from `DTZ011` (`date.today()` is fine in tests).
+
+The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TIME ZONE` columns reject aware datetimes.
+
+---
+
+## Render Preview Deployments (added 2026-03-20)
+
+- **Trigger**: PR title containing `[Render Preview]` triggers a Render preview deployment via GitHub Deployments API
+- **Preview env vars are separate** from the main Render service. They don't auto-inherit updates — must be set independently in Render dashboard → "Preview Environments" settings
+- **Common failure**: `DATABASE_URL=postgresql://...` (missing `+asyncpg`) → `psycopg2 is not async` error. Must be `postgresql+asyncpg://...`
+- **Check deployment status**: `gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id'` → `gh api .../deployments/{id}/statuses -q '.[0] | {state, environment_url}'`
+- **States**: `success` (live), `in_progress` (building), `inactive` (spun down, wakes on request), `failure` (check logs)
 
 ---
 

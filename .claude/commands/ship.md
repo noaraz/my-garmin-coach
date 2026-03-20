@@ -112,7 +112,58 @@ Commit (conventional style):
 git commit -m "feat: <short description>"
 ```
 
-Open the PR:
+### Ask about Render Preview
+
+Before creating the PR, ask the user:
+
+> "Should this PR include `[Render Preview]` in the title to trigger a Render preview deployment?"
+
+- If **yes**: append ` [Render Preview]` to the PR title and add a placeholder `## Preview` section to the body (the real URL comes after Render deploys — see below)
+- If **no**: create the PR without the tag or preview section
+
+### Fetch Render Preview URL and Check Deployment (if Render Preview was chosen)
+
+After the PR is created and pushed, Render auto-deploys a preview environment via the GitHub Deployments API.
+
+**Step 1 — Get preview URL and deployment state:**
+
+```bash
+# Get the latest deployment ID for this PR
+DEPLOY_ID=$(gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id')
+
+# Fetch state, URL, and log link from the deployment status
+gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" \
+  -q '.[0] | {state, environment_url, log_url}'
+```
+
+**Step 2 — Interpret the deployment state:**
+
+| State | Meaning | Action |
+|-------|---------|--------|
+| `success` | Deployed and running | Add preview URL to PR body |
+| `in_progress` | Still building | Wait ~2 min, re-check |
+| `inactive` | Deployed but spun down (free tier idle) | Add preview URL — it will wake on first request (~30s) |
+| `failure` | Build or startup crashed | **Investigate.** Check the `log_url` in the Render dashboard. Common causes: missing env vars, failed alembic migration, import errors. Ask user to share the Render log output so you can diagnose. |
+| `error` | Render infra issue | Retry or check Render status page |
+
+**Step 3 — Update PR body with the real preview URL:**
+
+```bash
+PREVIEW_URL=$(gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" -q '.[0].environment_url')
+gh pr edit <PR_NUMBER> --body "...## Preview\n🔗 **[Render Preview](${PREVIEW_URL})**\n..."
+```
+
+**Step 4 — If deployment failed:**
+
+Tell the user the deployment failed and provide the Render dashboard log link. Common failures on preview deploys:
+- **Missing env vars**: Preview instances don't inherit all env vars from the main service. Check `DATABASE_URL`, `GARMINCOACH_SECRET_KEY`, `GOOGLE_CLIENT_ID` are set in Render's preview env config.
+- **Alembic migration failure**: New migration may fail on a fresh DB or with schema drift. Check the `alembic upgrade head` output in the log.
+- **Import/syntax error**: A Python import that works locally but breaks in the Docker build (missing dependency, wrong path).
+
+Ask the user to paste the relevant log lines so you can fix the root cause.
+
+### Create the PR
+
 ```bash
 gh pr create \
   --title "feat: <title>" \
@@ -139,10 +190,10 @@ Return the PR URL to the user.
 
 ## 8. Code Review on the PR
 
-Now that the PR exists, invoke the `/code-review` command on it:
+Now that the PR exists, invoke the `code-review:code-review` skill on it:
 
 ```
-/code-review <PR URL>
+Skill tool: code-review:code-review, args: <PR URL>
 ```
 
-The review will post comments directly on the PR. Present any issues found (score ≥ 80) to the user and offer to fix them.
+Present any issues found to the user and offer to fix them.

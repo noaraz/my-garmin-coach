@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -67,7 +67,7 @@ class ProfileService:
                     setattr(profile, key, value)
                     changed_fields.add(key)
 
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(profile)
         await session.commit()
         await session.refresh(profile)

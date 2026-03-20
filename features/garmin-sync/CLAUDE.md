@@ -88,6 +88,19 @@ client.login(email, password)
 - Only affects login — sync uses stored tokens (no proxy needed)
 - TLS end-to-end: credentials are encrypted in transit, Fixie only sees hostnames
 
+## Bidirectional Sync
+
+`POST /sync/all` now does both push and fetch:
+1. Push pending/modified workouts TO Garmin (existing)
+2. Fetch activities FROM Garmin (new — see `features/garmin-activity-fetch/`)
+
+The `GarminAdapter` in `backend/src/garmin/adapter.py` is shared between push and fetch.
+It provides `add_workout`, `schedule_workout`, `update_workout`, `delete_workout` (push)
+and `get_activities_by_date` (fetch).
+
+Activity fetch is best-effort — if it fails, the push results are still returned.
+Response includes `activities_fetched`, `activities_matched`, `fetch_error` fields.
+
 ## Gotchas
 
 - **Pace format**: Garmin uses m/s, not sec/km. Always convert.
