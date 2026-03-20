@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addDays, addMonths, subDays, subMonths } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
-import { fetchWorkoutTemplates, getGarminStatus, getActivePlan } from '../api/client'
+import { fetchWorkoutTemplates, getActivePlan } from '../api/client'
 import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { toDateString } from '../utils/formatting'
+import { useGarminStatus } from '../contexts/GarminStatusContext'
 
 interface CalendarPageProps {
   initialDate?: Date
@@ -16,6 +17,7 @@ interface CalendarPageProps {
 
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const navigate = useNavigate()
+  const { garminConnected } = useGarminStatus()
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
@@ -55,14 +57,11 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   // Auto-sync on mount if Garmin is connected
   const autoSyncDone = useRef(false)
   useEffect(() => {
-    if (autoSyncDone.current) return
+    if (garminConnected === null) return   // MUST be first — wait for context to resolve
+    if (autoSyncDone.current) return       // one-shot guard
     autoSyncDone.current = true
-    getGarminStatus()
-      .then(status => {
-        if (status.connected) handleSyncAll()
-      })
-      .catch(() => {})
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (garminConnected) handleSyncAll()
+  }, [garminConnected]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update range when currentDate or view changes
   useEffect(() => {
@@ -232,8 +231,42 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           ))}
         </div>
 
-        {/* Sync All */}
-        <div style={{ marginLeft: 'auto' }}>
+        {/* Sync All + Garmin status */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {garminConnected !== null && (
+            <button
+              onClick={() => navigate('/settings')}
+              aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '27px',
+                padding: '0 10px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                fontSize: '10px',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <div style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: garminConnected ? '#22c55e' : '#ef4444',
+                boxShadow: garminConnected
+                  ? '0 0 0 2px rgba(34,197,94,0.2)'
+                  : '0 0 0 2px rgba(239,68,68,0.2)',
+                flexShrink: 0,
+              }} />
+              Garmin
+            </button>
+          )}
           <button
             onClick={handleSyncAll}
             disabled={syncing}
