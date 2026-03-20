@@ -14,7 +14,7 @@ from datetime import date as date_type, datetime, timedelta, timezone
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -355,6 +355,7 @@ async def commit_plan(
     # Classify each incoming workout
     # -----------------------------------------------------------------------
     ids_to_delete: list[int] = []
+    kept_sw_ids: list[int] = []
     garmin_ids_to_delete: list[str] = []
     sws_to_create: list[dict] = []
     incoming_dates: set[str] = set()
@@ -365,15 +366,17 @@ async def commit_plan(
         existing_sw = sw_by_date.get(pw.date)
 
         if existing_sw is not None:
-            # Completed — never touch
+            # Completed — never touch content, but re-associate to new plan
             if pw.date in completed_dates:
+                kept_sw_ids.append(existing_sw.id)  # type: ignore[arg-type]
                 continue
 
             # Compare using active plan's stored steps_spec (source of truth)
             same_name = active_name_by_date.get(pw.date) == pw.name
             same_steps = active_steps_by_date.get(pw.date) == pw.steps_spec
             if same_name and same_steps:
-                continue  # unchanged — keep existing row as-is
+                kept_sw_ids.append(existing_sw.id)  # type: ignore[arg-type]
+                continue  # unchanged — keep existing row, re-associate below
 
             # Changed: queue old SW for deletion, queue new SW for creation
             ids_to_delete.append(existing_sw.id)  # type: ignore[arg-type]
@@ -406,6 +409,14 @@ async def commit_plan(
     if ids_to_delete:
         await session.execute(
             delete(ScheduledWorkout).where(ScheduledWorkout.id.in_(ids_to_delete))
+        )
+
+    # Re-associate kept SWs (unchanged + completed_locked) to the new plan
+    if kept_sw_ids:
+        await session.execute(
+            update(ScheduledWorkout)
+            .where(ScheduledWorkout.id.in_(kept_sw_ids))
+            .values(training_plan_id=plan_id)
         )
 
     # -----------------------------------------------------------------------

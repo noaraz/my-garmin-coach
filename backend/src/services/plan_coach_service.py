@@ -1,7 +1,7 @@
 """Plan Coach service — system prompt builder and chat orchestration."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -132,25 +132,11 @@ async def send_chat_message(
     pace_zones: list[PaceZone],
 ) -> PlanCoachMessage:
     """Append user message, call Gemini, append assistant response, return assistant message."""
-    # 1. Persist user message
-    user_msg = PlanCoachMessage(
-        user_id=user_id,
-        role="user",
-        content=content,
-        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
-    )
-    session.add(user_msg)
-    await session.commit()
-    await session.refresh(user_msg)
-
-    # 2. Load full history for DB; truncate to last _HISTORY_TRUNCATION for Gemini
+    # 1. Load existing history and recent activities before touching the DB
     all_messages = await get_chat_history(session, user_id)
-    truncated = all_messages[-_HISTORY_TRUNCATION:]
 
-    # 3. Load recent activities for system prompt
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff_date = date(cutoff.year, cutoff.month, cutoff.day)
-    from datetime import timedelta
     lookback_date = cutoff_date - timedelta(days=_ACTIVITY_LOOKBACK_DAYS)
 
     activity_result = await session.exec(
@@ -161,27 +147,30 @@ async def send_chat_message(
     )
     recent_activities = list(activity_result.all())
 
-    # 4. Build system prompt
+    # 2. Build system prompt and Gemini message list (include new user message)
     system_prompt = build_system_prompt(profile, hr_zones, pace_zones, recent_activities)
+    truncated = all_messages[-(_HISTORY_TRUNCATION - 1):]
+    gemini_messages = [{"role": m.role, "content": m.content} for m in truncated]
+    gemini_messages.append({"role": "user", "content": content})
 
-    # 5. Format messages for Gemini
-    gemini_messages = [
-        {"role": m.role, "content": m.content}
-        for m in truncated
-    ]
-
-    # 6. Call Gemini
+    # 3. Call Gemini — only persist if this succeeds (avoids orphaned user messages)
     reply_text = chat_completion(gemini_messages, system_prompt)
 
-    # 7. Persist assistant response
+    # 4. Persist user + assistant in a single commit; no refresh needed after commit
+    user_msg = PlanCoachMessage(
+        user_id=user_id,
+        role="user",
+        content=content,
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
     assistant_msg = PlanCoachMessage(
         user_id=user_id,
         role="assistant",
         content=reply_text,
         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
+    session.add(user_msg)
     session.add(assistant_msg)
     await session.commit()
-    await session.refresh(assistant_msg)
 
     return assistant_msg
