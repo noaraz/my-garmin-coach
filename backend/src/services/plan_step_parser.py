@@ -152,11 +152,17 @@ def parse_steps_spec(spec: str) -> list[dict]:
 
 
 def _split_top_level(spec: str) -> list[str]:
-    """Split spec on commas that are outside parentheses."""
+    """Split spec on commas OR bare '+' that are outside parentheses.
+
+    LLMs often use '+' as a top-level step separator (e.g. "10m@Z1 + 40m@Z2 + 5m@Z1").
+    Inside parentheses '+' is the repeat-group inner separator and is NOT split here.
+    """
     tokens: list[str] = []
     depth = 0
     current: list[str] = []
-    for ch in spec:
+    i = 0
+    while i < len(spec):
+        ch = spec[i]
         if ch == "(":
             depth += 1
             current.append(ch)
@@ -168,9 +174,16 @@ def _split_top_level(spec: str) -> list[str]:
         elif ch == "," and depth == 0:
             tokens.append("".join(current).strip())
             current = []
+        elif ch == "+" and depth == 0:
+            # Only treat bare '+' as separator when surrounded by non-'+'
+            # characters (i.e. not inside a repeat group inner expression).
+            tokens.append("".join(current).strip())
+            current = []
         else:
             current.append(ch)
+        i += 1
     if depth != 0:
         raise StepParseError(f"Unmatched '(' in spec: '{spec}'")
     tokens.append("".join(current).strip())
-    return tokens
+    # Filter empty tokens that arise from mixed comma/plus separators
+    return [t for t in tokens if t]
