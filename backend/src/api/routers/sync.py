@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 import garminconnect
@@ -322,11 +322,11 @@ async def sync_all(
     activities_matched = 0
     fetch_error = None
     try:
-        from datetime import date as date_type, timedelta
+        from datetime import timedelta
 
         from src.services.activity_fetch_service import activity_fetch_service
 
-        end_date = date_type.today()
+        end_date = datetime.now(timezone.utc).date()
         start_date = end_date - timedelta(days=fetch_days)
 
         # Reuse the adapter from the orchestrator (avoid second token decrypt)

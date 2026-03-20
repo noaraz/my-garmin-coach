@@ -46,7 +46,7 @@ class ActivityFetchService:
             activity_date = local_dt.date()
             activity_start = local_dt.replace(tzinfo=None)
         except (ValueError, TypeError):
-            activity_date = date.today()
+            activity_date = datetime.now(timezone.utc).date()
             activity_start = now
 
         return GarminActivity(

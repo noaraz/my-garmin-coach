@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlmodel import select
@@ -59,7 +59,7 @@ class WorkoutService:
         if "steps" in data and data["steps"] is not None:
             template.steps = json.dumps(data["steps"])
 
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(template)
 
         # Cascade: any non-completed scheduled workout linked to this template may
@@ -76,7 +76,7 @@ class WorkoutService:
                 ScheduledWorkout.completed == False,  # noqa: E712
             )
         )
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         for sw in linked_result.all():
             sw.resolved_steps = None
             if sw.sync_status == "synced":
