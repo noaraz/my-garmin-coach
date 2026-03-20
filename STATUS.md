@@ -72,13 +72,13 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Sidebar: Garmin row + Zones inline indicator | ✅ |
 | CalendarPage: toolbar button + context + auto-sync migration | ✅ |
 | SettingsPage: call refresh() after connect/disconnect | ✅ |
-| ZoneManager: call refreshZones() after save | ⬜ |
+| ZoneManager: call refreshZones() after save | ✅ |
 
-### Status Indicators — Phase 4: Tests ⬜
+### Status Indicators — Phase 4: Tests ✅
 | Task | Status |
 |------|--------|
-| Sidebar.test.tsx: new mocks + test cases | ⬜ |
-| Calendar.test.tsx: GarminStatusProvider + new test cases | ⬜ |
+| Sidebar.test.tsx: new mocks + test cases | ✅ |
+| Calendar.test.tsx: GarminStatusProvider + new test cases | ✅ |
 
 ### Plan Coach — Phase 4: Chat (Gemini Flash) `feature/plan-coach-phase-4` ✅
 | Task | Status |
