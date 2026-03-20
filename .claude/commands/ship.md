@@ -112,7 +112,39 @@ Commit (conventional style):
 git commit -m "feat: <short description>"
 ```
 
-Open the PR:
+### Ask about Render Preview
+
+Before creating the PR, ask the user:
+
+> "Should this PR include `[Render Preview]` in the title to trigger a Render preview deployment?"
+
+- If **yes**: append ` [Render Preview]` to the PR title and add a placeholder `## Preview` section to the body (the real URL comes after Render deploys — see below)
+- If **no**: create the PR without the tag or preview section
+
+### Fetch Render Preview URL (if Render Preview was chosen)
+
+After the PR is created and pushed, Render auto-deploys a preview environment. Poll for the preview URL:
+
+```bash
+# Get the latest deployment ID for this PR
+DEPLOY_ID=$(gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id')
+
+# Fetch the environment_url from the deployment status (may take 1-2 minutes after push)
+PREVIEW_URL=$(gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" -q '.[0].environment_url')
+```
+
+If `PREVIEW_URL` is non-empty, update the PR body to include it:
+
+```bash
+# Edit the PR body to replace the placeholder with the real preview URL
+gh pr edit <PR_NUMBER> --body "...## Preview\n🔗 **[Render Preview](${PREVIEW_URL})**\n..."
+```
+
+The preview URL follows the pattern `https://<service-name>-pr-<number>.onrender.com`.
+If the deployment isn't ready yet, tell the user and move on — the URL will appear in the GitHub deployment status automatically.
+
+### Create the PR
+
 ```bash
 gh pr create \
   --title "feat: <title>" \
@@ -139,10 +171,10 @@ Return the PR URL to the user.
 
 ## 8. Code Review on the PR
 
-Now that the PR exists, invoke the `/code-review` command on it:
+Now that the PR exists, invoke the `code-review:code-review` skill on it:
 
 ```
-/code-review <PR URL>
+Skill tool: code-review:code-review, args: <PR URL>
 ```
 
-The review will post comments directly on the PR. Present any issues found (score ≥ 80) to the user and offer to fix them.
+Present any issues found to the user and offer to fix them.
