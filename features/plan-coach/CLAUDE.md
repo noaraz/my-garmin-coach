@@ -136,6 +136,13 @@ frontend/src/
 
 ---
 
+## Copy Button Gotchas (added 2026-03-20)
+- `navigator.clipboard.writeText` throws "Document is not focused" in Chrome — always add `execCommand('copy')` fallback using a `ref` on the `<code>` element
+- Use `'idle' | 'copied' | 'error'` state (not boolean) to drive both label and color
+- FastAPI 422 `body.detail` can be string, `{msg}[]`, or object — branch on type in `client.ts` or object detail coerces to `"[object Object]"` and breaks regex error recovery
+
+---
+
 ## Test Coverage Targets
 
 | Module | Target |
