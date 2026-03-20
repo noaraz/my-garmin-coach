@@ -81,13 +81,13 @@ class DiffResult(BaseModel):
     completed_locked: list[WorkoutDiff] # matched_activity_id IS NOT NULL — never touched
 ```
 
-`_compute_diff` signature (third arg has default for backward compat):
+`_compute_diff` signature (third arg defaults to `None`, resolved to `set()` inside):
 
 ```python
 def _compute_diff(
     incoming: list[ParsedWorkout],
     active_parsed: list[dict],
-    completed_dates: set[str] = set(),
+    completed_dates: set[str] | None = None,
 ) -> DiffResult
 ```
 
@@ -213,7 +213,7 @@ class TestComputeDiff:
         incoming = [_pw("2026-04-07", "Easy Run", "30m@Z2")]
         active = [_active("2026-04-07", "Easy Run", "30m@Z2")]
 
-        result = _compute_diff(incoming, active, completed_dates=set())
+        result = _compute_diff(incoming, active)
 
         assert len(result.unchanged) == 1
         assert result.unchanged[0].date == "2026-04-07"
@@ -224,7 +224,7 @@ class TestComputeDiff:
         incoming = [_pw("2026-04-07", "Easy Run", "40m@Z2")]
         active = [_active("2026-04-07", "Easy Run", "30m@Z2")]
 
-        result = _compute_diff(incoming, active, completed_dates=set())
+        result = _compute_diff(incoming, active)
 
         assert len(result.changed) == 1
         diff = result.changed[0]
@@ -281,15 +281,16 @@ class DiffResult(BaseModel):
 
 - [ ] **Step 5: Rewrite `_compute_diff`**
 
-Replace the entire `_compute_diff` function. The new signature adds `completed_dates` with a default of `frozenset()` so existing callers (`validate_plan` before Task 6 updates it) continue to work:
+Replace the entire `_compute_diff` function. The new signature adds `completed_dates` with a default of `None` (resolved to `set()` inside) so existing callers (`validate_plan` before Task 6 updates it) continue to work and there is no mutable-default anti-pattern:
 
 ```python
 def _compute_diff(
     incoming: list[ParsedWorkout],
     active_parsed: list[dict],
-    completed_dates: set[str] = set(),
+    completed_dates: set[str] | None = None,
 ) -> DiffResult:
     """Compute added/removed/changed/unchanged/completed_locked vs the active plan."""
+    completed_dates = completed_dates or set()
     active_by_date = {w["date"]: w for w in active_parsed}
     incoming_by_date = {w.date: w for w in incoming}
 
