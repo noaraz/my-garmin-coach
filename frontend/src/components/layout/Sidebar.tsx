@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
+import { useGarminStatus } from '../../contexts/GarminStatusContext'
+import { useZonesStatus } from '../../contexts/ZonesStatusContext'
 
 declare const __APP_VERSION__: string
 
@@ -58,11 +61,17 @@ const SIDE_BORD  = '#2a2a30'
 const SIDE_LOGO_SUB = '#505060'
 const SIDE_VER   = '#42424e'
 const SIDE_ICON_INACTIVE = '#6a6a78'
+const SIDE_GARMIN_CONNECTED    = '#22c55e'
+const SIDE_GARMIN_DISCONNECTED = '#ef4444'
+const SIDE_ZONES_WARN          = '#f59e0b'
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { garminConnected } = useGarminStatus()
+  const { zonesConfigured } = useZonesStatus()
+  const [garminHovered, setGarminHovered] = useState(false)
   const navStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -148,6 +157,12 @@ export function Sidebar() {
             <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <ZonesIcon />
               Zones
+              {zonesConfigured === false && (
+                <>
+                  <div style={{ marginLeft: 'auto', marginRight: '4px', width: '7px', height: '7px', borderRadius: '50%', background: SIDE_ZONES_WARN, boxShadow: '0 0 0 2px rgba(245,158,11,0.2)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', color: SIDE_ZONES_WARN, marginLeft: 0 }}>Not set</span>
+                </>
+              )}
             </span>
           )}
         </NavLink>
@@ -183,6 +198,55 @@ export function Sidebar() {
             </span>
           )}
         </NavLink>
+        {garminConnected !== null && (
+          <button
+            aria-label={garminConnected ? 'Garmin: Connected – go to Settings' : 'Garmin: Not connected – go to Settings'}
+            onClick={() => navigate('/settings')}
+            onMouseEnter={() => setGarminHovered(true)}
+            onMouseLeave={() => setGarminHovered(false)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '9px',
+              padding: '7px 10px',
+              borderRadius: '5px',
+              marginBottom: '1px',
+              fontSize: '12px',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontWeight: 600,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: SIDE_ICON_INACTIVE,
+              background: garminHovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+              transition: 'background 0.12s',
+            }}
+          >
+            <div style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: garminConnected ? SIDE_GARMIN_CONNECTED : SIDE_GARMIN_DISCONNECTED,
+              boxShadow: garminConnected
+                ? '0 0 0 2px rgba(34,197,94,0.2)'
+                : '0 0 0 2px rgba(239,68,68,0.2)',
+              flexShrink: 0,
+            }} />
+            Garmin
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              color: garminConnected ? SIDE_GARMIN_CONNECTED : SIDE_GARMIN_DISCONNECTED,
+            }}>
+              {garminConnected ? 'Connected' : 'Not connected'}
+            </span>
+          </button>
+        )}
       </nav>
 
       {/* User info + logout */}
