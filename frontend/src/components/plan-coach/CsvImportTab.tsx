@@ -78,6 +78,7 @@ const btn = (primary: boolean, disabled: boolean): React.CSSProperties => ({
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   padding: '8px 18px',
+  minWidth: '120px',
   borderRadius: '5px',
   border: primary ? 'none' : '1px solid var(--border)',
   background: primary ? 'var(--accent)' : 'transparent',
@@ -203,6 +204,8 @@ export function CsvImportTab() {
               background: 'var(--bg-surface)',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
+              minWidth: '120px',
+              textAlign: 'center',
             }}
           >
             Choose file
