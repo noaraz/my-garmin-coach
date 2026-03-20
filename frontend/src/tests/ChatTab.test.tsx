@@ -99,7 +99,7 @@ describe('ChatTab', () => {
     it('shows empty state message when no history', async () => {
       renderChatTab()
       await waitFor(() => {
-        expect(screen.getByText(/race goal/i)).toBeTruthy()
+        expect(screen.getByText(/to get started, share/i)).toBeTruthy()
       })
     })
 

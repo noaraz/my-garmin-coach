@@ -250,36 +250,19 @@ describe('CsvImportTab file upload', () => {
 })
 
 // ---------------------------------------------------------------------------
-// PlanCoachPage — tabs
+// PlanCoachPage — no active plan
 // ---------------------------------------------------------------------------
 
 describe('PlanCoachPage', () => {
   beforeEach(() => {
     mockGetActivePlan.mockReset()
     mockGetActivePlan.mockResolvedValue(null)
-    mockGetChatHistory.mockResolvedValue([])
   })
 
-  it('renders Chat tab as default with Import CSV tab also present', async () => {
+  it('shows file input when no active plan', async () => {
     await renderPage()
-    // Chat tab is selected by default
-    const chatTab = screen.getByRole('tab', { name: /chat/i })
-    expect(chatTab).toBeInTheDocument()
-    expect(chatTab).not.toBeDisabled()
-    expect(chatTab.getAttribute('aria-selected')).toBe('true')
-    // Import CSV tab present and not disabled
-    const csvTab = screen.getByRole('tab', { name: /import csv/i })
-    expect(csvTab).toBeInTheDocument()
-    expect(csvTab).not.toBeDisabled()
-  })
-
-  it('shows CsvImportTab content when Import CSV tab is selected', async () => {
-    const user = userEvent.setup()
-    await renderPage()
-    await user.click(screen.getByRole('tab', { name: /import csv/i }))
     await waitFor(() => {
-      const input = document.querySelector('input[type="file"]')
-      expect(input).toBeInTheDocument()
+      expect(document.querySelector('input[type="file"]')).toBeInTheDocument()
     })
   })
 })
@@ -418,15 +401,13 @@ describe('PlanCoachPage with active plan', () => {
   beforeEach(() => {
     mockGetActivePlan.mockReset()
     mockDeletePlan.mockReset()
-    mockGetChatHistory.mockResolvedValue([])
     mockGetActivePlan.mockResolvedValue(activePlan)
   })
 
-  // Helper: render page and navigate to Import CSV tab (Chat is now default)
+  // Helper: render page and return user event instance
   async function renderOnPlanTab() {
     const user = userEvent.setup()
     await renderPage()
-    await user.click(screen.getByRole('tab', { name: /import csv/i }))
     return user
   }
 
@@ -588,7 +569,7 @@ describe('ChatTab', () => {
     mockGetChatHistory.mockResolvedValue([])
     await renderChatTab()
     await waitFor(() => {
-      expect(screen.getByText(/tell me about your race goal/i)).toBeInTheDocument()
+      expect(screen.getByText(/to get started, share/i)).toBeInTheDocument()
     })
   })
 
