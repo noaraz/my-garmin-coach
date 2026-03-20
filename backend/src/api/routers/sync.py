@@ -304,7 +304,7 @@ async def _sync_and_persist(
             )
 
     try:
-        garmin_id: str = sync_service.sync_workout(
+        garmin_id: str = await sync_service.sync_workout(
             resolved_steps=resolved_steps,
             workout_name=workout_name,
             workout_description=workout_description,
@@ -312,10 +312,12 @@ async def _sync_and_persist(
         )
         workout.garmin_workout_id = garmin_id
         workout.sync_status = "synced"
+        session.add(workout)
         return garmin_id
     except Exception as exc:  # noqa: BLE001
         logger.error("Sync failed for workout %s: %s", workout.id, exc, exc_info=True)
         workout.sync_status = "failed"
+        session.add(workout)
         return None
 
 
@@ -408,9 +410,7 @@ async def sync_single(
 
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     await _sync_and_persist(session, sync_service, workout, hr_zone_map, pace_zone_map)
-    session.add(workout)
     await session.commit()
-    await session.refresh(workout)
 
     return SyncSingleResponse(
         id=workout.id,  # type: ignore[arg-type]

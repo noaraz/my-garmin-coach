@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -47,7 +47,7 @@ class TestLogin:
 
 
 class TestPushNew:
-    def test_push_new_returns_garmin_workout_id(
+    async def test_push_new_returns_garmin_workout_id(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange
@@ -56,7 +56,7 @@ class TestPushNew:
         formatted_workout = {"workoutName": "Easy Run", "sportType": {}}
 
         # Act
-        garmin_id = service.push_workout(formatted_workout)
+        garmin_id = await service.push_workout(formatted_workout)
 
         # Assert
         assert garmin_id == "garmin-12345"
@@ -114,7 +114,7 @@ class TestDelete:
 
 
 class TestBulkResync:
-    def test_bulk_resync_pushes_all_five_workouts(
+    async def test_bulk_resync_pushes_all_five_workouts(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange
@@ -126,7 +126,7 @@ class TestBulkResync:
         workouts = [{"workoutName": f"Workout {i}"} for i in range(5)]
 
         # Act
-        ids = service.bulk_resync(workouts)
+        ids = await service.bulk_resync(workouts)
 
         # Assert
         assert len(ids) == 5
@@ -140,7 +140,7 @@ class TestBulkResync:
 
 
 class TestRateLimiting:
-    def test_rate_limiting_retries_on_429_and_succeeds(
+    async def test_rate_limiting_retries_on_429_and_succeeds(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange — first two calls raise a 429-like error, third succeeds
@@ -154,8 +154,8 @@ class TestRateLimiting:
         formatted_workout = {"workoutName": "Tempo Run"}
 
         # Act — patch sleep so the test runs instantly
-        with patch("src.garmin.sync_service.time.sleep"):
-            garmin_id = service.push_workout(formatted_workout)
+        with patch("src.garmin.sync_service.asyncio.sleep", new=AsyncMock()):
+            garmin_id = await service.push_workout(formatted_workout)
 
         # Assert
         assert garmin_id == "garmin-retry"
@@ -168,7 +168,7 @@ class TestRateLimiting:
 
 
 class TestMarksSynced:
-    def test_marks_synced_after_successful_push(
+    async def test_marks_synced_after_successful_push(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange
@@ -177,22 +177,22 @@ class TestMarksSynced:
         formatted_workout = {"workoutName": "Z2 Long Run"}
 
         # Act
-        service.push_workout(formatted_workout)
+        await service.push_workout(formatted_workout)
 
         # Assert
         assert service.last_sync_status == "synced"
 
 
 class TestMarksFailed:
-    def test_marks_failed_after_error(self, mock_garmin_client: MagicMock) -> None:
+    async def test_marks_failed_after_error(self, mock_garmin_client: MagicMock) -> None:
         # Arrange — exhaust all retries
         mock_garmin_client.add_workout.side_effect = Exception("Network error")
         service = GarminSyncService(mock_garmin_client)
 
         # Act
-        with patch("src.garmin.sync_service.time.sleep"):
+        with patch("src.garmin.sync_service.asyncio.sleep", new=AsyncMock()):
             with pytest.raises(Exception):
-                service.push_workout({"workoutName": "Interval"})
+                await service.push_workout({"workoutName": "Interval"})
 
         # Assert
         assert service.last_sync_status == "failed"
@@ -204,7 +204,7 @@ class TestMarksFailed:
 
 
 class TestSkipsCompleted:
-    def test_skips_completed_workout_in_bulk_resync(
+    async def test_skips_completed_workout_in_bulk_resync(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange — second workout is already completed
@@ -217,7 +217,7 @@ class TestSkipsCompleted:
         ]
 
         # Act
-        ids = service.bulk_resync(workouts)
+        ids = await service.bulk_resync(workouts)
 
         # Assert — only 2 non-completed workouts are pushed
         assert mock_garmin_client.add_workout.call_count == 2
@@ -230,12 +230,12 @@ class TestSkipsCompleted:
 
 
 class TestSyncOrchestrator:
-    def test_sync_workout_resolves_formats_pushes_schedules(
+    async def test_sync_workout_resolves_formats_pushes_schedules(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange
         mock_sync_service = MagicMock()
-        mock_sync_service.push_workout.return_value = "garmin-orch-1"
+        mock_sync_service.push_workout = AsyncMock(return_value="garmin-orch-1")
 
         mock_formatter = MagicMock()
         mock_formatter.return_value = {"workoutName": "Easy Run"}
@@ -252,7 +252,7 @@ class TestSyncOrchestrator:
         resolved_steps = [{"step": "raw"}]
 
         # Act
-        garmin_id = orchestrator.sync_workout(
+        garmin_id = await orchestrator.sync_workout(
             resolved_steps=resolved_steps,
             workout_name="Easy Run",
             date="2026-03-10",
@@ -260,22 +260,22 @@ class TestSyncOrchestrator:
 
         # Assert
         assert garmin_id == "garmin-orch-1"
-        mock_sync_service.push_workout.assert_called_once()
+        mock_sync_service.push_workout.assert_awaited_once()
         mock_sync_service.schedule_workout.assert_called_once_with(
             "garmin-orch-1", "2026-03-10"
         )
 
-    def test_resync_all_returns_synced_and_failed_counts(
+    async def test_resync_all_returns_synced_and_failed_counts(
         self, mock_garmin_client: MagicMock
     ) -> None:
         # Arrange
         mock_sync_service = MagicMock()
         # First two succeed, third fails
-        mock_sync_service.push_workout.side_effect = [
+        mock_sync_service.push_workout = AsyncMock(side_effect=[
             "garmin-1",
             "garmin-2",
             Exception("push failed"),
-        ]
+        ])
 
         mock_formatter = MagicMock()
         mock_formatter.return_value = {"workoutName": "Run"}
@@ -295,7 +295,7 @@ class TestSyncOrchestrator:
         ]
 
         # Act
-        result = orchestrator.resync_all(workouts)
+        result = await orchestrator.resync_all(workouts)
 
         # Assert
         assert result["synced"] == 2
