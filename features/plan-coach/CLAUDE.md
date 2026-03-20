@@ -121,6 +121,7 @@ def _compute_diff(
 - No N+1: SWs and templates loaded in 2 queries, looked up from dicts
 - `completed_dates`: only the `date` column loaded (not full ORM objects)
 - Bulk delete via `sqlalchemy.delete(...).where(ScheduledWorkout.id.in_(ids))`
+- **Bulk re-associate kept SWs**: after bulk delete, run `session.execute(update(ScheduledWorkout).where(ScheduledWorkout.id.in_(kept_sw_ids)).values(training_plan_id=plan_id))`. Without this, unchanged/completed_locked rows still reference the superseded plan and `workout_count` queries on the new plan return a lower count than actual.
 - Single commit after all mutations
 
 ### One-Plan Constraint + Atomic Replace
@@ -141,6 +142,12 @@ await session.commit()
 - Injects zones + step format spec + last 4 weeks of GarminActivity (date, type, duration, distance, avg pace)
 - `recent_activities=[]` → section omitted silently
 - Output instruction: emit fenced ` ```json ` block with array of `{ date, name, description, steps_spec, sport_type }`
+
+### Chat Transaction Pattern
+`send_chat_message` must: load existing history → call Gemini → persist user + assistant in one commit. **Never commit the user message before calling Gemini** — a Gemini failure leaves an orphaned user row that corrupts the alternating user/model turn history on the next send.
+
+### Gemini Safety Blocks
+`response.text` raises `ValueError` (not `ClientError`) when Gemini's safety filter blocks a response. `gemini_client.py` must catch both.
 
 ### Plan Detection (Frontend)
 ```typescript
