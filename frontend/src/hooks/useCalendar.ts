@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
 import { toDateString } from '../utils/formatting'
@@ -9,6 +9,9 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState({ start: initialStart, end: initialEnd })
+  // Keep a ref so async callbacks always read the latest range, not a stale closure
+  const rangeRef = useRef(range)
+  useEffect(() => { rangeRef.current = range }, [range])
 
   const loadRange = useCallback((start: Date, end: Date) => {
     setRange({ start, end })
@@ -42,7 +45,10 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
 
   const syncAllWorkouts = async () => {
     await syncAll()
-    const response = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
+    // Use rangeRef (not range closure) so debounced callers always refetch
+    // the range the user is currently viewing, not the range at call-capture time.
+    const current = rangeRef.current
+    const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
     setWorkouts(response.workouts)
     setUnplannedActivities(response.unplanned_activities)
   }
@@ -57,7 +63,8 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     const updated = await unpairActivity(scheduledId)
     setWorkouts(prev => prev.map(w => w.id === scheduledId ? updated : w))
     // Refresh to get the freed activity back into unplanned list
-    const response = await fetchCalendarRange(toDateString(range.start), toDateString(range.end))
+    const current = rangeRef.current
+    const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
     setUnplannedActivities(response.unplanned_activities)
   }
 

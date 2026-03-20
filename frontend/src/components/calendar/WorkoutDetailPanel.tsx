@@ -4,6 +4,95 @@ import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, format
 import { formatDateHeader, formatPace } from '../../utils/formatting'
 import { computeCompliance, type ComplianceLevel } from '../../utils/compliance'
 
+// ---------------------------------------------------------------------------
+// Step rendering helpers
+// ---------------------------------------------------------------------------
+
+interface ParsedStep {
+  type?: 'repeat'
+  duration_sec?: number
+  duration_distance_m?: number
+  zone?: number
+  repeat_count?: number
+  steps?: ParsedStep[]
+}
+
+function formatStep(step: ParsedStep): string {
+  if (step.duration_sec != null) {
+    const mins = step.duration_sec / 60
+    const label = mins >= 1 ? `${mins % 1 === 0 ? mins : mins.toFixed(1)}m` : `${step.duration_sec}s`
+    return `${label} @ Z${step.zone}`
+  }
+  if (step.duration_distance_m != null) {
+    const m = step.duration_distance_m
+    const label = m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`
+    return `${label} @ Z${step.zone}`
+  }
+  return `Z${step.zone}`
+}
+
+function StepList({ steps, indent = 0 }: { steps: ParsedStep[]; indent?: number }) {
+  return (
+    <>
+      {steps.map((step, i) => {
+        if (step.type === 'repeat' && step.steps) {
+          return (
+            <div key={i} style={{ paddingLeft: indent * 12 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+                {step.repeat_count}×
+              </div>
+              <StepList steps={step.steps} indent={indent + 1} />
+            </div>
+          )
+        }
+        return (
+          <div key={i} style={{ paddingLeft: indent * 12, fontSize: '12px', color: 'var(--text-primary)' }}>
+            {formatStep(step)}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function WorkoutSteps({ stepsJson }: { stepsJson: string | null | undefined }) {
+  if (!stepsJson) return null
+  let steps: ParsedStep[]
+  try {
+    steps = JSON.parse(stepsJson)
+  } catch {
+    return null
+  }
+  if (!steps.length) return null
+  return (
+    <div
+      style={{
+        background: 'var(--bg-surface-2)',
+        padding: '12px',
+        borderRadius: '4px',
+        marginBottom: '16px',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '0.05em',
+          color: 'var(--text-muted)',
+          marginBottom: '8px',
+          textTransform: 'uppercase',
+        }}
+      >
+        Workout Steps
+      </div>
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.8, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <StepList steps={steps} />
+      </div>
+    </div>
+  )
+}
+
 interface WorkoutDetailPanelProps {
   workout?: ScheduledWorkoutWithActivity | null
   activity?: GarminActivity | null
@@ -163,41 +252,8 @@ function WorkoutDetailPlanned({
           </div>
         )}
 
-        {/* Description */}
-        {template?.description && (
-          <div
-            style={{
-              background: 'var(--bg-surface-2)',
-              padding: '12px',
-              borderRadius: '4px',
-              marginBottom: '16px',
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                fontSize: '10px',
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                color: 'var(--text-muted)',
-                marginBottom: '6px',
-                textTransform: 'uppercase',
-              }}
-            >
-              Workout Steps
-            </div>
-            <div
-              style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '12px',
-                color: 'var(--text-primary)',
-                lineHeight: 1.6,
-              }}
-            >
-              {template.description}
-            </div>
-          </div>
-        )}
+        {/* Workout Steps (parsed zones) */}
+        <WorkoutSteps stepsJson={template?.steps} />
 
         {/* Sync status */}
         <div
@@ -310,6 +366,19 @@ function WorkoutDetailPlanned({
               </span>
             )}
           </div>
+        {template?.description && (
+            <div
+              style={{
+                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginBottom: '6px',
+                fontStyle: 'italic',
+              }}
+            >
+              {template.description}
+            </div>
+          )}
           <textarea
             value={localNotes}
             onChange={(e) => handleNotesChange(e.target.value)}
