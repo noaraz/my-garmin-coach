@@ -46,6 +46,40 @@ Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 | CalendarPage: fetch active plan name for badges | ✅ |
 | RTL tests (17 new tests, 29 total in PlanCoach.test.tsx) | ✅ |
 
+---
+
+## Current Focus: Status Indicators
+
+Design spec: `docs/superpowers/specs/2026-03-20-garmin-status-indicator-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators.md`
+
+### Status Indicators — Phase 1: Docs ✅
+| Task | Status |
+|------|--------|
+| Update STATUS.md + root CLAUDE.md | ✅ |
+| Create features/status-indicators/ docs | ✅ |
+
+### Status Indicators — Phase 2: Contexts ✅
+| Task | Status |
+|------|--------|
+| GarminStatusContext.tsx | ✅ |
+| ZonesStatusContext.tsx | ✅ |
+
+### Status Indicators — Phase 3: UI ✅
+| Task | Status |
+|------|--------|
+| AppShell: wrap with both providers | ✅ |
+| Sidebar: Garmin row + Zones inline indicator | ✅ |
+| CalendarPage: toolbar button + context + auto-sync migration | ✅ |
+| SettingsPage: call refresh() after connect/disconnect | ✅ |
+| ZoneManager: call refreshZones() after save | ⬜ |
+
+### Status Indicators — Phase 4: Tests ⬜
+| Task | Status |
+|------|--------|
+| Sidebar.test.tsx: new mocks + test cases | ⬜ |
+| Calendar.test.tsx: GarminStatusProvider + new test cases | ⬜ |
+
 ### Plan Coach — Phase 4: Chat (Gemini Flash) `feature/plan-coach-phase-4` ✅
 | Task | Status |
 |------|--------|
