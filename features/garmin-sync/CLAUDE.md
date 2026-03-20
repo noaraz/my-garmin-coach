@@ -63,14 +63,30 @@ also delete it from Garmin Connect. Pattern:
 - Service calls `garmin_deleter(garmin_workout_id)` in a `try/except` (best-effort)
 - Local DB deletion always succeeds regardless of Garmin outcome
 
-## Auto-Sync After Zone Change
+## Auto-Sync After Zone Change (updated 2026-03-20 — fire-and-forget)
 
-`sync_modified_workouts(session, sync_service, current_user)` in `sync.py`:
-- Fetches all workouts with `sync_status in ("modified", "failed")`
-- Re-pushes them with fresh zone maps
-- Wrapped in `try/except` — never blocks the primary response
-- Called after: PUT /zones/hr, POST /zones/hr/recalculate, POST /zones/pace/recalculate,
-  and PUT /profile when `lthr` or `threshold_pace` is in the submitted fields
+Zone-change endpoints use **FastAPI BackgroundTasks** so the response returns immediately:
+
+```python
+background_tasks.add_task(background_sync, current_user.id)
+```
+
+`background_sync(user_id)` in `sync.py`:
+- Opens its own fresh session via `async_session_factory()` (no request-scoped session)
+- Calls `_get_garmin_adapter(current_user=user, session=session)` directly — bypasses DI
+- Self-exits silently if Garmin is not connected (catches `HTTPException`)
+- Calls `sync_modified_workouts` which uses `asyncio.gather()` for parallel per-workout Garmin calls
+
+`_get_zone_maps` uses `asyncio.gather()` to fetch HR + pace zones concurrently (Neon optimization).
+
+Endpoints using `background_sync`: PUT /zones/hr, POST /zones/hr/recalculate,
+POST /zones/pace/recalculate, PUT /profile (only when `lthr` or `threshold_pace` changes).
+
+**SQLite dev note**: background task + immediate next request can contend on the SQLite writer lock.
+Not an issue on Neon PostgreSQL. Gaps of ≥1s between requests avoid it locally.
+
+**`_get_garmin_adapter` is DI-bypassable** — it's a plain async function; call directly with
+`current_user=user, session=session` from background tasks or scripts outside FastAPI context.
 
 ## Fixie Proxy for Garmin OAuth (production only)
 

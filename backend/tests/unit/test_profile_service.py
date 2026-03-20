@@ -118,6 +118,18 @@ class TestGetOrCreateSingleton:
 # ---------------------------------------------------------------------------
 
 
+def _patch_repo(profile: AthleteProfile):
+    """Patch profile_repository.get_by_user_id to return the given profile.
+
+    update() fetches directly from the DB (not cache) so the ORM object is
+    session-attached. Tests must mock get_by_user_id, not service.get_or_create.
+    """
+    from unittest.mock import patch as _patch
+    mock_repo = MagicMock()
+    mock_repo.get_by_user_id = AsyncMock(return_value=profile)
+    return _patch("src.services.profile_service.profile_repository", mock_repo)
+
+
 class TestUpdate:
     async def test_update_changes_field_and_commits(self) -> None:
         # Arrange
@@ -125,7 +137,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Old Name", max_hr=180, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             # Act
             result = await service.update(
                 mock_session, {"name": "New Name", "max_hr": 190}, user_id=1
@@ -136,7 +148,7 @@ class TestUpdate:
         assert result.max_hr == 190
         mock_session.add.assert_called()
         mock_session.commit.assert_awaited_once()
-        mock_session.refresh.assert_awaited_once()
+        # session.refresh() removed — in-memory object already reflects committed state
 
     async def test_update_ignores_none_values(self) -> None:
         # Arrange
@@ -144,7 +156,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Runner", max_hr=180, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             # Act
             await service.update(
                 mock_session, {"name": None, "max_hr": 190}, user_id=1
@@ -160,7 +172,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Runner", max_hr=180, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             with patch(
                 "src.services.zone_service.zone_service"
             ) as mock_zone_service:
@@ -179,7 +191,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Runner", lthr=155, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             with patch(
                 "src.services.zone_service.zone_service"
             ) as mock_zone_service:
@@ -201,7 +213,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Runner", threshold_pace=280.0, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             with patch(
                 "src.services.zone_service.zone_service"
             ) as mock_zone_service:
@@ -225,7 +237,7 @@ class TestUpdate:
         profile = AthleteProfile(id=1, name="Runner", lthr=None, user_id=1)
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             with patch(
                 "src.services.zone_service.zone_service"
             ) as mock_zone_service:
@@ -247,7 +259,7 @@ class TestUpdate:
         )
         mock_session = _make_session()
 
-        with patch.object(service, "get_or_create", AsyncMock(return_value=profile)):
+        with _patch_repo(profile):
             with patch(
                 "src.services.zone_service.zone_service"
             ) as mock_zone_service:

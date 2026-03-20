@@ -49,6 +49,46 @@ App is served on http://localhost (port 80). The frontend (nginx) proxies `/api/
 
 ---
 
+## Training Zones — Reference Inputs
+
+When setting up the Zone Manager for the first time, use these reference values based on your fitness level.
+
+Zones are calculated using the **Friel method** (% of LTHR) for HR, and **Daniels-style** (% of threshold speed) for pace.
+
+### Average runner
+
+| Input | Value |
+|-------|-------|
+| LTHR | 160 bpm |
+| Threshold Pace | 330 sec/km (5:30/km) |
+
+| Zone | BPM | Pace |
+|------|-----|------|
+| Z1 Easy | 0–130 | 6:58–7:51 /km |
+| Z2 Moderate | 131–142 | 6:19–6:53 /km |
+| Z3 Tempo | 143–149 | 5:47–6:15 /km |
+| Z4 Threshold | 150–158 | 5:20–5:44 /km |
+| Z5 Interval | 160–176 | 4:47–5:17 /km |
+
+### Less fit / returning runner
+
+| Input | Value |
+|-------|-------|
+| LTHR | 150 bpm |
+| Threshold Pace | 390 sec/km (6:30/km) |
+
+| Zone | BPM | Pace |
+|------|-----|------|
+| Z1 Easy | 0–122 | 8:14–9:17 /km |
+| Z2 Moderate | 123–134 | 7:28–8:08 /km |
+| Z3 Tempo | 135–140 | 6:51–7:23 /km |
+| Z4 Threshold | 141–149 | 6:19–6:46 /km |
+| Z5 Interval | 150–165 | 5:39–6:15 /km |
+
+To find your actual values: run 30 min all-out — LTHR ≈ average HR of the last 20 min, threshold pace ≈ average pace of the full effort. Or use your recent 10K race data.
+
+---
+
 ### Render
 
 Render uses `render.yaml` at the repo root. It provisions the web service and auto-generates secrets.

@@ -44,6 +44,8 @@ Zone 5 (Interval):  104-115%
 
 **API routes**: `GET/PUT /api/v1/zones/hr`, `GET/PUT /api/v1/zones/pace`, `POST /api/v1/zones/hr/recalculate`, `POST /api/v1/zones/pace/recalculate`
 
+**Recalculate endpoints return immediately** — Garmin re-sync is fire-and-forget via `BackgroundTasks`. The response reflects the newly computed zones; the Garmin push happens in the background and does not block the response.
+
 ## Gotchas
 
 - **Pace direction**: Slower pace = HIGHER sec/km. Zone 1 (recovery) has
