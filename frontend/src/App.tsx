@@ -9,6 +9,7 @@ import { ZonesPage } from './pages/ZonesPage'
 import { BuilderPage } from './pages/BuilderPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { PlanCoachPage } from './pages/PlanCoachPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SetupPage } from './pages/SetupPage'
@@ -66,6 +67,18 @@ function App() {
                   <ErrorBoundary>
                     <AppShell>
                       <LibraryPage />
+                    </AppShell>
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/plan-coach"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <AppShell>
+                      <PlanCoachPage />
                     </AppShell>
                   </ErrorBoundary>
                 </ProtectedRoute>

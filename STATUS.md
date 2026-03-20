@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-20 (Plan Coach — Phase 1 backend)
+Last updated: 2026-03-20 (Plan Coach — Phase 2 CSV Import UI)
 
 ## Current Focus: Plan Coach
 
@@ -27,14 +27,14 @@ Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 | Unit tests: test_plan_step_parser.py (32 tests) | ✅ |
 | Integration tests: test_api_plans.py (19 tests) | ✅ |
 
-### Plan Coach — Phase 2: CSV Import UI `feature/plan-coach-phase-2`
+### Plan Coach — Phase 2: CSV Import UI `feature/plan-coach-phase-2` ✅
 | Task | Status |
 |------|--------|
-| PlanCoachPage.tsx + /plan-coach route | ⬜ |
-| CsvImportTab.tsx + ValidationTable.tsx + LlmPromptTemplate.tsx | ⬜ |
-| API client functions + types | ⬜ |
-| Sidebar nav item | ⬜ |
-| RTL tests | ⬜ |
+| PlanCoachPage.tsx + /plan-coach route | ✅ |
+| CsvImportTab.tsx + ValidationTable.tsx + LlmPromptTemplate.tsx | ✅ |
+| API client functions + types | ✅ |
+| Sidebar nav item | ✅ |
+| RTL tests | ✅ |
 
 ### Plan Coach — Phase 3: Active Plan View + Re-import Diff `feature/plan-coach-phase-3`
 | Task | Status |

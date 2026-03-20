@@ -9,6 +9,7 @@ import type {
   GarminStatusResponse,
   BootstrapResponse,
   TokenResponse,
+  ValidateResult, CommitResult, ActivePlan, PlanWorkoutInput,
 } from './types'
 
 const BASE = '/api/v1'
@@ -39,11 +40,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let message: string
     try {
-      const body = await res.json() as { detail?: string | Array<{ msg: string }> }
+      const body = await res.json() as { detail?: string | Array<{ msg: string }> | unknown }
       if (Array.isArray(body.detail)) {
         message = body.detail.map(e => e.msg).join(', ')
+      } else if (typeof body.detail === 'string') {
+        message = body.detail
       } else {
-        message = body.detail ?? JSON.stringify(body)
+        message = JSON.stringify(body.detail ?? body)
       }
     } catch {
       message = await res.text()
@@ -146,3 +149,19 @@ export const resetAdmins = (setupToken: string) =>
     method: 'POST',
     body: JSON.stringify({ setup_token: setupToken }),
   })
+
+// Plan Coach
+export const validatePlan = (name: string, workouts: PlanWorkoutInput[]) =>
+  request<ValidateResult>('/plans/validate', {
+    method: 'POST',
+    body: JSON.stringify({ name, source: 'csv', workouts }),
+  })
+
+export const commitPlan = (planId: number) =>
+  request<CommitResult>(`/plans/${planId}/commit`, { method: 'POST' })
+
+export const getActivePlan = () =>
+  request<ActivePlan | null>('/plans/active')
+
+export const deletePlan = (planId: number) =>
+  request<void>(`/plans/${planId}`, { method: 'DELETE' })
