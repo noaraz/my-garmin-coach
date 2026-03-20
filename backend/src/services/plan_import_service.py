@@ -247,7 +247,15 @@ async def validate_plan(
     active = await get_active_plan(session, user_id)
     if active and active.parsed_workouts:
         active_parsed = json.loads(active.parsed_workouts)
-        diff = _compute_diff(parsed_list, active_parsed)
+        # Fetch completed dates — single query, date column only (no full ORM objects)
+        completed_result = await session.exec(
+            select(ScheduledWorkout.date).where(
+                ScheduledWorkout.training_plan_id == active.id,
+                ScheduledWorkout.matched_activity_id.isnot(None),  # type: ignore[union-attr]
+            )
+        )
+        completed_dates = {str(row) for row in completed_result.all()}
+        diff = _compute_diff(parsed_list, active_parsed, completed_dates)
 
     # Determine start_date from the earliest workout date
     from datetime import date as date_type
