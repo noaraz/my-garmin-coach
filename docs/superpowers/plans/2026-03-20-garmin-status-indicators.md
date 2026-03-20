@@ -16,6 +16,7 @@
 
 **Files:**
 - Modify: `STATUS.md`
+- Modify: `PLAN.md`
 - Modify: `CLAUDE.md`
 - Create: `features/status-indicators/PLAN.md`
 - Create: `features/status-indicators/CLAUDE.md`
