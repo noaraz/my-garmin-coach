@@ -218,6 +218,16 @@ Project slash commands in `.claude/commands/`:
 
 ## Docker + Dev Environment Gotchas (added 2026-03-17)
 
+### Local API testing — JWT token generation
+Generate a valid token without Google OAuth (container must be running):
+```bash
+docker compose exec backend python3 -c "
+from src.auth.jwt import create_access_token
+print(create_access_token(user_id=1, email='your@email.com', is_admin=True))
+"
+```
+Use with `curl -H "Authorization: Bearer <token>"`. Token expires per `ACCESS_TOKEN_EXPIRE_MINUTES`.
+
 ### macOS bind-mount sync issue
 `./backend/tests:/app/tests` volume mounts don't always reflect local file changes immediately
 inside running containers on macOS. If tests still run old code after editing, force-sync with:
@@ -558,6 +568,9 @@ Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Fol
 - **No N+1 queries.** When loading related entities in a loop, batch-load with `SELECT ... WHERE id IN (...)` first, then look up from a dict. Never call `session.get()` inside a loop.
 - **Bulk operations.** Use `sqlalchemy.delete()` for multi-row deletes, not fetch-then-delete-each. Use `session.execute()` (not `session.exec()`) for non-SELECT statements (`delete()`, `update()`).
 - **Batch commits.** Call `session.add()` multiple times, then a single `session.commit()`. Never commit inside loops.
+- **Parallel independent queries.** Use `asyncio.gather()` for independent DB reads in the same request. Example: fetching HR zones + pace zones concurrently instead of sequentially. See `features/garmin-sync/CLAUDE.md` for the pattern used in `_get_zone_maps`.
+- **Never hold a session open during external API calls.** Garmin API calls take 1-2s each. Committing DB writes before starting external calls frees the connection pool. For zone-change sync, the entire Garmin sync is now a `BackgroundTask` — see `features/garmin-sync/CLAUDE.md` for the `background_sync` pattern.
+- **`session.refresh()` after commit is a wasted round-trip.** The in-memory object already reflects the committed state. Remove it.
 - **Cache-aware writes.** Any service that writes to a cached entity must call `cache.invalidate()` after commit. Cached entities: User, AthleteProfile, HRZone, PaceZone. Cache module: `backend/src/core/cache.py`.
 - **Cache as dicts, not ORM objects.** SQLAlchemy ORM objects are bound to a session — caching them causes `DetachedInstanceError` on the next request. Serialize to a plain dict before `cache.set()`, reconstruct with `Model(**dict)` on hit. See `auth/dependencies.py` (User) and `services/profile_service.py` (AthleteProfile).
 - **Don't cache on write paths.** After creating/updating, call `cache.invalidate()` — don't `cache.set()`. Let the next read populate. Bulk deletes (e.g. `reset_admins`) must call `cache.clear()` after commit.

@@ -124,6 +124,13 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] Add `FIXIE_URL` to `docker-compose.prod.yml`
 - Garmin rate-limits OAuth from Render's shared datacenter IPs (429). Fixie free tier (500 req/mo) provides a dedicated static IP for the login call only.
 
+### Performance: Fire-and-Forget + Parallelization (2026-03-20)
+- [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
+- [x] Zone/profile endpoints (`PUT /zones/hr`, `POST /zones/hr/recalculate`, `POST /zones/pace/recalculate`, `PUT /profile`) use `background_tasks.add_task(background_sync, ...)` — response returns in <100ms
+- [x] `_get_zone_maps` parallelized with `asyncio.gather` (HR + pace zones fetched concurrently)
+- [x] `sync_modified_workouts` loop parallelized with `asyncio.gather` — O(~1-2s) regardless of workout count
+- [x] Removed `session.refresh()` after commit in `profile_service.update()` (wasted round-trip)
+
 ---
 
 ## Implementation Files

@@ -36,7 +36,7 @@ class SyncOrchestrator:
     # Single-workout sync
     # ------------------------------------------------------------------
 
-    def sync_workout(
+    async def sync_workout(
         self,
         resolved_steps: list[Any],
         workout_name: str,
@@ -55,7 +55,7 @@ class SyncOrchestrator:
             The Garmin workout ID assigned after the push.
         """
         formatted = self._formatter(workout_name, resolved_steps, workout_description)
-        garmin_id: str = self._sync_service.push_workout(formatted)
+        garmin_id: str = await self._sync_service.push_workout(formatted)
         self._sync_service.schedule_workout(garmin_id, date)
         return garmin_id
 
@@ -67,7 +67,7 @@ class SyncOrchestrator:
     # Bulk resync
     # ------------------------------------------------------------------
 
-    def resync_all(self, workouts: list[dict[str, Any]]) -> dict[str, int]:
+    async def resync_all(self, workouts: list[dict[str, Any]]) -> dict[str, int]:
         """Push and schedule every workout in *workouts*.
 
         Each element of *workouts* is expected to have at least:
@@ -89,7 +89,7 @@ class SyncOrchestrator:
                     workout.get("steps", []),
                     workout.get("description", ""),
                 )
-                garmin_id: str = self._sync_service.push_workout(formatted)
+                garmin_id: str = await self._sync_service.push_workout(formatted)
                 date = workout.get("date", "")
                 if date:
                     self._sync_service.schedule_workout(garmin_id, date)

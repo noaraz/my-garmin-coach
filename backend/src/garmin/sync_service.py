@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+import asyncio
 from typing import Any
 
 from src.garmin.exceptions import GarminAuthError
@@ -53,7 +53,7 @@ class GarminSyncService:
     # Core CRUD operations
     # ------------------------------------------------------------------
 
-    def push_workout(self, formatted_workout: dict[str, Any]) -> str:
+    async def push_workout(self, formatted_workout: dict[str, Any]) -> str:
         """Upload a new workout to Garmin Connect.
 
         Returns:
@@ -62,7 +62,7 @@ class GarminSyncService:
         Raises:
             Exception: after _MAX_RETRIES failed attempts.
         """
-        result = self._call_with_retry(
+        result = await self._call_with_retry(
             self._client.add_workout, formatted_workout
         )
         return str(result["workoutId"])
@@ -85,7 +85,7 @@ class GarminSyncService:
     # Bulk operations
     # ------------------------------------------------------------------
 
-    def bulk_resync(self, workouts: list[dict[str, Any]]) -> list[str]:
+    async def bulk_resync(self, workouts: list[dict[str, Any]]) -> list[str]:
         """Push multiple workouts, skipping any that are already completed.
 
         Args:
@@ -99,7 +99,7 @@ class GarminSyncService:
         for workout in workouts:
             if workout.get("completed", False):
                 continue
-            garmin_id = self.push_workout(workout)
+            garmin_id = await self.push_workout(workout)
             ids.append(garmin_id)
         return ids
 
@@ -107,7 +107,7 @@ class GarminSyncService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _call_with_retry(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
+    async def _call_with_retry(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
         """Call *fn* with retry / exponential backoff on rate-limit errors.
 
         Sets ``self.last_sync_status`` to "synced" on success or "failed"
@@ -127,7 +127,7 @@ class GarminSyncService:
             except Exception as exc:
                 last_exc = exc
                 if attempt < _MAX_RETRIES - 1:
-                    time.sleep(backoff)
+                    await asyncio.sleep(backoff)
                     backoff *= 2
 
         self.last_sync_status = "failed"

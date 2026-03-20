@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import date, datetime, timezone
@@ -117,11 +118,41 @@ async def sync_modified_workouts(
             session, ("modified", "failed"), current_user.id
         )
         templates = await _preload_templates(session, workouts)
-        for w in workouts:
-            await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
+        await asyncio.gather(*[
+            _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
+            for w in workouts
+        ])
         await session.commit()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Auto-sync after zone change failed (continuing): %s", exc)
+
+
+async def background_sync(user_id: int) -> None:
+    """Fire-and-forget: open a fresh session, rebuild the Garmin service, and sync.
+
+    Intended for use with FastAPI BackgroundTasks so zone-change endpoints can
+    return immediately while Garmin sync happens after the response is sent.
+    Self-exits silently when Garmin is not connected.
+    """
+    try:
+        from src.db.database import async_session_factory  # avoid circular import at module level
+
+        async with async_session_factory() as session:
+            user = await session.get(User, user_id)
+            if user is None:
+                return
+            try:
+                adapter = await _get_garmin_adapter(current_user=user, session=session)
+            except HTTPException:
+                return  # Garmin not connected — nothing to do
+            orchestrator = SyncOrchestrator(
+                sync_service=GarminSyncService(adapter),
+                formatter=format_workout,
+                resolver=lambda steps, **_: steps,
+            )
+            await sync_modified_workouts(session, orchestrator, user)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Background sync failed (user_id=%s): %s", user_id, exc)
 
 
 async def get_optional_garmin_sync_service(
@@ -184,8 +215,10 @@ async def _get_zone_maps(
     ).first()
     if profile is None:
         return {}, {}
-    hr_zones = await hr_zone_repository.get_by_profile(session, profile.id)
-    pace_zones = await pace_zone_repository.get_by_profile(session, profile.id)
+    hr_zones, pace_zones = await asyncio.gather(
+        hr_zone_repository.get_by_profile(session, profile.id),
+        pace_zone_repository.get_by_profile(session, profile.id),
+    )
     return (
         {z.zone_number: (z.lower_bpm, z.upper_bpm) for z in hr_zones},
         {z.zone_number: (z.lower_pace, z.upper_pace) for z in pace_zones},
@@ -271,7 +304,7 @@ async def _sync_and_persist(
             )
 
     try:
-        garmin_id: str = sync_service.sync_workout(
+        garmin_id: str = await sync_service.sync_workout(
             resolved_steps=resolved_steps,
             workout_name=workout_name,
             workout_description=workout_description,
@@ -279,10 +312,12 @@ async def _sync_and_persist(
         )
         workout.garmin_workout_id = garmin_id
         workout.sync_status = "synced"
+        session.add(workout)
         return garmin_id
     except Exception as exc:  # noqa: BLE001
         logger.error("Sync failed for workout %s: %s", workout.id, exc, exc_info=True)
         workout.sync_status = "failed"
+        session.add(workout)
         return None
 
 
@@ -375,9 +410,7 @@ async def sync_single(
 
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     await _sync_and_persist(session, sync_service, workout, hr_zone_map, pace_zone_map)
-    session.add(workout)
     await session.commit()
-    await session.refresh(workout)
 
     return SyncSingleResponse(
         id=workout.id,  # type: ignore[arg-type]

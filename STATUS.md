@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-20 (Plan Coach — Phase 3 Active Plan View + Re-import Diff)
+Last updated: 2026-03-20 (Fire-and-forget Garmin sync + Neon query optimizations)
 
 ## Current Focus: Plan Coach
 
@@ -46,14 +46,22 @@ Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 | CalendarPage: fetch active plan name for badges | ✅ |
 | RTL tests (17 new tests, 29 total in PlanCoach.test.tsx) | ✅ |
 
-### Plan Coach — Phase 4: Chat (Gemini Flash) `feature/plan-coach-phase-4`
+### Plan Coach — Phase 4: Chat (Gemini Flash) `feature/plan-coach-phase-4` ✅
 | Task | Status |
 |------|--------|
-| PlanCoachMessage model + alembic migration | ⬜ |
-| gemini_client.py + plan_coach_service.py | ⬜ |
-| Chat API endpoints (history + message) | ⬜ |
-| ChatTab.tsx (thread, plan detection, validate/commit flow) | ⬜ |
-| Unit + integration + RTL tests | ⬜ |
+| PlanCoachMessage model + alembic migration | ✅ |
+| gemini_client.py + plan_coach_service.py | ✅ |
+| Chat API endpoints (history + message) | ✅ |
+| ChatTab.tsx (thread, plan detection, validate/commit flow) | ✅ |
+| Unit + integration + RTL tests | ✅ |
+
+### Plan Coach — Phase 4b: Prompt Builder (replaces Chat tab) `feature/plan-coach-phase-4`
+| Task | Status |
+|------|--------|
+| Hide Chat tab — PlanCoachPage simplified to CSV-only flow | ✅ |
+| PlanPromptBuilder.tsx — form-driven prompt generator | ✅ |
+| CsvImportTab uses PlanPromptBuilder instead of LlmPromptTemplate | ✅ |
+| Prompt includes "output CSV only, no markdown" instruction | ✅ |
 
 ### Workout Detail Panel (previous focus) ✅
 | Task | Status |
@@ -223,6 +231,7 @@ Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 | Post-ship: vite proxy localhost fallback for outside-Docker dev | ✅ |
 | Post-ship: Garmin delete-on-unschedule (optional dep pattern) | ✅ |
 | Post-ship: Zone/profile change → auto re-sync modified Garmin workouts | ✅ |
+| Post-ship: Fire-and-forget Garmin sync (BackgroundTasks + asyncio.gather) — zone/profile endpoints now return <100ms | ✅ |
 | Post-ship: Cascade date filter fix (get_all_incomplete, user_id on ScheduledWorkout) | ✅ |
 | Post-ship: Calendar workout card click → navigate to /builder?id= | ✅ |
 | Post-ship: workout_description forwarded through formatter → Garmin payload | ✅ |

@@ -57,7 +57,15 @@ class ProfileService:
         self, session: AsyncSession, data: dict, user_id: int | None = None
     ) -> AthleteProfile:
         """Update the profile for the given user_id (or singleton) with the provided fields."""
-        profile = await self.get_or_create(session, user_id=user_id)
+        # Always fetch from DB (not cache) so the object is attached to this session.
+        # A cache-reconstructed AthleteProfile is detached and session.add() would INSERT.
+        if user_id is not None:
+            profile = await profile_repository.get_by_user_id(session, user_id)
+        else:
+            profile = await profile_repository.get_singleton(session)
+        if profile is None:
+            profile = AthleteProfile(name="Athlete", user_id=user_id)
+            profile = await profile_repository.create(session, profile)
 
         changed_fields: set[str] = set()
         for key, value in data.items():
@@ -70,7 +78,6 @@ class ProfileService:
         profile.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(profile)
         await session.commit()
-        await session.refresh(profile)
 
         # Invalidate cache after profile update
         if user_id is not None:

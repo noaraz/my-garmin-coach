@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from datetime import date
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -25,7 +25,8 @@ from src.db.models import ScheduledWorkout
 def mock_sync_service_fixture() -> MagicMock:
     """Return a MagicMock that stands in for SyncOrchestrator."""
     svc = MagicMock()
-    svc.push_workout.return_value = "garmin-abc-123"
+    svc.push_workout = AsyncMock(return_value="garmin-abc-123")
+    svc.sync_workout = AsyncMock(return_value="garmin-abc-123")
     svc.schedule_workout.return_value = None
     return svc
 
