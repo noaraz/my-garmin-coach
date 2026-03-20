@@ -96,10 +96,12 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | — | Fixie Proxy | `features/infrastructure/` | — | ✅ |
 | — | Neon Query Optimization | — | neon-postgresql | ✅ |
 | 9 | Activity Fetch | `features/garmin-activity-fetch/` | garmin-sync, calendar | 🟡 |
+| 10 | Workout Detail Panel | `features/calendar/` | calendar, garmin-activity-fetch | ⬜ |
 
 Features 2–4 are pure logic with zero I/O. Feature 5 adds persistence.
 Features 6–7 are frontend. Feature 8 is auth. Deploy after auth.
 Feature 9 adds bidirectional Garmin sync with compliance tracking.
+Feature 10 adds a slide-out Quick View panel for workout/activity details.
 
 ---
 
@@ -129,6 +131,15 @@ The core value — what TrainingPeaks does that we're replicating:
    - Grey: unplanned activity (no scheduled workout)
    - Muted: missed (past-date scheduled workout, no activity)
 4. Users can manually pair/unpair to correct mismatches
+```
+
+### 3. Workout Detail Panel (Feature 10)
+
+```
+1. Click any card on calendar → slide-out Quick View panel from right
+2. Three states: Planned (actions: reschedule, edit, remove), Completed (compliance comparison, unpair), Unplanned (read-only metrics)
+3. Notes field with debounced auto-save
+4. Panel uses already-loaded CalendarResponse data — zero additional DB queries
 ```
 
 ---
