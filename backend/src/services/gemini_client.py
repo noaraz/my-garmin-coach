@@ -1,7 +1,9 @@
-"""Thin wrapper over google-generativeai for Plan Coach chat."""
+"""Thin wrapper over google-genai for Plan Coach chat."""
 from __future__ import annotations
 
-import google.generativeai as genai  # noqa: F401 — migrate to google-genai>=1.0 on next image rebuild
+from google import genai
+from google.genai import errors as genai_errors
+from google.genai import types
 
 from src.core.config import get_settings
 
@@ -22,28 +24,35 @@ def chat_completion(
         The assistant reply text.
 
     Raises:
-        RuntimeError: If GEMINI_API_KEY is not configured.
+        RuntimeError: If GEMINI_API_KEY is not configured or the API returns an error.
     """
     settings = get_settings()
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
 
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=system_prompt,
-    )
+    client = genai.Client(api_key=settings.gemini_api_key)
 
     # All messages except the final user turn become history
-    gemini_history = [
-        {
-            "role": "model" if m["role"] == "assistant" else "user",
-            "parts": [m["content"]],
-        }
+    history = [
+        types.Content(
+            role="model" if m["role"] == "assistant" else "user",
+            parts=[types.Part(text=m["content"])],
+        )
         for m in messages[:-1]
     ]
 
-    chat = model.start_chat(history=gemini_history)
+    chat = client.chats.create(
+        model="gemini-2.0-flash-lite",
+        history=history,
+        config=types.GenerateContentConfig(system_instruction=system_prompt),
+    )
     last_content = messages[-1]["content"] if messages else ""
-    response = chat.send_message(last_content)
+    try:
+        response = chat.send_message(last_content)
+    except genai_errors.ClientError as exc:
+        if exc.status_code == 429:
+            raise RuntimeError(
+                "Gemini API quota exceeded. Please try again later or upgrade your plan."
+            ) from exc
+        raise RuntimeError(f"Gemini API error ({exc.status_code})") from exc
     return response.text
