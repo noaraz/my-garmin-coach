@@ -25,3 +25,12 @@
 - Mock `garminconnect.Garmin.get_activities_by_date` in unit tests
 - Integration tests use in-memory SQLite by default
 - Frontend: `mockResolvedValue` (not `Once`) due to StrictMode double-fire
+
+## Workout Detail Panel (cross-reference)
+
+The detail panel displays activity data fetched by this feature:
+- **Completed state**: Shows compliance badge + planned vs actual comparison using `computeCompliance()`
+- **Unplanned state**: Shows activity metrics (duration, distance, pace, HR, calories)
+- **Unpair action**: Calls existing `POST /calendar/{id}/unpair` endpoint
+- **Panel design spec**: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
+- **Implementation lives in**: `features/calendar/` (panel is a calendar sub-feature)
