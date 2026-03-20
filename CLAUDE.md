@@ -105,7 +105,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Infrastructure | `features/infrastructure/` | Docker Compose, Render deployment, project scaffolding |
 | Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
 | Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
-| Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline |
+| Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline; smart merge (keep unchanged + completed workouts on re-import) |
 | Status Indicators | `features/status-indicators/` | Garmin connection dot + Zones "Not set" inline warning in sidebar; Garmin toolbar button on CalendarPage |
 
 ---
