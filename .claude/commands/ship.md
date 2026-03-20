@@ -121,27 +121,46 @@ Before creating the PR, ask the user:
 - If **yes**: append ` [Render Preview]` to the PR title and add a placeholder `## Preview` section to the body (the real URL comes after Render deploys — see below)
 - If **no**: create the PR without the tag or preview section
 
-### Fetch Render Preview URL (if Render Preview was chosen)
+### Fetch Render Preview URL and Check Deployment (if Render Preview was chosen)
 
-After the PR is created and pushed, Render auto-deploys a preview environment. Poll for the preview URL:
+After the PR is created and pushed, Render auto-deploys a preview environment via the GitHub Deployments API.
+
+**Step 1 — Get preview URL and deployment state:**
 
 ```bash
 # Get the latest deployment ID for this PR
 DEPLOY_ID=$(gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id')
 
-# Fetch the environment_url from the deployment status (may take 1-2 minutes after push)
-PREVIEW_URL=$(gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" -q '.[0].environment_url')
+# Fetch state, URL, and log link from the deployment status
+gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" \
+  -q '.[0] | {state, environment_url, log_url}'
 ```
 
-If `PREVIEW_URL` is non-empty, update the PR body to include it:
+**Step 2 — Interpret the deployment state:**
+
+| State | Meaning | Action |
+|-------|---------|--------|
+| `success` | Deployed and running | Add preview URL to PR body |
+| `in_progress` | Still building | Wait ~2 min, re-check |
+| `inactive` | Deployed but spun down (free tier idle) | Add preview URL — it will wake on first request (~30s) |
+| `failure` | Build or startup crashed | **Investigate.** Check the `log_url` in the Render dashboard. Common causes: missing env vars, failed alembic migration, import errors. Ask user to share the Render log output so you can diagnose. |
+| `error` | Render infra issue | Retry or check Render status page |
+
+**Step 3 — Update PR body with the real preview URL:**
 
 ```bash
-# Edit the PR body to replace the placeholder with the real preview URL
+PREVIEW_URL=$(gh api "repos/noaraz/my-garmin-coach/deployments/${DEPLOY_ID}/statuses" -q '.[0].environment_url')
 gh pr edit <PR_NUMBER> --body "...## Preview\n🔗 **[Render Preview](${PREVIEW_URL})**\n..."
 ```
 
-The preview URL follows the pattern `https://<service-name>-pr-<number>.onrender.com`.
-If the deployment isn't ready yet, tell the user and move on — the URL will appear in the GitHub deployment status automatically.
+**Step 4 — If deployment failed:**
+
+Tell the user the deployment failed and provide the Render dashboard log link. Common failures on preview deploys:
+- **Missing env vars**: Preview instances don't inherit all env vars from the main service. Check `DATABASE_URL`, `GARMINCOACH_SECRET_KEY`, `GOOGLE_CLIENT_ID` are set in Render's preview env config.
+- **Alembic migration failure**: New migration may fail on a fresh DB or with schema drift. Check the `alembic upgrade head` output in the log.
+- **Import/syntax error**: A Python import that works locally but breaks in the Docker build (missing dependency, wrong path).
+
+Ask the user to paste the relevant log lines so you can fix the root cause.
 
 ### Create the PR
 
