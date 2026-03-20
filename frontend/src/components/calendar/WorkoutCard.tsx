@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { ScheduledWorkoutWithActivity, WorkoutTemplate, SyncStatus, GarminActivity } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 import { computeCompliance } from '../../utils/compliance'
@@ -8,7 +7,9 @@ interface WorkoutCardProps {
   workout: ScheduledWorkoutWithActivity
   template: WorkoutTemplate | undefined
   onRemove: (id: number) => void
+  onCardClick?: (workout: ScheduledWorkoutWithActivity) => void
   displayName?: string
+  compact?: boolean
 }
 
 function syncStatusClass(status: SyncStatus): string {
@@ -51,9 +52,8 @@ function getComplianceStripeColor(
 }
 
 
-export function WorkoutCard({ workout, template, onRemove, displayName }: WorkoutCardProps) {
+export function WorkoutCard({ workout, template, onRemove, onCardClick, displayName, compact }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
-  const navigate = useNavigate()
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
@@ -64,8 +64,8 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
   const stripeColor = complianceColor ?? zoneStripeColor(template?.sport_type)
 
   const handleCardClick = () => {
-    if (workout.workout_template_id != null) {
-      navigate(`/builder?id=${workout.workout_template_id}`)
+    if (onCardClick) {
+      onCardClick(workout)
     }
   }
 
@@ -77,25 +77,25 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         display: 'flex',
         alignItems: 'stretch',
         background: 'var(--card-bg)',
-        borderRadius: '5px',
+        borderRadius: compact ? '3px' : '5px',
         border: '1px solid var(--border)',
         userSelect: 'none',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+        boxShadow: compact ? 'none' : '0 1px 3px rgba(0,0,0,0.12)',
         overflow: 'hidden',
-        cursor: workout.workout_template_id != null ? 'pointer' : 'default',
+        cursor: onCardClick ? 'pointer' : 'default',
       }}
       data-testid="workout-card"
     >
       {/* Left compliance/zone stripe */}
-      <div style={{ width: '4px', background: stripeColor, flexShrink: 0 }} />
+      <div style={{ width: compact ? '3px' : '4px', background: stripeColor, flexShrink: 0 }} />
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0, padding: '8px 0 8px 8px' }}>
+      <div style={{ flex: 1, minWidth: 0, padding: compact ? '3px 4px' : '8px 0 8px 8px' }}>
 
         {/* Workout name */}
         <div style={{
           fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-          fontSize: '14px',
+          fontSize: compact ? '10px' : '14px',
           fontWeight: 600,
           letterSpacing: '0.02em',
           color: 'var(--text-primary)',
@@ -112,14 +112,14 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           <div style={{
             display: 'flex',
             alignItems: 'baseline',
-            gap: '8px',
-            marginTop: '4px',
+            gap: compact ? '4px' : '8px',
+            marginTop: compact ? '1px' : '4px',
             flexWrap: 'wrap',
           }}>
             {hasDuration && (
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '13px',
+                fontSize: compact ? '9px' : '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
                 lineHeight: 1,
@@ -130,7 +130,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
             {hasDistance && (
               <span style={{
                 fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '12px',
+                fontSize: compact ? '9px' : '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
                 lineHeight: 1,
@@ -142,7 +142,7 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         )}
 
         {/* Actual activity data when matched */}
-        {workout.activity && (
+        {workout.activity && !compact && (
           <div style={{
             display: 'flex',
             alignItems: 'baseline',
@@ -179,8 +179,8 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
           </div>
         )}
 
-        {/* Description — one row per comma-segment */}
-        {template?.description && !workout.activity && (
+        {/* Description — one row per comma-segment (hide in compact mode) */}
+        {template?.description && !workout.activity && !compact && (
           <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
@@ -199,8 +199,8 @@ export function WorkoutCard({ workout, template, onRemove, displayName }: Workou
         )}
       </div>
 
-      {/* Right column: sync icon + remove */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 6px 6px 2px', gap: '4px', flexShrink: 0 }}>
+      {/* Right column: sync icon + remove (hidden in compact/month view) */}
+      <div style={{ display: compact ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 6px 6px 2px', gap: '4px', flexShrink: 0 }}>
         <span
           data-sync={workout.sync_status}
           className={`text-xs font-mono ${syncStatusClass(workout.sync_status)}`}
