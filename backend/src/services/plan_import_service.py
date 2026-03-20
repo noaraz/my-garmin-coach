@@ -119,7 +119,10 @@ async def get_active_plan(session: AsyncSession, user_id: int) -> TrainingPlan |
 
 
 async def _cleanup_stale_drafts(session: AsyncSession, user_id: int) -> None:
-    """Delete all draft TrainingPlans older than 24h for this user."""
+    """Delete all draft TrainingPlans older than 24h for this user.
+
+    Does NOT commit — callers commit once after all mutations.
+    """
     cutoff = _now() - timedelta(hours=24)
     await session.execute(
         delete(TrainingPlan).where(
@@ -128,7 +131,6 @@ async def _cleanup_stale_drafts(session: AsyncSession, user_id: int) -> None:
             TrainingPlan.created_at < cutoff,
         )
     )
-    await session.commit()
 
 
 async def validate_plan(

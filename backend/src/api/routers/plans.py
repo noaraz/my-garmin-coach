@@ -5,11 +5,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
+from src.db.models import ScheduledWorkout
 from src.services.plan_import_service import (
     CommitResult,
     ValidateResult,
@@ -98,12 +101,17 @@ async def get_active(
     plan = await get_active_plan(session, user_id=current_user.id)  # type: ignore[arg-type]
     if plan is None:
         return Response(status_code=204)
+    count_result = await session.exec(
+        select(func.count()).where(ScheduledWorkout.training_plan_id == plan.id)
+    )
+    workout_count = count_result.one()
     return ActivePlanResponse(
         plan_id=plan.id,  # type: ignore[arg-type]
         name=plan.name,
         source=plan.source,
         status=plan.status,
         start_date=plan.start_date.isoformat(),
+        workout_count=workout_count,
     )
 
 

@@ -330,6 +330,7 @@ class TestGetActive:
         data = resp2.json()
         assert data["name"] == "Active Plan"
         assert data["status"] == "active"
+        assert data["workout_count"] == 1  # one workout committed
 
 
 class TestDelete:
