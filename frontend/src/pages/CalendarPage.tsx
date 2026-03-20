@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addDays, addMonths, subDays, subMonths } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
-import { fetchWorkoutTemplates, getGarminStatus } from '../api/client'
+import { fetchWorkoutTemplates, getGarminStatus, getActivePlan } from '../api/client'
 import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
@@ -21,6 +21,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [activePlanName, setActivePlanName] = useState<string | undefined>(undefined)
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Panel state
@@ -43,6 +44,13 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     if (propTemplates) return
     fetchWorkoutTemplates().then(setTemplates).catch(() => {})
   }, [propTemplates])
+
+  // Fetch active plan name for plan badges on workout cards
+  useEffect(() => {
+    getActivePlan().then(plan => {
+      setActivePlanName(plan?.name ?? undefined)
+    }).catch(() => {})
+  }, [])
 
   // Auto-sync on mount if Garmin is connected
   const autoSyncDone = useRef(false)
@@ -291,6 +299,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           onRemove={remove}
           onWorkoutClick={handleWorkoutClick}
           onActivityClick={handleActivityClick}
+          activePlanName={activePlanName}
         />
       </div>
 

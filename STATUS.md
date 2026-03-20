@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-20 (Plan Coach — Phase 2 CSV Import UI)
+Last updated: 2026-03-20 (Plan Coach — Phase 3 Active Plan View + Re-import Diff)
 
 ## Current Focus: Plan Coach
 
@@ -36,12 +36,15 @@ Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 | Sidebar nav item | ✅ |
 | RTL tests | ✅ |
 
-### Plan Coach — Phase 3: Active Plan View + Re-import Diff `feature/plan-coach-phase-3`
+### Plan Coach — Phase 3: Active Plan View + Re-import Diff `feature/plan-coach-phase-3` ✅
 | Task | Status |
 |------|--------|
-| ActivePlanCard.tsx + DeletePlanModal.tsx + DiffTable.tsx | ⬜ |
-| Plan badge on WorkoutCard + TemplateCard | ⬜ |
-| RTL tests | ⬜ |
+| ActivePlanCard.tsx + DeletePlanModal.tsx + DiffTable.tsx | ✅ |
+| CsvImportTab: DiffTable + Apply Changes button | ✅ |
+| PlanCoachPage: active plan state + delete modal | ✅ |
+| Plan badge on WorkoutCard + TemplateCard | ✅ |
+| CalendarPage: fetch active plan name for badges | ✅ |
+| RTL tests (17 new tests, 29 total in PlanCoach.test.tsx) | ✅ |
 
 ### Plan Coach — Phase 4: Chat (Gemini Flash) `feature/plan-coach-phase-4`
 | Task | Status |

@@ -4,6 +4,7 @@ import { validatePlan, commitPlan } from '../../api/client'
 import type { ValidateResult, PlanWorkoutInput } from '../../api/types'
 import { LlmPromptTemplate } from './LlmPromptTemplate'
 import { ValidationTable } from './ValidationTable'
+import { DiffTable } from './DiffTable'
 
 // ---------------------------------------------------------------------------
 // CSV parsing (frontend) — produces PlanWorkoutInput[]
@@ -92,7 +93,12 @@ const btn = (primary: boolean, disabled: boolean): React.CSSProperties => ({
 // Component
 // ---------------------------------------------------------------------------
 
-export function CsvImportTab() {
+interface CsvImportTabProps {
+  /** Called after a successful import instead of navigating. Omit to navigate to /calendar. */
+  onImported?: () => void
+}
+
+export function CsvImportTab({ onImported }: CsvImportTabProps = {}) {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const [planName, setPlanName] = useState('My Training Plan')
@@ -105,6 +111,9 @@ export function CsvImportTab() {
 
   const hasFile = workouts.length > 0
   const allValid = result !== null && result.rows.every(r => r.valid)
+  const hasDiff = result?.diff != null && (
+    result.diff.added.length + result.diff.removed.length + result.diff.changed.length > 0
+  )
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -153,7 +162,11 @@ export function CsvImportTab() {
     setError(null)
     try {
       await commitPlan(result.plan_id)
-      navigate('/calendar')
+      if (onImported) {
+        onImported()
+      } else {
+        navigate('/calendar')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setIsImporting(false)
@@ -254,9 +267,9 @@ export function CsvImportTab() {
             onClick={handleImport}
             disabled={!allValid || isImporting}
             style={btn(true, !allValid || isImporting)}
-            aria-label="Import plan"
+            aria-label={hasDiff ? 'Apply changes' : 'Import plan'}
           >
-            {isImporting ? 'Importing…' : 'Import'}
+            {isImporting ? 'Importing…' : hasDiff ? 'Apply Changes' : 'Import'}
           </button>
         )}
       </div>
@@ -272,6 +285,9 @@ export function CsvImportTab() {
           {error}
         </p>
       )}
+
+      {/* Diff table (when re-importing over existing plan) */}
+      {result?.diff && <DiffTable diff={result.diff} />}
 
       {/* Validation results */}
       {result && <ValidationTable rows={result.rows} />}

@@ -68,6 +68,7 @@ export interface ScheduledWorkout {
   id: number
   date: string
   workout_template_id: number | null
+  training_plan_id: number | null
   resolved_steps: string | null
   garmin_workout_id: string | null
   sync_status: SyncStatus

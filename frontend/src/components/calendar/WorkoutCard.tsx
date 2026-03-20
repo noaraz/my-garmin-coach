@@ -10,6 +10,7 @@ interface WorkoutCardProps {
   onCardClick?: (workout: ScheduledWorkoutWithActivity) => void
   displayName?: string
   compact?: boolean
+  planName?: string
 }
 
 function syncStatusClass(status: SyncStatus): string {
@@ -52,7 +53,7 @@ function getComplianceStripeColor(
 }
 
 
-export function WorkoutCard({ workout, template, onRemove, onCardClick, displayName, compact }: WorkoutCardProps) {
+export function WorkoutCard({ workout, template, onRemove, onCardClick, displayName, compact, planName }: WorkoutCardProps) {
   const [removeHover, setRemoveHover] = useState(false)
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
@@ -106,6 +107,25 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
         }}>
           {displayName ?? template?.name ?? 'Workout'}
         </div>
+
+        {/* Plan badge */}
+        {planName && workout.training_plan_id != null && !compact && (
+          <div style={{
+            display: 'inline-block',
+            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--accent)',
+            background: 'var(--accent-subtle)',
+            borderRadius: '3px',
+            padding: '1px 5px',
+            marginTop: '3px',
+          }}>
+            {planName}
+          </div>
+        )}
 
         {/* Summary: duration + distance — prominent, like TrainingPeaks */}
         {(hasDuration || hasDistance) && (

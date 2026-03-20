@@ -7,6 +7,7 @@ const mockWorkout: ScheduledWorkoutWithActivity = {
   id: 1,
   date: '2026-03-20',
   workout_template_id: 10,
+  training_plan_id: null,
   resolved_steps: null,
   garmin_workout_id: null,
   sync_status: 'pending',

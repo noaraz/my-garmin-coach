@@ -136,6 +136,17 @@ frontend/src/
 
 ---
 
+## Active Plan State Patterns (added 2026-03-20)
+
+- `PlanCoachPage` fetches active plan on mount with `getActivePlan()` — sets `activePlan` state
+- No active plan → only show `CsvImportTab`
+- Active plan → show `ActivePlanCard` at top; `showUpload` toggle reveals `CsvImportTab` below
+- `onImported` callback prop on `CsvImportTab` — when provided, called on successful commit instead of navigating to `/calendar`; used by `PlanCoachPage` to re-fetch active plan after replace
+- `DeletePlanModal` takes `plan: ActivePlan` prop — shows plan name + workout count in warning body
+- `DiffTable` renders nothing (returns `null`) when all three arrays are empty — safe to always render when `result.diff != null`
+- Plan badge threading: `activePlanName` flows CalendarPage → CalendarView → WeekView/MonthView → DayCell → WorkoutCard as `planName` prop. Badge only renders when `!compact` (hidden in month view compact cards). TemplateCard accepts `planName?` prop but caller decides when to pass it.
+- `training_plan_id: number | null` added to `ScheduledWorkout` frontend type (`api/types.ts`)
+
 ## Copy Button Gotchas (added 2026-03-20)
 - `navigator.clipboard.writeText` throws "Document is not focused" in Chrome — always add `execCommand('copy')` fallback using a `ref` on the `<code>` element
 - Use `'idle' | 'copied' | 'error'` state (not boolean) to drive both label and color
