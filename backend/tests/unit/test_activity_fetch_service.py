@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 from datetime import date, datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
 
 from src.services.activity_fetch_service import ActivityFetchService
 from src.db.models import GarminActivity
