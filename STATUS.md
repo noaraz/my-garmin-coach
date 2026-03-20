@@ -10,16 +10,16 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-workout-detail-panel.md`
 ### Workout Detail Panel
 | Task | Status |
 |------|--------|
-| Docs: root PLAN.md, CLAUDE.md, feature docs, STATUS.md | 🟡 |
-| Backend: extend PATCH /calendar/{id} for notes | ⬜ |
-| Frontend: WorkoutDetailPanel shell (overlay, slide, close) | ⬜ |
-| Frontend: WorkoutDetailPlanned content | ⬜ |
-| Frontend: WorkoutDetailCompleted content | ⬜ |
-| Frontend: WorkoutDetailUnplanned content | ⬜ |
-| Frontend: Card click → panel (replace builder navigation) | ⬜ |
-| Frontend: CalendarPage panel state + render | ⬜ |
-| Frontend: Notes save (debounced, useCalendar hook) | ⬜ |
-| Frontend: Tests | ⬜ |
+| Docs: root PLAN.md, CLAUDE.md, feature docs, STATUS.md | ✅ |
+| Backend: extend PATCH /calendar/{id} for notes | ✅ |
+| Frontend: WorkoutDetailPanel shell (overlay, slide, close) | ✅ |
+| Frontend: WorkoutDetailPlanned content | ✅ |
+| Frontend: WorkoutDetailCompleted content | ✅ |
+| Frontend: WorkoutDetailUnplanned content | ✅ |
+| Frontend: Card click → panel (replace builder navigation) | ✅ |
+| Frontend: CalendarPage panel state + render | ✅ |
+| Frontend: Notes save (debounced, useCalendar hook) | ✅ |
+| Frontend: Tests | ✅ |
 
 ### Activity Fetch (previous focus)
 | Task | Status |
