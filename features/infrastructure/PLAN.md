@@ -39,20 +39,11 @@ Track progress in **STATUS.md**.
 - [x] Stamp local Docker volume DB: `alembic stamp head` (local DB already had tables from `create_all()`)
 
 > **First Render deploy**: DB is empty. `alembic upgrade head` in the container CMD creates all tables
-> via the initial migration. `create_all()` in the lifespan then runs but is a no-op (tables exist).
-> No manual stamping needed — alembic already recorded the revision in `alembic_version`.
+> via the initial migration. No manual stamping needed — alembic already recorded the revision in `alembic_version`.
 
 > **Going forward**: for any schema change, run `alembic revision --autogenerate -m "desc"` locally,
 > review the generated file, add `import sqlmodel` if the file uses `sqlmodel.sql.sqltypes.AutoString`,
 > apply locally (`alembic upgrade head`), commit migration file, then the next deploy applies it automatically.
-
-> **Known issue**: `create_db_and_tables()` in `app.py` lifespan still calls `SQLModel.metadata.create_all()`.
-> This is a no-op when alembic has already created tables, but it means alembic is not the *sole* schema
-> authority. Should be removed in a future cleanup (see STATUS.md).
-
-> **Known issue**: `InviteCode` model is missing from `alembic/env.py` imports. The comment says
-> "Import all models so autogenerate detects them" but `InviteCode` is omitted. Add
-> `from src.auth.models import User, InviteCode` to fix future autogenerate accuracy (see STATUS.md).
 
 ### Security Review (before Render deploy)
 - [ ] Run `/code-review` on the full codebase (auth routes, token handling, Garmin OAuth, CORS)

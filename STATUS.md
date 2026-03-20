@@ -68,8 +68,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-workout-detail-panel.md`
 | Fix: pass GOOGLE_CLIENT_ID as VITE_GOOGLE_CLIENT_ID in prod Docker build | ✅ |
 | Fix: Google tokeninfo endpoint for audience validation (azp claim, not aud on userinfo) | ✅ |
 | Tag v0.2.1 + push (Google OAuth audience validation hotfix) | ✅ |
-| Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ⬜ |
-| Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ⬜ |
+| Fix: remove create_db_and_tables() from lifespan — alembic is sole schema authority | ✅ |
+| Fix: add InviteCode to alembic/env.py model imports (autogenerate misses it) | ✅ |
 | Fixie proxy for Garmin OAuth in production (avoids 429 from shared datacenter IPs) | ✅ |
 | Tag v0.2.2 + push (Fixie proxy) | ✅ |
 | Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |

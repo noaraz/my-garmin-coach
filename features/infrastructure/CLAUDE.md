@@ -56,12 +56,6 @@ docker compose exec backend alembic upgrade head
 # 7. Next deploy applies it automatically (alembic runs before uvicorn)
 ```
 
-### Known issues (tracked in STATUS.md)
-
-1. **`create_db_and_tables()` still runs in lifespan** — `app.py` calls `SQLModel.metadata.create_all()` on startup. Since alembic runs first, this is always a no-op on an existing DB. But it means alembic is not strictly the sole schema manager. Remove when convenient.
-
-2. **`InviteCode` missing from `env.py` imports** — `alembic/env.py` imports `AthleteProfile, HRZone, PaceZone, WorkoutTemplate, ScheduledWorkout, User` but not `InviteCode`. The comment says "Import all models so autogenerate detects them." Future `alembic revision --autogenerate` runs will miss changes to `InviteCode`. Fix: `from src.auth.models import User, InviteCode`.
-
 ### Local DB state
 
 The local Docker-volume DB (`backend_data:/data/garmincoach.db`) was stamped at head after manual `ALTER TABLE` statements were run during the auth feature. It is in sync with the current schema.
