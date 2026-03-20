@@ -12,10 +12,12 @@ from alembic import context
 import sqlmodel  # noqa: F401
 from src.db.models import (  # noqa: F401
     AthleteProfile,
+    GarminActivity,
     HRZone,
     PaceZone,
-    WorkoutTemplate,
     ScheduledWorkout,
+    TrainingPlan,
+    WorkoutTemplate,
 )
 from src.auth.models import User, InviteCode  # noqa: F401
 from sqlmodel import SQLModel

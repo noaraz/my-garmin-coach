@@ -96,9 +96,30 @@ class ScheduledWorkout(SQLModel, table=True):
     matched_activity_id: Optional[int] = Field(
         default=None, foreign_key="garminactivity.id"
     )
+    training_plan_id: Optional[int] = Field(default=None, foreign_key="trainingplan.id")
     notes: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TrainingPlan(SQLModel, table=True):
+    """A multi-week training plan (draft → active → superseded)."""
+
+    __tablename__ = "trainingplan"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    name: str
+    source: str  # "csv" | "chat"
+    status: str = "draft"  # "draft" | "active" | "superseded"
+    parsed_workouts: Optional[str] = Field(default=None)  # JSON array of ParsedWorkout
+    start_date: date
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
 
 
 class GarminActivity(SQLModel, table=True):

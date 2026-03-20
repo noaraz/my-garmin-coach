@@ -14,6 +14,7 @@ from starlette.responses import Response
 from src.api.routers.auth import router as auth_router
 from src.api.routers.calendar import router as calendar_router
 from src.api.routers.garmin_connect import router as garmin_connect_router
+from src.api.routers.plans import router as plans_router
 from src.api.routers.profile import router as profile_router
 from src.api.routers.sync import router as sync_router
 from src.api.routers.workouts import router as workouts_router
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     application.include_router(workouts_router)
     application.include_router(calendar_router)
     application.include_router(sync_router)
+    application.include_router(plans_router)
 
     # Serve React SPA in production — must come after all API routers
     static_dir = Path(__file__).parent.parent.parent / "static"
