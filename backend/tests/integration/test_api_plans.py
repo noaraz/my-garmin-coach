@@ -353,6 +353,142 @@ class TestCommit:
         resp = await client.post(f"/api/v1/plans/{plan.id}/commit")
         assert resp.status_code == 403
 
+    async def test_commit_keeps_unchanged_sw_row_and_garmin_id(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Unchanged workout: existing ScheduledWorkout row is kept (same id), not recreated."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        # Create active plan + SW with a garmin_workout_id
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+            garmin_workout_id="garmin-123",
+        )
+        session.add(sw)
+        await session.commit()
+        original_sw_id = sw.id
+
+        # Validate + commit with identical workout
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        commit_resp = await client.post(f"/api/v1/plans/{plan_id}/commit")
+        assert commit_resp.status_code == 200
+
+        # The original SW row must still exist with same id and garmin_workout_id
+        result = await session.exec(
+            select(ScheduledWorkout).where(ScheduledWorkout.id == original_sw_id)
+        )
+        kept = result.first()
+        assert kept is not None
+        assert kept.garmin_workout_id == "garmin-123"
+
+    async def test_commit_skips_completed_sw_even_when_changed(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Completed workout (matched_activity_id set) is not touched even if steps changed."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+            matched_activity_id=99,
+        )
+        session.add(sw)
+        await session.commit()
+        original_sw_id = sw.id
+
+        # Validate + commit with changed steps
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "50m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        await client.post(f"/api/v1/plans/{plan_id}/commit")
+
+        # Completed SW must still exist with matched_activity_id intact
+        result = await session.exec(
+            select(ScheduledWorkout).where(ScheduledWorkout.id == original_sw_id)
+        )
+        kept = result.first()
+        assert kept is not None
+        assert kept.matched_activity_id == 99
+
+    async def test_commit_replaces_changed_workout(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Changed workout: old SW row deleted, new SW row created for new plan."""
+        from src.db.models import WorkoutTemplate
+        from sqlmodel import select
+
+        plan = TrainingPlan(
+            user_id=1, name="Old", source="csv", status="active",
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+            start_date=date(2027, 6, 1),
+        )
+        session.add(plan)
+        await session.flush()
+        old_plan_id = plan.id
+        template = WorkoutTemplate(user_id=1, name="Easy Run", sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            user_id=1, date=date(2027, 6, 1),
+            workout_template_id=template.id, training_plan_id=plan.id,
+        )
+        session.add(sw)
+        await session.commit()
+
+        val_resp = await client.post("/api/v1/plans/validate", json={
+            "name": "New",
+            "workouts": [{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "50m@Z2"}],
+        })
+        plan_id = val_resp.json()["plan_id"]
+        await client.post(f"/api/v1/plans/{plan_id}/commit")
+
+        # No SW should belong to the old plan anymore
+        old_plan_sws = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == old_plan_id,
+            )
+        )
+        assert old_plan_sws.first() is None
+
+        # New SW must exist for same date, linked to new plan
+        new_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.user_id == 1,
+                ScheduledWorkout.date == date(2027, 6, 1),
+                ScheduledWorkout.training_plan_id == plan_id,
+            )
+        )
+        assert new_result.first() is not None
+
 
 class TestGetActive:
     async def test_get_active_when_no_plan_returns_204(

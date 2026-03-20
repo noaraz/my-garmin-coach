@@ -9,7 +9,8 @@ Handles the validate → commit pipeline:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import date as date_type, datetime, timedelta, timezone
 from typing import Any
 
 from pydantic import BaseModel
@@ -19,6 +20,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import ScheduledWorkout, TrainingPlan, WorkoutTemplate
 from src.services.plan_step_parser import StepParseError, parse_steps_spec
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -289,12 +292,17 @@ async def commit_plan(
     session: AsyncSession,
     user_id: int,
     plan_id: int,
+    garmin: Any | None = None,
 ) -> CommitResult:
-    """Commit a draft plan: create WorkoutTemplates + ScheduledWorkouts, set active.
+    """Commit a draft plan with smart merge.
 
-    Raises:
-        ValueError: if plan not found, not a draft, or belongs to another user.
+    - Unchanged workouts (same date, name, steps_spec): kept as-is.
+    - Completed workouts (matched_activity_id IS NOT NULL): never touched.
+    - Changed workouts: old SW deleted (Garmin cleanup), new SW created.
+    - Added workouts: new SW created.
+    - Removed workouts (not in incoming, not completed): old SW deleted.
     """
+
     plan = await session.get(TrainingPlan, plan_id)
     if plan is None or plan.status != "draft":
         raise ValueError(f"TrainingPlan {plan_id} not found or not a draft")
@@ -303,39 +311,121 @@ async def commit_plan(
 
     parsed_workouts: list[dict] = json.loads(plan.parsed_workouts or "[]")
 
-    # Supersede existing active plan and delete its scheduled workouts
     active = await get_active_plan(session, user_id)
+
+    # -----------------------------------------------------------------------
+    # Smart merge setup: batch-load existing SWs and their templates
+    # -----------------------------------------------------------------------
+    sw_by_date: dict[str, ScheduledWorkout] = {}
+    active_steps_by_date: dict[str, str] = {}
+    active_name_by_date: dict[str, str] = {}
+    completed_dates: set[str] = set()
+
     if active is not None:
-        await session.execute(
-            delete(ScheduledWorkout).where(
+        # Batch 1: all scheduled workouts for active plan — single query
+        sw_result = await session.exec(
+            select(ScheduledWorkout).where(
                 ScheduledWorkout.training_plan_id == active.id
             )
         )
+        all_sws = sw_result.all()
+        sw_by_date = {str(sw.date): sw for sw in all_sws}
+
+        # Completed dates: only the date column — no full ORM objects
+        completed_result = await session.exec(
+            select(ScheduledWorkout.date).where(
+                ScheduledWorkout.training_plan_id == active.id,
+                ScheduledWorkout.matched_activity_id.isnot(None),  # type: ignore[union-attr]
+            )
+        )
+        completed_dates = {str(row) for row in completed_result.all()}
+
+        # Parse the active plan's steps_spec for comparison
+        if active.parsed_workouts:
+            for pw_dict in json.loads(active.parsed_workouts):
+                d = pw_dict.get("date", "")
+                active_steps_by_date[d] = pw_dict.get("steps_spec", "")
+                active_name_by_date[d] = pw_dict.get("name", "")
+
         active.status = "superseded"
         active.updated_at = _now()
         session.add(active)
 
-    # Build name → template map to reuse existing templates per unique name
-    # Batch-load templates for this user
+    # -----------------------------------------------------------------------
+    # Classify each incoming workout
+    # -----------------------------------------------------------------------
+    ids_to_delete: list[int] = []
+    garmin_ids_to_delete: list[str] = []
+    sws_to_create: list[dict] = []
+    incoming_dates: set[str] = set()
+
+    for pw_dict in parsed_workouts:
+        pw = ParsedWorkout(**pw_dict)
+        incoming_dates.add(pw.date)
+        existing_sw = sw_by_date.get(pw.date)
+
+        if existing_sw is not None:
+            # Completed — never touch
+            if pw.date in completed_dates:
+                continue
+
+            # Compare using active plan's stored steps_spec (source of truth)
+            same_name = active_name_by_date.get(pw.date) == pw.name
+            same_steps = active_steps_by_date.get(pw.date) == pw.steps_spec
+            if same_name and same_steps:
+                continue  # unchanged — keep existing row as-is
+
+            # Changed: queue old SW for deletion, queue new SW for creation
+            ids_to_delete.append(existing_sw.id)  # type: ignore[arg-type]
+            if existing_sw.garmin_workout_id:
+                garmin_ids_to_delete.append(existing_sw.garmin_workout_id)
+
+        sws_to_create.append(pw_dict)
+
+    # Removed: in active plan, not in incoming, not completed
+    for date_str, sw in sw_by_date.items():
+        if date_str not in incoming_dates and date_str not in completed_dates:
+            ids_to_delete.append(sw.id)  # type: ignore[arg-type]
+            if sw.garmin_workout_id:
+                garmin_ids_to_delete.append(sw.garmin_workout_id)
+
+    # -----------------------------------------------------------------------
+    # Garmin cleanup (must happen before DB delete — one API call per workout)
+    # -----------------------------------------------------------------------
+    if garmin is not None:
+        for garmin_id in garmin_ids_to_delete:
+            try:
+                garmin.delete_workout(garmin_id)
+                logger.info("Smart merge: deleted Garmin workout %s", garmin_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Could not delete Garmin workout %s: %s", garmin_id, exc)
+
+    # -----------------------------------------------------------------------
+    # Bulk delete — single statement
+    # -----------------------------------------------------------------------
+    if ids_to_delete:
+        await session.execute(
+            delete(ScheduledWorkout).where(ScheduledWorkout.id.in_(ids_to_delete))
+        )
+
+    # -----------------------------------------------------------------------
+    # Batch-load/create templates; batch-add new SWs
+    # -----------------------------------------------------------------------
     templates_result = await session.exec(
         select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
     )
     existing_templates = {t.name: t for t in templates_result.all()}
 
     now = _now()
-    workout_count = 0
+    new_sw_count = 0
 
-    from datetime import date as date_type
-    for pw_dict in parsed_workouts:
+    for pw_dict in sws_to_create:
         pw = ParsedWorkout(**pw_dict)
-        workout_date_str = pw.date
-
         try:
-            workout_date = date_type.fromisoformat(workout_date_str)
+            workout_date = date_type.fromisoformat(pw.date)
         except ValueError:
-            continue  # skip malformed dates (shouldn't happen after validate)
+            continue
 
-        # Reuse or create WorkoutTemplate
         if pw.name in existing_templates:
             template = existing_templates[pw.name]
         else:
@@ -350,7 +440,7 @@ async def commit_plan(
                 updated_at=now,
             )
             session.add(template)
-            await session.flush()  # get template.id
+            await session.flush()
             existing_templates[pw.name] = template
 
         sw = ScheduledWorkout(
@@ -363,7 +453,11 @@ async def commit_plan(
             updated_at=now,
         )
         session.add(sw)
-        workout_count += 1
+        new_sw_count += 1
+
+    # Total = kept (unchanged + completed_locked) + newly created
+    kept_count = len(sw_by_date) - len(ids_to_delete)
+    total_workout_count = max(0, kept_count) + new_sw_count
 
     plan.status = "active"
     plan.updated_at = now
@@ -373,7 +467,7 @@ async def commit_plan(
     return CommitResult(
         plan_id=plan.id,  # type: ignore[arg-type]
         name=plan.name,
-        workout_count=workout_count,
+        workout_count=total_workout_count,
         start_date=plan.start_date.isoformat(),
     )
 

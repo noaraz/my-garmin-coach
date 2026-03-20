@@ -1,6 +1,7 @@
 """Plans router — validate/commit/delete training plans + Plan Coach chat."""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -26,7 +27,11 @@ from src.services.plan_coach_service import (
     send_chat_message,
 )
 from src.services.profile_service import get_or_create_profile
+from src.services.sync_orchestrator import SyncOrchestrator
 from src.services.zone_service import get_hr_zones, get_pace_zones
+from src.api.routers.sync import get_optional_garmin_sync_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/plans", tags=["plans"])
 
@@ -106,10 +111,20 @@ async def post_commit(
     plan_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    garmin: SyncOrchestrator | None = Depends(get_optional_garmin_sync_service),
 ) -> CommitResult:
-    """Commit a draft plan: create WorkoutTemplates + ScheduledWorkouts, set active."""
+    """Commit a draft plan using smart merge.
+
+    Unchanged and completed workouts are preserved. Changed workouts trigger
+    Garmin cleanup before replacement. All logic is in commit_plan.
+    """
     try:
-        return await commit_plan(session, user_id=current_user.id, plan_id=plan_id)  # type: ignore[arg-type]
+        return await commit_plan(
+            session,
+            user_id=current_user.id,  # type: ignore[arg-type]
+            plan_id=plan_id,
+            garmin=garmin,
+        )
     except ValueError as exc:
         msg = str(exc)
         if "does not belong to" in msg:
@@ -146,8 +161,35 @@ async def delete_plan_endpoint(
     plan_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    garmin: SyncOrchestrator | None = Depends(get_optional_garmin_sync_service),
 ) -> Response:
-    """Delete a plan and all its ScheduledWorkouts. WorkoutTemplates are kept."""
+    """Delete a plan and all its ScheduledWorkouts.
+
+    Synced workouts that were never paired with a completed Garmin activity
+    are also deleted from Garmin Connect. Paired workouts (activity data exists)
+    are left on Garmin. WorkoutTemplates are kept locally.
+    """
+    # Fetch synced-but-unpaired workouts before the DB delete
+    if garmin is not None:
+        result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == plan_id,
+                ScheduledWorkout.garmin_workout_id.isnot(None),  # type: ignore[union-attr]
+                ScheduledWorkout.matched_activity_id.is_(None),  # type: ignore[union-attr]
+            )
+        )
+        unsynced_workouts = result.all()
+        for workout in unsynced_workouts:
+            try:
+                garmin.delete_workout(workout.garmin_workout_id)  # type: ignore[arg-type]
+                logger.info("Deleted Garmin workout %s", workout.garmin_workout_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Could not delete Garmin workout %s: %s",
+                    workout.garmin_workout_id,
+                    exc,
+                )
+
     try:
         await delete_plan(session, user_id=current_user.id, plan_id=plan_id)  # type: ignore[arg-type]
     except ValueError as exc:
