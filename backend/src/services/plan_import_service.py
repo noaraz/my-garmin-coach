@@ -47,12 +47,17 @@ class ValidateRow(BaseModel):
 class WorkoutDiff(BaseModel):
     date: str
     name: str
+    old_name: str | None = None        # populated for "changed" only
+    old_steps_spec: str | None = None  # populated for "changed" only
+    new_steps_spec: str | None = None  # populated for "changed" only
 
 
 class DiffResult(BaseModel):
     added: list[WorkoutDiff]
     removed: list[WorkoutDiff]
     changed: list[WorkoutDiff]
+    unchanged: list[WorkoutDiff] = []
+    completed_locked: list[WorkoutDiff] = []
 
 
 class ValidateResult(BaseModel):
@@ -79,28 +84,50 @@ def _now() -> datetime:
 def _compute_diff(
     incoming: list[ParsedWorkout],
     active_parsed: list[dict],
+    completed_dates: set[str] | None = None,
 ) -> DiffResult:
-    """Compute added/removed/changed vs the active plan."""
+    """Compute added/removed/changed/unchanged/completed_locked vs the active plan."""
+    completed_dates = completed_dates or set()
     active_by_date = {w["date"]: w for w in active_parsed}
     incoming_by_date = {w.date: w for w in incoming}
 
     added: list[WorkoutDiff] = []
     removed: list[WorkoutDiff] = []
     changed: list[WorkoutDiff] = []
+    unchanged: list[WorkoutDiff] = []
+    completed_locked: list[WorkoutDiff] = []
 
     for date_str, workout in incoming_by_date.items():
-        if date_str not in active_by_date:
+        if date_str in completed_dates:
+            completed_locked.append(WorkoutDiff(date=date_str, name=workout.name))
+        elif date_str not in active_by_date:
             added.append(WorkoutDiff(date=date_str, name=workout.name))
         else:
             active = active_by_date[date_str]
-            if active.get("name") != workout.name or active.get("steps_spec") != workout.steps_spec:
-                changed.append(WorkoutDiff(date=date_str, name=workout.name))
+            same_name = active.get("name") == workout.name
+            same_steps = active.get("steps_spec") == workout.steps_spec
+            if same_name and same_steps:
+                unchanged.append(WorkoutDiff(date=date_str, name=workout.name))
+            else:
+                changed.append(WorkoutDiff(
+                    date=date_str,
+                    name=workout.name,
+                    old_name=active.get("name"),
+                    old_steps_spec=active.get("steps_spec"),
+                    new_steps_spec=workout.steps_spec,
+                ))
 
     for date_str, active in active_by_date.items():
-        if date_str not in incoming_by_date:
+        if date_str not in incoming_by_date and date_str not in completed_dates:
             removed.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
 
-    return DiffResult(added=added, removed=removed, changed=changed)
+    return DiffResult(
+        added=added,
+        removed=removed,
+        changed=changed,
+        unchanged=unchanged,
+        completed_locked=completed_locked,
+    )
 
 
 # ---------------------------------------------------------------------------
