@@ -91,6 +91,11 @@ export const rescheduleWorkout = (id: number, date: string) =>
     method: 'PATCH',
     body: JSON.stringify({ date }),
   })
+export const updateWorkoutNotes = (id: number, notes: string) =>
+  request<ScheduledWorkout>(`/calendar/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ notes }),
+  })
 export const unscheduleWorkout = (id: number) =>
   request<void>(`/calendar/${id}`, { method: 'DELETE' })
 
