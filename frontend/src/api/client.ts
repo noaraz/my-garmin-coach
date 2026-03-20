@@ -9,6 +9,7 @@ import type {
   GarminStatusResponse,
   BootstrapResponse,
   TokenResponse,
+  ValidateResult, CommitResult, ActivePlan, PlanWorkoutInput,
 } from './types'
 
 const BASE = '/api/v1'
@@ -146,3 +147,19 @@ export const resetAdmins = (setupToken: string) =>
     method: 'POST',
     body: JSON.stringify({ setup_token: setupToken }),
   })
+
+// Plan Coach
+export const validatePlan = (name: string, workouts: PlanWorkoutInput[]) =>
+  request<ValidateResult>('/plans/validate', {
+    method: 'POST',
+    body: JSON.stringify({ name, source: 'csv', workouts }),
+  })
+
+export const commitPlan = (planId: number) =>
+  request<CommitResult>(`/plans/${planId}/commit`, { method: 'POST' })
+
+export const getActivePlan = () =>
+  request<ActivePlan | null>('/plans/active')
+
+export const deletePlan = (planId: number) =>
+  request<void>(`/plans/${planId}`, { method: 'DELETE' })

@@ -161,6 +161,58 @@ export interface WorkoutTemplateCreate {
   steps?: BuilderStep[]
 }
 
+// Plan Coach types
+export interface ValidateRow {
+  row: number
+  date: string
+  name: string
+  steps_spec: string
+  sport_type: string
+  valid: boolean
+  error: string | null
+}
+
+export interface WorkoutDiff {
+  date: string
+  name: string
+}
+
+export interface DiffResult {
+  added: WorkoutDiff[]
+  removed: WorkoutDiff[]
+  changed: WorkoutDiff[]
+}
+
+export interface ValidateResult {
+  plan_id: number
+  rows: ValidateRow[]
+  diff: DiffResult | null
+}
+
+export interface CommitResult {
+  plan_id: number
+  name: string
+  workout_count: number
+  start_date: string
+}
+
+export interface ActivePlan {
+  plan_id: number
+  name: string
+  source: string
+  status: string
+  start_date: string
+  workout_count: number | null
+}
+
+export interface PlanWorkoutInput {
+  date: string
+  name: string
+  steps_spec: string
+  sport_type?: string
+  description?: string
+}
+
 export interface BootstrapResponse {
   invite_codes: string[]
 }
