@@ -18,11 +18,11 @@ One active plan per user at a time. Re-import shows a diff before replacing.
 
 ## Phase 0 — Scaffold ✅ (this PR)
 
-- [ ] Update design spec with final decisions
-- [ ] Create this PLAN.md + CLAUDE.md
-- [ ] Update STATUS.md
-- [ ] Update root CLAUDE.md (revise-claude-md)
-- [ ] Update root PLAN.md
+- [x] Update design spec with final decisions
+- [x] Create this PLAN.md + CLAUDE.md
+- [x] Update STATUS.md
+- [x] Update root CLAUDE.md (revise-claude-md)
+- [x] Update root PLAN.md
 
 ---
 
