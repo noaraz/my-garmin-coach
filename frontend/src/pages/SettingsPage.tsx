@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { useGarminStatus } from '../contexts/GarminStatusContext'
 
 type ConnectionState = 'loading' | 'connected' | 'disconnected'
 
@@ -23,6 +24,7 @@ export function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const { isAdmin } = useAuth()
+  const { refresh } = useGarminStatus()
 
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -44,6 +46,7 @@ export function SettingsPage() {
       const res = await connectGarmin(garminEmail, garminPassword)
       if (res.connected) {
         setConnectionState('connected')
+        refresh()
         setGarminEmail('')
         setGarminPassword('')
         setSuccessMsg('Garmin account connected successfully.')
@@ -84,6 +87,7 @@ export function SettingsPage() {
     try {
       await disconnectGarmin()
       setConnectionState('disconnected')
+      refresh()
       setSuccessMsg('Garmin account disconnected.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Disconnect failed')

@@ -106,6 +106,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Activity Fetch | `features/garmin-activity-fetch/` | Fetch Garmin activities, compliance tracking, bidirectional sync |
 | Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
 | Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline |
+| Status Indicators | `features/status-indicators/` | Garmin connection dot + Zones "Not set" inline warning in sidebar; Garmin toolbar button on CalendarPage |
 
 ---
 
@@ -312,6 +313,11 @@ style={{ background: 'var(--color-zone-1)' }}   // not Tailwind bg-blue-500
 ### Tailwind classes to avoid in new code
 - `bg-white`, `text-gray-*`, `bg-gray-*` — use CSS vars instead
 - `dark:` prefix — we use `[data-theme="light"]` overrides in index.css, not Tailwind dark mode
+
+### Additional tokens (added 2026-03-21)
+- `--color-success-glow` / `--color-error-glow` — rgba glow variants for `box-shadow` on status dots (e.g. `0 0 0 2px var(--color-success-glow)`)
+- `--color-success-bg` / `--color-error-bg` — subtle background fill for status badges
+- **Sidebar.tsx is the only component exempt from the zero-hex rule** — it's always dark and uses its own named constants (`SIDE_GARMIN_CONNECTED` etc.). No other component has this exemption.
 
 ## workoutStats Utilities (added 2026-03-09)
 
@@ -600,6 +606,31 @@ The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TI
 - **Common failure**: `DATABASE_URL=postgresql://...` (missing `+asyncpg`) → `psycopg2 is not async` error. Must be `postgresql+asyncpg://...`
 - **Check deployment status**: `gh api repos/noaraz/my-garmin-coach/deployments -q '.[0].id'` → `gh api .../deployments/{id}/statuses -q '.[0] | {state, environment_url}'`
 - **States**: `success` (live), `in_progress` (building), `inactive` (spun down, wakes on request), `failure` (check logs)
+
+---
+
+## Context Refresh Pattern (added 2026-03-21)
+
+When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Example: `ZoneManager` must call `refreshZones()` after `handleSave`, `handleRecalcHR`, and `handleRecalcPace`. Missing any handler leaves the sidebar indicator stale until the next page load.
+
+## PLAN.md Tracking (added 2026-03-21)
+
+Root `PLAN.md` feature table emoji must be updated to ✅ when a feature is complete — same cadence as `STATUS.md`. Easy to miss since STATUS.md is the primary tracking file.
+
+## Git Rebase Without Editor (added 2026-03-21)
+
+`GIT_EDITOR=true git rebase --continue` — skips the commit message editor when continuing a rebase after resolving conflicts.
+
+## Status Indicators (added 2026-03-20)
+
+- **GarminStatusContext** (`frontend/src/contexts/GarminStatusContext.tsx`): fetches `getGarminStatus()` on mount, exposes `garminConnected: boolean | null` + `refresh()`. Provider mounted in `AppShell.tsx`.
+- **ZonesStatusContext** (`frontend/src/contexts/ZonesStatusContext.tsx`): fetches `fetchProfile()` on mount, derives `zonesConfigured = profile.threshold_pace !== null`, exposes `zonesConfigured: boolean | null` + `refreshZones()`. Provider mounted in `AppShell.tsx`.
+- **Sidebar Garmin row**: `<button>` below Settings NavLink. `aria-label="Garmin: Connected – go to Settings"` / `"Not connected"` variant. Hover via local `hovered` state + `onMouseEnter`/`onMouseLeave`. Constants: `SIDE_GARMIN_CONNECTED = '#22c55e'`, `SIDE_GARMIN_DISCONNECTED = '#ef4444'`, `SIDE_ZONES_WARN = '#f59e0b'`.
+- **CalendarPage auto-sync migration**: null guard (`if (garminConnected === null) return`) MUST come before `autoSyncDone` ref check to avoid the ref being consumed on the first null render before context resolves. Effect deps: `[garminConnected]`.
+- **SettingsPage**: calls `refresh()` from `useGarminStatus()` after connect and after disconnect.
+- **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` after successful save.
+- **Sidebar tests**: wrap render in `<GarminStatusProvider><ZonesStatusProvider>`. Both contexts need mocks via `vi.hoisted`.
+- **Calendar tests**: wrap `renderPage` in `<GarminStatusProvider>`. Add `mockGetGarminStatus` to `vi.hoisted` + existing `vi.mock('../api/client')` factory.
 
 ---
 

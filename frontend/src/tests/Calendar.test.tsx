@@ -3,11 +3,18 @@ import { render, screen, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { CalendarPage } from '../pages/CalendarPage'
+import { GarminStatusProvider } from '../contexts/GarminStatusContext'
 
 const renderPage = (props: { initialDate?: Date } = {}) =>
-  render(<MemoryRouter><CalendarPage {...props} /></MemoryRouter>)
+  render(
+    <MemoryRouter>
+      <GarminStatusProvider>
+        <CalendarPage {...props} />
+      </GarminStatusProvider>
+    </MemoryRouter>
+  )
 
-const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates } = vi.hoisted(() => {
+const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates, mockGetGarminStatus, mockGetActivePlan, mockNavigate } = vi.hoisted(() => {
   const defaultTemplates = [
     { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
     { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
@@ -17,6 +24,9 @@ const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates } = vi.hois
     mockSyncAll: vi.fn(),
     mockLoadRange: vi.fn(),
     mockFetchTemplates: vi.fn().mockResolvedValue(defaultTemplates),
+    mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: false }),
+    mockGetActivePlan: vi.fn().mockResolvedValue(null),
+    mockNavigate: vi.fn(),
   }
 })
 
@@ -41,7 +51,17 @@ vi.mock('../hooks/useCalendar', () => ({
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
-  return { ...actual, fetchWorkoutTemplates: mockFetchTemplates }
+  return {
+    ...actual,
+    fetchWorkoutTemplates: mockFetchTemplates,
+    getGarminStatus: mockGetGarminStatus,
+    getActivePlan: mockGetActivePlan,
+  }
+})
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
 })
 
 beforeEach(() => {
@@ -53,6 +73,11 @@ beforeEach(() => {
   ]
   mockFetchTemplates.mockReset()
   mockFetchTemplates.mockResolvedValue(defaultTemplates)
+  mockGetGarminStatus.mockReset()
+  mockGetGarminStatus.mockResolvedValue({ connected: false })
+  mockGetActivePlan.mockReset()
+  mockGetActivePlan.mockResolvedValue(null)
+  mockNavigate.mockReset()
 })
 
 describe('test_week_view_7_days', () => {
@@ -198,5 +223,35 @@ describe('test_card_no_summary_when_no_data', () => {
     cards.forEach(card => {
       expect(card.textContent).not.toMatch(/\d+:\d{2}/)
     })
+  })
+})
+
+describe('test_garmin_toolbar_button', () => {
+  it('shows Garmin toolbar button when connected', async () => {
+    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    renderPage({ initialDate: new Date('2026-03-09') })
+    expect(await screen.findByRole('button', { name: /Garmin Connected/i })).toBeInTheDocument()
+  })
+
+  it('shows Garmin toolbar button when not connected', async () => {
+    mockGetGarminStatus.mockResolvedValue({ connected: false })
+    renderPage({ initialDate: new Date('2026-03-09') })
+    expect(await screen.findByRole('button', { name: /Garmin Not Connected/i })).toBeInTheDocument()
+  })
+
+  it('does not show Garmin toolbar button while loading', async () => {
+    mockGetGarminStatus.mockReturnValue(new Promise(() => {}))
+    renderPage({ initialDate: new Date('2026-03-09') })
+    await act(async () => {})
+    expect(screen.queryByRole('button', { name: /Garmin/i })).not.toBeInTheDocument()
+  })
+
+  it('clicking Garmin toolbar button navigates to /settings', async () => {
+    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    const user = userEvent.setup()
+    renderPage({ initialDate: new Date('2026-03-09') })
+    const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
+    await user.click(btn)
+    expect(mockNavigate).toHaveBeenCalledWith('/settings')
   })
 })

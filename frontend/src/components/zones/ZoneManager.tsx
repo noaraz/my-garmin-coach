@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useZones } from '../../hooks/useZones'
 import { useProfile } from '../../hooks/useProfile'
+import { useZonesStatus } from '../../contexts/ZonesStatusContext'
 import { HRZoneTable } from './HRZoneTable'
 import { PaceZoneTable } from './PaceZoneTable'
 import { ThresholdInput } from './ThresholdInput'
@@ -9,6 +10,7 @@ import type { HRZone } from '../../api/types'
 export function ZoneManager() {
   const { hrZones, paceZones, loading: zonesLoading, error: zonesError, saveHRZones, recalcHR, recalcPace } = useZones()
   const { profile, loading: profileLoading, error: profileError, save } = useProfile()
+  const { refreshZones } = useZonesStatus()
 
   const [lthr, setLthr] = useState<number | null>(null)
   const [thresholdPace, setThresholdPace] = useState<number | null>(null)
@@ -36,6 +38,7 @@ export function ZoneManager() {
         setLocalZones([])
       }
       showToast('success', 'Saved successfully')
+      refreshZones()
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Save failed')
     }
@@ -45,6 +48,7 @@ export function ZoneManager() {
     try {
       await recalcHR()
       setLocalZones([])
+      refreshZones()
       showToast('success', 'HR zones recalculated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
@@ -54,6 +58,7 @@ export function ZoneManager() {
   const handleRecalcPace = async () => {
     try {
       await recalcPace()
+      refreshZones()
       showToast('success', 'Pace zones recalculated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Recalculation failed')

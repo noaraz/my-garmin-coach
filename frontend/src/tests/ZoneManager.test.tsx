@@ -3,6 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ZoneManager } from '../components/zones/ZoneManager'
 
+vi.mock('../contexts/ZonesStatusContext', () => ({
+  useZonesStatus: () => ({ zonesConfigured: true, refreshZones: vi.fn() }),
+}))
+
 const mockSaveHRZones = vi.fn()
 const mockRecalcHR = vi.fn()
 const mockSave = vi.fn()
