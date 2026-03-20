@@ -1,9 +1,7 @@
 """Unit tests for plan_coach_service.py — build_system_prompt and history truncation."""
 from __future__ import annotations
 
-from datetime import date
 
-import pytest
 
 from src.db.models import AthleteProfile, GarminActivity, HRZone, PaceZone
 from src.services.plan_coach_service import (

@@ -1,7 +1,7 @@
 """Integration tests for Plan Coach chat endpoints (Phase 4)."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from httpx import AsyncClient
 from sqlmodel import select
@@ -90,7 +90,7 @@ class TestPostChatMessage:
     async def test_post_message_queries_recent_garmin_activities(
         self, client: AsyncClient, session: AsyncSession
     ) -> None:
-        from datetime import date, datetime, timezone, timedelta
+        from datetime import datetime, timezone
         from src.db.models import GarminActivity
 
         # Seed a recent activity
