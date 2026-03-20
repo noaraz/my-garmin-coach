@@ -1,13 +1,57 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-20 (Workout Detail Panel — slide-out Quick View)
+Last updated: 2026-03-20 (Plan Coach — scaffold)
 
-## Current Focus: Workout Detail Panel
+## Current Focus: Plan Coach
 
-Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
-Implementation plan: `docs/superpowers/plans/2026-03-20-workout-detail-panel.md`
+Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
+Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 
-### Workout Detail Panel
+### Plan Coach — Phase 0: Scaffold
+| Task | Status |
+|------|--------|
+| Update design spec with final decisions | ✅ |
+| Create features/plan-coach/PLAN.md + CLAUDE.md | ✅ |
+| Update STATUS.md | ✅ |
+| Update root CLAUDE.md (revise-claude-md) | ✅ |
+| Update root PLAN.md | ✅ |
+
+### Plan Coach — Phase 1: Backend
+| Task | Status |
+|------|--------|
+| TrainingPlan model + training_plan_id FK on ScheduledWorkout | ⬜ |
+| Alembic migration: add_training_plan | ⬜ |
+| plan_step_parser.py (pure, unit tests) | ⬜ |
+| plan_import_service.py (validate, commit, delete, active, cleanup) | ⬜ |
+| plans.py router + register in app.py | ⬜ |
+| Integration tests: test_api_plans.py | ⬜ |
+
+### Plan Coach — Phase 2: CSV Import UI
+| Task | Status |
+|------|--------|
+| PlanCoachPage.tsx + /plan-coach route | ⬜ |
+| CsvImportTab.tsx + ValidationTable.tsx + LlmPromptTemplate.tsx | ⬜ |
+| API client functions + types | ⬜ |
+| Sidebar nav item | ⬜ |
+| RTL tests | ⬜ |
+
+### Plan Coach — Phase 3: Active Plan View + Re-import Diff
+| Task | Status |
+|------|--------|
+| ActivePlanCard.tsx + DeletePlanModal.tsx + DiffTable.tsx | ⬜ |
+| Plan badge on WorkoutCard + TemplateCard | ⬜ |
+| RTL tests | ⬜ |
+
+### Plan Coach — Phase 4: Chat (Gemini Flash)
+| Task | Status |
+|------|--------|
+| PlanCoachMessage model + alembic migration | ⬜ |
+| gemini_client.py + plan_coach_service.py | ⬜ |
+| Chat API endpoints (history + message) | ⬜ |
+| ChatTab.tsx (thread, plan detection, validate/commit flow) | ⬜ |
+| Unit + integration + RTL tests | ⬜ |
+
+### Workout Detail Panel (previous focus) ✅
 | Task | Status |
 |------|--------|
 | Docs: root PLAN.md, CLAUDE.md, feature docs, STATUS.md | ✅ |
