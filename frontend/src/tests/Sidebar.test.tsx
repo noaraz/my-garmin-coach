@@ -1,3 +1,4 @@
+import pkg from '../../package.json'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -75,6 +76,11 @@ describe('Sidebar version display', () => {
   it('version number reflects package.json via __APP_VERSION__', () => {
     renderSidebar()
     expect(screen.getByText(new RegExp(`^v${__APP_VERSION__}`))).toBeInTheDocument()
+  })
+
+  it('version matches package.json', () => {
+    renderSidebar()
+    expect(screen.getByText(new RegExp(`^v${pkg.version}`))).toBeInTheDocument()
   })
 })
 
