@@ -88,14 +88,10 @@ export function OnboardingWizard() {
   }, [isWizardOpen])
 
   if (!isWizardOpen) return null
+  if (!user) return null
 
-  const handleSkip = () => {
-    localStorage.setItem(`onboarding_completed_${user!.id}`, '1')
-    closeWizard()
-  }
-
-  const handleFinish = () => {
-    localStorage.setItem(`onboarding_completed_${user!.id}`, '1')
+  const handleComplete = () => {
+    localStorage.setItem(`onboarding_completed_${user.id}`, '1')
     closeWizard()
   }
 
@@ -105,7 +101,7 @@ export function OnboardingWizard() {
       setStep(nextStep)
       navigate(STEPS[nextStep].route)
     } else {
-      handleFinish()
+      handleComplete()
     }
   }
 
@@ -156,7 +152,7 @@ export function OnboardingWizard() {
             Step {step + 1} of {STEPS.length}
           </span>
           <button
-            onClick={handleSkip}
+            onClick={handleComplete}
             style={{
               ...buttonStyle,
               border: 'none',
@@ -237,7 +233,7 @@ export function OnboardingWizard() {
           )}
           {isLastStep ? (
             <button
-              onClick={handleFinish}
+              onClick={handleComplete}
               style={{
                 ...buttonStyle,
                 border: 'none',
