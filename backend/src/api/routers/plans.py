@@ -174,6 +174,7 @@ async def delete_plan_endpoint(
         result = await session.exec(
             select(ScheduledWorkout).where(
                 ScheduledWorkout.training_plan_id == plan_id,
+                ScheduledWorkout.user_id == current_user.id,
                 ScheduledWorkout.garmin_workout_id.isnot(None),  # type: ignore[union-attr]
                 ScheduledWorkout.matched_activity_id.is_(None),  # type: ignore[union-attr]
             )

@@ -587,6 +587,82 @@ class TestDelete:
         resp = await client.delete(f"/api/v1/plans/{plan.id}")
         assert resp.status_code == 403
 
+    async def test_delete_plan_garmin_cleanup_does_not_affect_other_users_workouts(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """IDOR security test: user B attempting to delete user A's plan must NOT
+        trigger Garmin deletions for user A's workouts."""
+        from collections.abc import AsyncGenerator
+        from unittest.mock import Mock
+
+        from httpx import ASGITransport
+        from src.api.app import create_app
+        from src.api.dependencies import get_session
+        from src.api.routers.sync import get_optional_garmin_sync_service
+        from src.auth.dependencies import get_current_user
+        from src.auth.models import User
+        from src.db.models import WorkoutTemplate
+
+        # User A (id=2) creates a plan with a synced workout
+        plan_a = TrainingPlan(
+            user_id=2,
+            name="User A Plan",
+            source="csv",
+            status="active",
+            start_date=date(2027, 6, 1),
+            parsed_workouts='[{"date": "2027-06-01", "name": "Easy Run", "steps_spec": "30m@Z2", "sport_type": "running", "steps": []}]',
+        )
+        session.add(plan_a)
+        await session.flush()
+
+        template_a = WorkoutTemplate(user_id=2, name="Easy Run", sport_type="running")
+        session.add(template_a)
+        await session.flush()
+
+        sw_a = ScheduledWorkout(
+            user_id=2,
+            date=date(2027, 6, 1),
+            workout_template_id=template_a.id,
+            training_plan_id=plan_a.id,
+            garmin_workout_id="garmin-999",  # synced workout
+        )
+        session.add(sw_a)
+        await session.commit()
+        await session.refresh(plan_a)
+
+        # Mock the Garmin sync service
+        mock_delete = Mock()
+        mock_garmin = Mock()
+        mock_garmin.delete_workout = mock_delete
+
+        async def mock_garmin_dependency() -> Mock:
+            return mock_garmin
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        async def override_user() -> User:
+            return User(id=1, email="test@example.com", is_active=True)
+
+        # Create a new app and client with mocked dependencies
+        app = create_app()
+        app.dependency_overrides[get_optional_garmin_sync_service] = mock_garmin_dependency
+        app.dependency_overrides[get_session] = override_session
+        app.dependency_overrides[get_current_user] = override_user
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as test_client:
+            # User B (id=1, the default test user) attempts to delete user A's plan
+            resp = await test_client.delete(f"/api/v1/plans/{plan_a.id}")
+
+        # User B should get a 403 (ownership check fails in delete_plan)
+        assert resp.status_code == 403
+
+        # The critical security check: Garmin delete_workout must NOT have been called
+        # If it was called, that means we fetched user A's workouts before checking ownership
+        mock_delete.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Phase 4 — Chat endpoints

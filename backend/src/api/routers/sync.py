@@ -118,10 +118,9 @@ async def sync_modified_workouts(
             session, ("modified", "failed"), current_user.id
         )
         templates = await _preload_templates(session, workouts)
-        await asyncio.gather(*[
-            _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
-            for w in workouts
-        ])
+        # SQLAlchemy AsyncSession is NOT concurrency-safe — use sequential loop
+        for w in workouts:
+            await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
         await session.commit()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Auto-sync after zone change failed (continuing): %s", exc)

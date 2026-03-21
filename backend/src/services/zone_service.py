@@ -13,24 +13,56 @@ from src.zone_engine.hr_zones import HRZoneCalculator
 from src.zone_engine.models import ZoneConfig
 from src.zone_engine.pace_zones import PaceZoneCalculator
 
+# Fields to cache for HRZone (plain dict, not ORM object)
+_HR_ZONE_CACHE_FIELDS = (
+    "id", "profile_id", "zone_number", "name", "lower_bpm", "upper_bpm",
+    "calculation_method", "pct_lower", "pct_upper", "user_id",
+)
+
+# Fields to cache for PaceZone (plain dict, not ORM object)
+_PACE_ZONE_CACHE_FIELDS = (
+    "id", "profile_id", "zone_number", "name", "lower_pace", "upper_pace",
+    "calculation_method", "pct_lower", "pct_upper", "user_id",
+)
+
+
+def _hr_zone_to_dict(zone: HRZone) -> dict:
+    return {f: getattr(zone, f) for f in _HR_ZONE_CACHE_FIELDS}
+
+
+def _dict_to_hr_zone(d: dict) -> HRZone:
+    return HRZone(**d)
+
+
+def _pace_zone_to_dict(zone: PaceZone) -> dict:
+    return {f: getattr(zone, f) for f in _PACE_ZONE_CACHE_FIELDS}
+
+
+def _dict_to_pace_zone(d: dict) -> PaceZone:
+    return PaceZone(**d)
+
 
 class ZoneService:
     async def get_hr_zones(self, session: AsyncSession, profile_id: int) -> list[HRZone]:
         cache_key = f"hr_zones:{profile_id}"
         cached = cache.get(cache_key)
         if cached is not None:
-            return cached
+            # Cached as list of dicts to avoid DetachedInstanceError across sessions
+            return [_dict_to_hr_zone(d) for d in cached]
         zones = await hr_zone_repository.get_by_profile(session, profile_id)
-        cache.set(cache_key, zones)
+        # Cache as dicts (not ORM objects) to avoid cross-session issues
+        cache.set(cache_key, [_hr_zone_to_dict(z) for z in zones])
         return zones
 
     async def get_pace_zones(self, session: AsyncSession, profile_id: int) -> list[PaceZone]:
         cache_key = f"pace_zones:{profile_id}"
         cached = cache.get(cache_key)
         if cached is not None:
-            return cached
+            # Cached as list of dicts to avoid DetachedInstanceError across sessions
+            return [_dict_to_pace_zone(d) for d in cached]
         zones = await pace_zone_repository.get_by_profile(session, profile_id)
-        cache.set(cache_key, zones)
+        # Cache as dicts (not ORM objects) to avoid cross-session issues
+        cache.set(cache_key, [_pace_zone_to_dict(z) for z in zones])
         return zones
 
     async def recalculate_hr_zones(
