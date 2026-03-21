@@ -108,6 +108,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline; smart merge (keep unchanged + completed workouts on re-import) |
 | Status Indicators | `features/status-indicators/` | Garmin connection dot + Zones "Not set" inline warning in sidebar; Garmin toolbar button on CalendarPage |
 | Onboarding | `features/onboarding/` | First-time modal wizard (7 steps, localStorage flag) + Help page with Replay tour |
+| Mobile Responsive | `features/mobile-responsive/` | Bottom tab bar, TodayPage, responsive layout for all pages |
 
 ---
 

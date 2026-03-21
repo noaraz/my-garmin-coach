@@ -99,6 +99,7 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | 10 | Workout Detail Panel | `features/calendar/` | calendar, garmin-activity-fetch | ✅ |
 | 11 | Plan Coach | `features/plan-coach/` | calendar, garmin-activity-fetch | 🟡 |
 | 12 | Status Indicators | `features/status-indicators/` | calendar, settings | ✅ |
+| 13 | Mobile Responsive | `features/mobile-responsive/` | all frontend | 🔄 |
 
 Features 2–4 are pure logic with zero I/O. Feature 5 adds persistence.
 Features 6–7 are frontend. Feature 8 is auth. Deploy after auth.
@@ -107,6 +108,7 @@ Feature 10 adds a slide-out Quick View panel for workout/activity details.
 Feature 11 adds multi-week training plan creation via CSV import and Gemini Flash chat. Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
 Phase 6 (prompt improvements): rolling 2–3 week horizon, health notes field, explicit fetch button with state machine. Design spec: `docs/superpowers/specs/2026-03-21-plan-coach-prompt-improvements-design.md`
 Feature 12 adds Garmin connection status + Zones "Not set" indicators in the sidebar and calendar toolbar. Design spec: `docs/superpowers/specs/2026-03-20-garmin-status-indicator-design.md`
+Feature 13 adds mobile-responsive layout with bottom tab bar, TodayPage, and responsive design for all pages. Visual design: `frontend/public/mobile-mockup.html`
 
 ---
 

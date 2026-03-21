@@ -12,6 +12,24 @@ Last updated: 2026-03-22 (plan-coach prompt improvements — phase 6 complete; a
 
 ---
 
+## Current Focus: Mobile Responsive 🔄
+
+Visual design: `frontend/public/mobile-mockup.html` (open in browser to see all screens)
+Implementation plan: `docs/superpowers/plans/2026-03-21-mobile-responsive.md`
+Feature docs: `features/mobile-responsive/`
+
+### Mobile Responsive
+| Task | Status |
+|------|--------|
+| Phase 0: MD files (STATUS.md, CLAUDE.md, PLAN.md, feature folder) | 🔄 |
+| Chunk 1: useIsMobile hook + CSS mobile vars + AppShell mobile layout | ⬜ |
+| Chunk 2: BottomTabBar + More sheet + /today route | ⬜ |
+| Chunk 3: TodayPage (week strip, hero card, chips) | ⬜ |
+| Chunk 4: WorkoutDetailPanel bottom sheet + OnboardingWizard + HelpPage mobile | ⬜ |
+| Chunk 5: All pages responsive padding/overflow audit | ⬜ |
+
+---
+
 ## Current Focus: Onboarding + Help Page ✅
 
 Design spec: `docs/superpowers/specs/` (brainstorming session)
@@ -343,7 +361,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: Dynamic sidebar version from package.json (`__APP_VERSION__` via Vite define, strips `-dev` in prod) | ✅ |
 | Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
 | Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
-| Mobile responsive | ⬜ |
+| Mobile responsive | 🔄 |
 
 ### Auth + Deployment
 | Task | Status |
