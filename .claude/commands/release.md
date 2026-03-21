@@ -55,25 +55,13 @@ Wait for their response. Fix any flagged items, re-run tests, then continue.
 
 ---
 
-## 4. Pre-Release Checklist
-
-Ask the user to confirm each item:
-
-> Before tagging, please confirm:
-> - [ ] All features for this release are merged to `main`
-> - [ ] No secrets are in the code or git history
-> - [ ] If schema changed: Alembic migration created and committed (`backend/alembic/versions/`)
-> - [ ] `RENDER_DEPLOY_HOOK_URL` secret is set in GitHub → Settings → Secrets → Actions
-
----
-
-## 5. Determine Version
+## 4. Determine Version
 
 Ask the user:
 
 > What version should this release be? (current latest tag: `git describe --tags --abbrev=0`)
 >
-> Versioning guide (from RELEASING.md):
+> Versioning guide:
 > - `PATCH` — bug fixes, no schema change
 > - `MINOR` — new features, may include a migration
 > - `MAJOR` — breaking API or schema changes
@@ -82,7 +70,41 @@ Wait for their answer (e.g. `v1.0.0`).
 
 ---
 
-## 6. Release Notes
+## 5. Bump `frontend/package.json` and Commit
+
+Update the version in `frontend/package.json` to match the release tag (strips the leading `v`):
+
+```bash
+# Check current value
+node -e "const p = require('./frontend/package.json'); console.log('current:', p.version)"
+```
+
+If it doesn't already match, update it and commit:
+
+```bash
+# Edit frontend/package.json "version" field to <VERSION without v>
+git add frontend/package.json
+git commit -m "chore: bump version to <VERSION>"
+```
+
+This commit is what gets tagged. The sidebar reads this value at build time — tagging alone does **not** update it.
+
+---
+
+## 6. Pre-Release Checklist
+
+Ask the user to confirm each item:
+
+> Before tagging, please confirm:
+> - [ ] `frontend/package.json` `"version"` matches the release tag
+> - [ ] All features for this release are merged to `main`
+> - [ ] No secrets are in the code or git history
+> - [ ] If schema changed: Alembic migration created and committed (`backend/alembic/versions/`)
+> - [ ] `RENDER_DEPLOY_HOOK_URL` secret is set in GitHub → Settings → Secrets → Actions
+
+---
+
+## 8. Release Notes
 
 Ask the user:
 
@@ -103,7 +125,7 @@ Wait for their notes.
 
 ---
 
-## 7. Tag and Push
+## 9. Tag and Push
 
 ```bash
 # Create annotated tag — summary on first -m, notes on second -m
@@ -125,7 +147,7 @@ After pushing, print:
 
 ---
 
-## 7. Monitor the Release Pipeline
+## 10. Monitor the Release Pipeline
 
 The tag push from step 6 triggers the Release workflow. The pipeline pauses for your approval after tests:
 
@@ -159,7 +181,7 @@ If the deploy hook isn't set up yet:
 
 ---
 
-## 8. Update STATUS.md
+## 11. Update STATUS.md
 
 - Mark `Tag v1.0.0 + create GitHub Release` as ✅
 - Update `Last updated` line
@@ -167,11 +189,12 @@ If the deploy hook isn't set up yet:
 
 ---
 
-## 9. Post-Deploy Verification
+## 12. Post-Deploy Verification
 
 After Render shows the deploy as live:
 
 > - [ ] Visit `https://garmincoach.onrender.com` — app loads
+> - [ ] Sidebar shows `v<VERSION>` (not `-dev` suffix, not a stale version number)
 > - [ ] Login works
 > - [ ] If first deploy: create admin user via Render Shell (see below)
 > - [ ] If Garmin was connected: reconnect in Settings (HKDF change invalidated old tokens)
