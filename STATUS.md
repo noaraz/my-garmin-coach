@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-21 (Onboarding walkthrough + Help page)
+Last updated: 2026-03-21 (v1.0.0 — first public release)
 
 ## Current Focus: Onboarding + Help Page ✅
 
@@ -206,6 +206,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tag v0.2.2 + push (Fixie proxy) | ✅ |
 | Security hardening: ProxyError handler, fixie_url validation, test isolation fixes | ✅ |
 | Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
+| Pre-release security fixes (PR #41): zone cache dicts, Gemini ValueError, IDOR, session concurrency, unpair completed | ✅ |
+| Tag v1.0.0 + push — first public release, GitHub Release created, deployed to Render ✅ | ✅ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
