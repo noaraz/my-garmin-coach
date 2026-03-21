@@ -520,7 +520,7 @@ class TestZonesCacheSerialization:
             mock_repo.get_by_profile = AsyncMock(return_value=zones)
 
             # Act — first call should populate cache
-            result_1 = await service.get_hr_zones(mock_session, profile_id=1)
+            await service.get_hr_zones(mock_session, profile_id=1)
 
         # Assert — cache should contain a list of dicts, not ORM objects
         cache_key = "hr_zones:1"
@@ -556,7 +556,7 @@ class TestZonesCacheSerialization:
             mock_repo.get_by_profile = AsyncMock(return_value=zones)
 
             # Act — first call should populate cache
-            result_1 = await service.get_pace_zones(mock_session, profile_id=1)
+            await service.get_pace_zones(mock_session, profile_id=1)
 
         # Assert — cache should contain a list of dicts, not ORM objects
         cache_key = "pace_zones:1"

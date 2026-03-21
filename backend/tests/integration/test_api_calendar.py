@@ -545,7 +545,7 @@ class TestActivityPairing:
     ) -> None:
         """Unpairing a workout should preserve completed status — only remove activity link."""
         # Arrange
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from src.db.models import GarminActivity
 
@@ -566,7 +566,7 @@ class TestActivityPairing:
             user_id=1,
             activity_type="running",
             name="Morning Run",
-            start_time=datetime(2026, 3, 10, 8, 0, 0),
+            start_time=datetime(2026, 3, 10, 8, 0, 0),  # noqa: DTZ001
             date=date(2026, 3, 10),
             duration_sec=3600,
             distance_m=10000,
