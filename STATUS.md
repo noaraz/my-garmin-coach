@@ -1,6 +1,26 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-21 (Plan Coach Phase 4b + Smart Plan Merge code review fixes)
+Last updated: 2026-03-21 (Onboarding walkthrough + Help page)
+
+## Current Focus: Onboarding + Help Page ✅
+
+Design spec: `docs/superpowers/specs/` (brainstorming session)
+Feature docs: `features/onboarding/`
+
+### Onboarding Walkthrough + Help Page ✅
+| Task | Status |
+|------|--------|
+| Create features/onboarding/ PLAN.md + CLAUDE.md | ✅ |
+| OnboardingContext.tsx (isWizardOpen, openWizard, closeWizard) | ✅ |
+| OnboardingWizard.tsx — 7-step modal tour, localStorage flag, live navigation | ✅ |
+| AppShell: OnboardingProvider + OnboardingWizard | ✅ |
+| HelpPage.tsx — setup guide + feature overview + Replay Tour | ✅ |
+| App.tsx: /help route | ✅ |
+| Sidebar: Help nav item (? icon) between Plan Coach and Settings | ✅ |
+| Tests: OnboardingContext (3), OnboardingWizard (7), HelpPage (5) | ✅ |
+| Update STATUS.md + root CLAUDE.md | ✅ |
+
+---
 
 ## Current Focus: Plan Coach
 
