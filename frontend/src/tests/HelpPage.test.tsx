@@ -37,6 +37,7 @@ vi.mock('../contexts/AuthContext', async (importOriginal) => {
 })
 
 beforeEach(() => {
+  localStorage.clear()
   mockOpenWizard.mockReset()
   mockCloseWizard.mockReset()
 })
@@ -86,6 +87,5 @@ describe('HelpPage', () => {
     await user.click(screen.getByRole('button', { name: /replay tour/i }))
     expect(localStorage.getItem('onboarding_completed_1')).toBeNull()
     expect(mockOpenWizard).toHaveBeenCalled()
-    localStorage.removeItem('onboarding_completed_1')
   })
 })

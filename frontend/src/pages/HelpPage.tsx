@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOnboarding } from '../contexts/OnboardingContext'
 
@@ -31,7 +32,7 @@ const features = [
   { icon: '🤖', title: 'Plan Coach', description: 'Import or AI-generate multi-week training plans' },
 ]
 
-const sectionLabelStyle: React.CSSProperties = {
+const sectionLabelStyle: CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontSize: '11px',
   fontWeight: 700,
