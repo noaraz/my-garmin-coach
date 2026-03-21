@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-21 (v1.0.0 — first public release)
+Last updated: 2026-03-21 (v1.0.1 — sidebar version fix)
 
 ## Current Focus: Onboarding + Help Page ✅
 
