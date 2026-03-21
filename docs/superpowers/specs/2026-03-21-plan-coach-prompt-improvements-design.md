@@ -20,10 +20,11 @@ Three incremental improvements to `PlanPromptBuilder.tsx` to make the generated 
 
 ### 1a. Health & shape textarea
 
-- **Position:** after the Long run day select, before the generated prompt block
+- **Position:** after the Long run day select, before the fetch button and generated prompt block
 - **Label:** `CURRENT HEALTH & SHAPE` (uppercase, `fieldLabel` style)
 - **Placeholder:** `E.g. good base fitness, returning from injury, peak week fatigue, feeling strong…`
 - **Rows:** 3, full width
+- **Style:** `inputStyle` with `fontFamily` overridden to `'IBM Plex Sans', system-ui, sans-serif` (not Mono — this is free prose, not structured data), plus `width: '100%'` and `resize: 'vertical'`. All other tokens from `inputStyle` apply.
 - **Optional:** empty value → section omitted from prompt entirely
 
 ### 1b. Fetch last 2 weeks button
@@ -41,9 +42,20 @@ Button states driven by `fetchState: 'idle' | 'fetching' | 'done' | 'empty'`:
 
 Fetch errors are swallowed silently (same behaviour as the existing catch); `fetchState` → `'empty'`.
 
-### 1c. Remove auto-fetch `useEffect`
+**Style:** use the same inline style pattern as the existing day-toggle buttons — `IBM Plex Sans Condensed`, uppercase, `var(--border)` border, `var(--bg-surface-2)` background, `var(--text-secondary)` color. Disabled (`fetching`) state: `opacity: 0.5, cursor: 'not-allowed'`. No hardcoded hex values. The fetch button has no success/error color states — do not use `--color-success` or `--color-error` here; those are only on the copy button.
 
-The `useEffect` that fires on mount and calls `fetchCalendarRange` is deleted. `activities` state initialises to `[]`.
+**`done` and `empty` feedback placement:** the count badge / "No recent activities found" note is rendered as a `<span>` inline sibling immediately to the right of the button (same flex row), using `var(--text-muted)` and `fontSize: '12px'`. Not a separate block element. Badge copy: `"1 activity included"` (singular) / `"N activities included"` (plural) — same pluralisation logic as the existing summary block.
+
+**Re-fetch state machine:** clicking "Refresh" (`done`) or "Retry" (`empty`) always transitions to `'fetching'` first (button disabled), then to `'done'` or `'empty'` on completion. `activities` is **not** cleared on re-fetch or on error — old activities remain in the prompt until the new fetch completes. On catch, only `fetchState` changes to `'empty'`; `activities` is left as-is.
+
+### 1c. Remove auto-fetch `useEffect` and old summary block
+
+Three deletions:
+1. The `useEffect` that fires on mount and calls `fetchCalendarRange` — deleted entirely.
+2. Remove `useEffect` from the React import (`import { useState, useRef, useEffect }` → `import { useState, useRef }`). Without this, `tsc -b` fails with an unused-import error.
+3. The existing "Recent training included in prompt" summary JSX block (currently rendered below the Long run day select when `recentActivities.length > 0`) — deleted entirely. Its role is replaced by the fetch button's `done`/`empty` state feedback.
+
+`recentActivities` state is renamed to `activities`; all JSX references to `recentActivities` are updated accordingly.
 
 ---
 
@@ -74,16 +86,35 @@ New header:
 Generate the next 2–3 weeks of my running training plan as a CSV with these columns:
 ```
 
-- `weeksLabel` and `weeksNote` variables removed from `buildPrompt()`
-- Race date still appears as goal context: `My goal: [distance] race on [date]`
+- `weeksLabel`, `weeksNote`, and their local `const weeks = weeksUntil(raceDate)` line removed from `buildPrompt()`. The `weeksUntil()` helper function at module level is no longer called — **delete it** to keep the file clean.
+- Race date still appears as goal context: `My goal: [distance] race on [date]` — the old `${weeksNote}` interpolation at the end of this line is removed.
 - New line after goal: `Plan the next 2–3 weeks only — I'll come back to update it regularly.`
 
 ### 2b. Health & shape section
 
-Injected after the training days/long run block, only when `healthNotes.trim()` is non-empty:
+Injected **after the training days/long run lines and before the `activitySection`**, only when `healthNotes.trim()` is non-empty. Full prompt order:
 
 ```
-My current health & shape: [healthNotes]
+Generate the next 2–3 weeks of my running training plan as a CSV with these columns:
+date,name,steps_spec,sport_type,description
+
+My goal: [distance] race on [date]
+Plan the next 2–3 weeks only — I'll come back to update it regularly.
+Training: Nx/week on [days]
+Long run day: [day]
+My current health & shape: [healthNotes]   ← new, only when non-empty
+
+## Recent Training (last 14 days)           ← only when activities fetched
+- 2026-03-20 running 45min 8.2km avg 5:29/km
+...
+
+Rules: ...
+Step notation: ...
+Example rows: ...
+
+Note: plan 2–3 weeks only, not the full race block. I'll re-run this prompt every 2–3 weeks to keep the plan current.   ← new
+
+Output as a downloadable file named training_plan.csv — no explanation, no markdown fences.
 ```
 
 ### 2c. Re-run note
