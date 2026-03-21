@@ -48,6 +48,14 @@ const PlanCoachIcon = () => (
   </svg>
 )
 
+const HelpIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+)
+
 const SettingsIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3"/>
@@ -187,6 +195,14 @@ export function Sidebar() {
             <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
               <PlanCoachIcon />
               Plan Coach
+            </span>
+          )}
+        </NavLink>
+        <NavLink to="/help" style={({ isActive }) => navStyle(isActive)}>
+          {({ isActive }) => (
+            <span style={{ color: isActive ? '#ffffff' : SIDE_ICON_INACTIVE, display: 'flex', alignItems: 'center', gap: '9px', width: '100%' }}>
+              <HelpIcon />
+              Help
             </span>
           )}
         </NavLink>
