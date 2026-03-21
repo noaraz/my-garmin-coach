@@ -55,4 +55,8 @@ def chat_completion(
                 "Gemini API quota exceeded. Please try again later or upgrade your plan."
             ) from exc
         raise RuntimeError(f"Gemini API error ({exc.status_code})") from exc
-    return response.text
+
+    try:
+        return response.text
+    except ValueError as exc:
+        raise RuntimeError(f"Gemini safety filter blocked the response: {exc}") from exc

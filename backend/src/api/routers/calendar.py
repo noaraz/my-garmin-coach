@@ -162,7 +162,6 @@ async def unpair_activity(
         raise HTTPException(status_code=400, detail="Workout is not paired")
 
     workout.matched_activity_id = None
-    workout.completed = False
     workout.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.add(workout)
     await session.commit()

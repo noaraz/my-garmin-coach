@@ -493,3 +493,82 @@ class TestCascadeReResolve:
         assert sw.sync_status == "modified"
         # resolved_steps stays None — sync fallback will handle it
         assert sw.resolved_steps is None
+
+
+# ---------------------------------------------------------------------------
+# Cache serialization — verify zones are serialized to dicts, not raw ORM
+# ---------------------------------------------------------------------------
+
+
+class TestZonesCacheSerialization:
+    async def test_get_hr_zones_caches_as_dicts_not_orm_objects(self) -> None:
+        """HR zones must be cached as dicts to avoid DetachedInstanceError.
+
+        Verifies that:
+        1. The cached value is a list of dicts, not ORM objects
+        2. On cache hit, the service reconstructs HRZone objects from dicts
+        """
+        # Arrange
+        from src.core import cache
+
+        service = ZoneService()
+        zones = [_make_hr_zone(i) for i in range(1, 6)]
+        mock_session = _make_session()
+
+        with patch("src.services.zone_service.hr_zone_repository") as mock_repo:
+            # First call: repository returns zones
+            mock_repo.get_by_profile = AsyncMock(return_value=zones)
+
+            # Act — first call should populate cache
+            await service.get_hr_zones(mock_session, profile_id=1)
+
+        # Assert — cache should contain a list of dicts, not ORM objects
+        cache_key = "hr_zones:1"
+        cached_value = cache.get(cache_key)
+        assert cached_value is not None, "Cache should be populated after first call"
+        assert isinstance(cached_value, list), "Cached value should be a list"
+        assert len(cached_value) == 5
+        # The bug: current implementation caches raw HRZone objects instead of dicts
+        assert isinstance(cached_value[0], dict), \
+            "Cached zone should be a dict, not an ORM object (to avoid DetachedInstanceError)"
+        assert "zone_number" in cached_value[0]
+        assert "lower_bpm" in cached_value[0]
+
+        # Clean up cache for other tests
+        cache.clear()
+
+    async def test_get_pace_zones_caches_as_dicts_not_orm_objects(self) -> None:
+        """Pace zones must be cached as dicts to avoid DetachedInstanceError.
+
+        Verifies that:
+        1. The cached value is a list of dicts, not ORM objects
+        2. On cache hit, the service reconstructs PaceZone objects from dicts
+        """
+        # Arrange
+        from src.core import cache
+
+        service = ZoneService()
+        zones = [_make_pace_zone(i) for i in range(1, 6)]
+        mock_session = _make_session()
+
+        with patch("src.services.zone_service.pace_zone_repository") as mock_repo:
+            # First call: repository returns zones
+            mock_repo.get_by_profile = AsyncMock(return_value=zones)
+
+            # Act — first call should populate cache
+            await service.get_pace_zones(mock_session, profile_id=1)
+
+        # Assert — cache should contain a list of dicts, not ORM objects
+        cache_key = "pace_zones:1"
+        cached_value = cache.get(cache_key)
+        assert cached_value is not None, "Cache should be populated after first call"
+        assert isinstance(cached_value, list), "Cached value should be a list"
+        assert len(cached_value) == 5
+        # The bug: current implementation caches raw PaceZone objects instead of dicts
+        assert isinstance(cached_value[0], dict), \
+            "Cached zone should be a dict, not an ORM object (to avoid DetachedInstanceError)"
+        assert "zone_number" in cached_value[0]
+        assert "lower_pace" in cached_value[0]
+
+        # Clean up cache for other tests
+        cache.clear()

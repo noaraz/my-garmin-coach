@@ -535,3 +535,63 @@ class TestCalendarNotesUpdate:
         data = response.json()
         assert data["date"] == "2026-04-01"
         assert data["notes"] == "Moved to next week"
+
+
+class TestActivityPairing:
+    """Tests for manual activity pairing/unpairing."""
+
+    async def test_unpair_activity_preserves_completed_status(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Unpairing a workout should preserve completed status — only remove activity link."""
+        # Arrange
+        from datetime import datetime
+
+        from src.db.models import GarminActivity
+
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10), workout_template_id=template.id, user_id=1
+        )
+        session.add(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
+
+        activity = GarminActivity(
+            garmin_activity_id="123456",
+            user_id=1,
+            activity_type="running",
+            name="Morning Run",
+            start_time=datetime(2026, 3, 10, 8, 0, 0),  # noqa: DTZ001
+            date=date(2026, 3, 10),
+            duration_sec=3600,
+            distance_m=10000,
+            avg_hr=None,
+            max_hr=None,
+            avg_pace_sec_per_km=None,
+            calories=None,
+        )
+        session.add(activity)
+        await session.commit()
+        await session.refresh(activity)
+
+        # Pair activity to workout (sets completed=True)
+        pair_response = await client.post(
+            f"/api/v1/calendar/{scheduled.id}/pair/{activity.id}"
+        )
+        assert pair_response.status_code == 200
+        assert pair_response.json()["completed"] is True
+
+        # Act — unpair the activity
+        response = await client.post(f"/api/v1/calendar/{scheduled.id}/unpair")
+
+        # Assert — activity link removed, completed still True
+        assert response.status_code == 200
+        data = response.json()
+        assert data["matched_activity_id"] is None
+        assert data["activity"] is None
+        assert data["completed"] is True  # Should NOT be reset to False
