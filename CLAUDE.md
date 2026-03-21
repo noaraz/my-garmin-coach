@@ -107,6 +107,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Workout Detail Panel | `features/calendar/` | Slide-out Quick View panel for workout/activity details |
 | Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline; smart merge (keep unchanged + completed workouts on re-import) |
 | Status Indicators | `features/status-indicators/` | Garmin connection dot + Zones "Not set" inline warning in sidebar; Garmin toolbar button on CalendarPage |
+| Onboarding | `features/onboarding/` | First-time modal wizard (7 steps, localStorage flag) + Help page with Replay tour |
 
 ---
 
@@ -632,6 +633,17 @@ Root `PLAN.md` feature table emoji must be updated to ✅ when a feature is comp
 - **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` after successful save.
 - **Sidebar tests**: wrap render in `<GarminStatusProvider><ZonesStatusProvider>`. Both contexts need mocks via `vi.hoisted`.
 - **Calendar tests**: wrap `renderPage` in `<GarminStatusProvider>`. Add `mockGetGarminStatus` to `vi.hoisted` + existing `vi.mock('../api/client')` factory.
+
+## Onboarding Maintenance (added 2026-03-21)
+
+When adding a new page/feature to GarminCoach, also:
+1. Add a step to `STEPS` array in `frontend/src/components/onboarding/OnboardingWizard.tsx`
+2. Add a feature card in `frontend/src/pages/HelpPage.tsx`
+3. Update `features/onboarding/PLAN.md`
+
+**localStorage key**: `onboarding_completed_${userId}` — one per user, set on wizard Finish or Skip.
+Replay Tour (HelpPage) clears the key and calls `openWizard()` from `OnboardingContext`.
+`OnboardingProvider` is mounted in `AppShell.tsx` (outermost provider, wraps GarminStatusProvider + ZonesStatusProvider).
 
 ---
 

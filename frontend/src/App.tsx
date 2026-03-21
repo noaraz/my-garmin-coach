@@ -10,6 +10,7 @@ import { BuilderPage } from './pages/BuilderPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { PlanCoachPage } from './pages/PlanCoachPage'
+import { HelpPage } from './pages/HelpPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SetupPage } from './pages/SetupPage'
@@ -91,6 +92,18 @@ function App() {
                   <ErrorBoundary>
                     <AppShell>
                       <SettingsPage />
+                    </AppShell>
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <AppShell>
+                      <HelpPage />
                     </AppShell>
                   </ErrorBoundary>
                 </ProtectedRoute>

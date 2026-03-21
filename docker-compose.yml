@@ -38,6 +38,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_PROXY_TARGET=http://backend:8000
+      - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
 
 volumes:
   backend_data:
