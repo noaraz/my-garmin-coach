@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 type ConnectionState = 'loading' | 'connected' | 'disconnected'
@@ -18,6 +19,7 @@ const sectionLabel: React.CSSProperties = {
 
 export function SettingsPage() {
   const isMobile = useIsMobile()
+  const { theme, toggleTheme } = useTheme()
   const [connectionState, setConnectionState] = useState<ConnectionState>('loading')
   const [garminEmail, setGarminEmail] = useState('')
   const [garminPassword, setGarminPassword] = useState('')
@@ -342,6 +344,72 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Display Settings — mobile only (Sidebar handles desktop) */}
+      {isMobile && (
+        <div style={{ marginTop: '32px' }}>
+          <div style={sectionLabel}>Display Settings</div>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+            }}>
+              <div>
+                <div style={{
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                }}>
+                  Theme
+                </div>
+                <div style={{
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  marginTop: '2px',
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                }}>
+                  {theme === 'dark' ? 'Dark' : 'Light'}
+                </div>
+              </div>
+              <button
+                onClick={toggleTheme}
+                aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                style={{
+                  background: theme === 'dark' ? 'var(--accent)' : 'var(--bg-surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '20px',
+                  width: '44px',
+                  height: '26px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background 0.2s ease',
+                  flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: theme === 'dark' ? '21px' : '3px',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: theme === 'dark' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
+                  transition: 'left 0.2s ease',
+                  display: 'block',
+                }} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin section — only visible to admin users */}
       {isAdmin && (

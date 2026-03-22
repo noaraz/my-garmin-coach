@@ -13,6 +13,12 @@ function getWeekStart(date: Date): Date {
   return startOfWeek(date, { weekStartsOn: 1 }) // Monday
 }
 
+/** Parse a YYYY-MM-DD string as local midnight (avoids UTC timezone shift). */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export function TodayPage() {
@@ -31,8 +37,8 @@ export function TodayPage() {
   }, [])
 
   // Find today's incomplete workout and yesterday's workout
-  const todayWorkout = workouts.find(w => isToday(new Date(w.date)) && !w.completed) ?? null
-  const yesterdayWorkout = workouts.find(w => isYesterday(new Date(w.date))) ?? null
+  const todayWorkout = workouts.find(w => isToday(parseLocalDate(w.date)) && !w.completed) ?? null
+  const yesterdayWorkout = workouts.find(w => isYesterday(parseLocalDate(w.date))) ?? null
 
   // Template lookup
   const findTemplate = (w: ScheduledWorkoutWithActivity) =>
@@ -47,7 +53,7 @@ export function TodayPage() {
   // Build week strip data
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i)
-    const dayWorkout = workouts.find(w => isSameDay(new Date(w.date), date))
+    const dayWorkout = workouts.find(w => isSameDay(parseLocalDate(w.date), date))
     return { date, label: DAY_LABELS[i], dayWorkout }
   })
 
