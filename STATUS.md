@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-22 (v1.0.2 — mobile responsive)
+Last updated: 2026-03-23 (v1.1.0 — mobile responsive + plan coach improvements)
 
 ## Current Focus: Mobile Responsive ✅
 
@@ -241,6 +241,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tag v0.2.3 + push (proxy security hardening) — deployed to Render ✅ | ✅ |
 | Pre-release security fixes (PR #41): zone cache dicts, Gemini ValueError, IDOR, session concurrency, unpair completed | ✅ |
 | Tag v1.0.0 + push — first public release, GitHub Release created, deployed to Render ✅ | ✅ |
+| Tag v1.0.1 + push — sidebar version sync, security fixes | ✅ |
+| Tag v1.1.0 + push — mobile responsive, plan coach improvements, Garmin pairing fix | ✅ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
