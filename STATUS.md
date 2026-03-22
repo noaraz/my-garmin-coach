@@ -1,6 +1,16 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-21 (v1.0.1 — sidebar version fix)
+Last updated: 2026-03-22 (Garmin calendar cleanup on pairing)
+
+## Current Focus: Garmin Cleanup on Pairing (bugfix) ✅
+
+| Task | Status |
+|------|--------|
+| Update docs (STATUS, PLAN, CLAUDE, feature CLAUDE.md) | ✅ |
+| Tests: sync_all cleanup sweep + pair_activity Garmin delete | ✅ |
+| Fix: delete Garmin scheduled workout after pairing (sync_all + pair_activity) | ✅ |
+
+---
 
 ## Current Focus: Onboarding + Help Page ✅
 

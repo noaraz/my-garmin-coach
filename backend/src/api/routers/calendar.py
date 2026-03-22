@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -22,6 +24,8 @@ from src.db.models import GarminActivity, ScheduledWorkout
 from src.services.calendar_service import get_range, reschedule, schedule, unschedule
 from src.services.profile_service import get_or_create_profile
 from src.services.sync_orchestrator import SyncOrchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/calendar", tags=["calendar"])
 
@@ -108,6 +112,7 @@ async def pair_activity(
     activity_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    garmin: SyncOrchestrator | None = Depends(get_optional_garmin_sync_service),
 ) -> ScheduledWorkoutWithActivity:
     """Manually pair a scheduled workout with a Garmin activity."""
     workout = await session.get(ScheduledWorkout, scheduled_id)
@@ -132,6 +137,16 @@ async def pair_activity(
     ).first()
     if existing_pair is not None:
         raise HTTPException(status_code=409, detail="Activity is already paired with another workout")
+
+    # Best-effort: clean up the Garmin scheduled workout so Garmin's own
+    # calendar shows only the completed activity, not both plan and activity.
+    garmin_id = workout.garmin_workout_id
+    if garmin and garmin_id:
+        try:
+            garmin.delete_workout(garmin_id)
+            workout.garmin_workout_id = None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not delete Garmin workout %s on manual pair: %s", garmin_id, exc)
 
     workout.matched_activity_id = activity.id
     workout.completed = True

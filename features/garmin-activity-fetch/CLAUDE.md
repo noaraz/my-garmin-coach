@@ -21,6 +21,21 @@
 3. Pick longest `duration_sec` when multiple matches
 4. Set `completed = True` on paired workout
 
+## Garmin Calendar Cleanup After Pairing (added 2026-03-22)
+
+**Problem**: Garmin's own calendar shows both the scheduled planned workout AND the completed activity after a run. Our app correctly shows the paired view, but Garmin's app shows two entries.
+
+**Pattern**: In `sync_all` (`backend/src/api/routers/sync.py`), after `match_activities()` commits, run an idempotent cleanup sweep:
+- Query `completed=True, garmin_workout_id IS NOT NULL` within the sync date window
+- For each: call `sync_service.delete_workout(garmin_id)` (best-effort, swallowed on failure)
+- Clear `garmin_workout_id = None` and `session.add(workout)`
+- Commit once at the end
+- Handles both newly-paired workouts from this sync AND retroactive past paired workouts
+
+**Manual pair** (`calendar.py:pair_activity`): same best-effort delete inline before `session.commit()`, using `get_optional_garmin_sync_service` dependency (already imported).
+
+**Why idempotent**: `garmin_workout_id` is cleared to `None` after deletion. On the next sync, the query finds no rows and is a no-op.
+
 ## Activity Fetch Gotchas (added 2026-03-20)
 
 - **`start_time` must come from Garmin's `startTimeLocal`** — never use `datetime.now()`. Parse with `datetime.fromisoformat(activity["startTimeLocal"])`, strip tzinfo for DB storage

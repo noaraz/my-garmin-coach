@@ -19,3 +19,4 @@ See `docs/superpowers/plans/2026-03-19-garmin-activity-fetch.md`
 - Compliance colors on WorkoutCard (green/yellow/red/grey)
 - Manual pair/unpair and reschedule actions
 - Auto-sync on calendar page mount
+- Cleanup: delete Garmin scheduled workout from Garmin's calendar after pairing (idempotent sweep in `sync_all` + best-effort in `pair_activity`)
