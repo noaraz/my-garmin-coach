@@ -85,9 +85,10 @@ If it doesn't already match, update it and commit:
 # Edit frontend/package.json "version" field to <VERSION without v>
 git add frontend/package.json
 git commit -m "chore: bump version to <VERSION>"
+git push origin main
 ```
 
-This commit is what gets tagged. The sidebar reads this value at build time — tagging alone does **not** update it.
+This commit is what gets tagged. The sidebar reads this value at build time — tagging alone does **not** update it. **Push before tagging** so the tag points to a commit that exists on the remote.
 
 ---
 
@@ -131,8 +132,8 @@ Wait for their notes.
 # Create annotated tag — summary on first -m, notes on second -m
 git tag -a <VERSION> -m "<one-line summary>" -m "<bullet notes>"
 
-# Push the tag — this triggers the GitHub Actions security gate
-git push origin <VERSION>
+# Push main (safety net — ensures version bump commit is on remote) then tag
+git push origin main && git push origin <VERSION>
 ```
 
 After pushing, print:
