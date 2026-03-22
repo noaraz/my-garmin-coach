@@ -152,3 +152,4 @@ Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improv
 - [x] Add health textarea (after long run day select)
 - [x] Add fetch button + inline feedback badge (above generated prompt)
 - [x] Remove old "Recent training included in prompt" summary block
+- [x] Code review fixes: `'error'` state in catch (not `'empty'`), date window -13 for exact 14 days inclusive, label literal lowercased (CSS textTransform handles casing)

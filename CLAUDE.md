@@ -170,6 +170,7 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 
 ## Skills & Tools
 
+- **wrap-up-docs-check** — installed at `.claude/skills/wrap-up-docs-check/`. Run when user signals feature complete ("all good", "ship it", "done"). Checks root STATUS.md + PLAN.md + CLAUDE.md and feature subfolder docs are updated, then runs `revise-claude-md` on all touched CLAUDE.md files.
 - **Do NOT install generic skills.** Feature CLAUDE.md files have all needed context.
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
@@ -714,9 +715,10 @@ Replay Tour (HelpPage) clears the key and calls `openWizard()` from `OnboardingC
 ## PlanPromptBuilder Patterns (added 2026-03-22)
 
 ### Fetch button state machine
-`fetchState: 'idle' | 'fetching' | 'done' | 'empty'` drives the fetch button label and inline feedback badge.
-`idle → fetching → done | empty`. Re-clicking "Refresh" / "Retry" always transitions through `fetching` first.
-`activities` is never cleared on re-fetch or error — old activities stay in the prompt until new ones load successfully.
+`fetchState: 'idle' | 'fetching' | 'done' | 'empty' | 'error'` drives the fetch button label and inline feedback badge.
+`idle → fetching → done | empty | error`. `empty` = API returned 0 results; `error` = network/auth failure.
+`activities` is never cleared on re-fetch or error — old data stays in the prompt until a new fetch succeeds.
+Do not collapse `error` into `empty` — user must know whether they have no runs or whether the fetch failed.
 
 ### Health notes field
 `healthNotes: string` — free text textarea placed after the long run day select.
