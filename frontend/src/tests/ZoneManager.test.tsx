@@ -3,13 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ZoneManager } from '../components/zones/ZoneManager'
 
-vi.mock('../contexts/ZonesStatusContext', () => ({
-  useZonesStatus: () => ({ zonesConfigured: true, refreshZones: vi.fn() }),
+const { mockRecalcHR, mockRecalcPace, mockSave, mockRefreshZones } = vi.hoisted(() => ({
+  mockRecalcHR: vi.fn(),
+  mockRecalcPace: vi.fn(),
+  mockSave: vi.fn(),
+  mockRefreshZones: vi.fn(),
 }))
 
-const mockRecalcHR = vi.fn()
-const mockRecalcPace = vi.fn()
-const mockSave = vi.fn()
+vi.mock('../contexts/ZonesStatusContext', () => ({
+  useZonesStatus: () => ({ zonesConfigured: true, refreshZones: mockRefreshZones }),
+}))
 
 vi.mock('../hooks/useZones', () => ({
   useZones: () => ({
@@ -47,6 +50,7 @@ beforeEach(() => {
   mockRecalcHR.mockReset()
   mockRecalcPace.mockReset()
   mockSave.mockReset()
+  mockRefreshZones.mockReset()
 })
 
 describe('test_renders_5_hr_zone_rows', () => {

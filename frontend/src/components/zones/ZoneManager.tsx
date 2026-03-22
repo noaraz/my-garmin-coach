@@ -33,10 +33,11 @@ export function ZoneManager() {
       })
       await recalcHR()
       await recalcPace()
-      refreshZones()
       showToast('success', 'Saved and zones updated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      refreshZones()
     }
   }
 
