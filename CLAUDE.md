@@ -530,6 +530,54 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 ---
 
+## Testing in Git Worktrees (added 2026-03-22)
+
+When running tests inside a worktree, the main repo container already holds port 8000.
+Never use `docker cp` to sync files — it conflicts with parallel worktree sessions.
+Instead, create a local venv:
+
+```bash
+cd backend
+/Users/noa.raz/.pyenv/versions/3.11.3/bin/python -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest tests/ -v --cov=src --cov-report=term-missing
+.venv/bin/ruff check src/ tests/
+```
+
+Integration tests default to SQLite in-memory — no DB container required.
+
+---
+
+## Ruff E402 — Logger Placement (added 2026-03-22)
+
+`logger = logging.getLogger(__name__)` must be placed **after all module-level imports**, not between them. Placing it between stdlib and third-party imports triggers E402 on every subsequent import. Correct pattern:
+
+```python
+import logging
+from sqlmodel import select
+from src.auth.models import User
+# ... all imports ...
+
+logger = logging.getLogger(__name__)  # ← after all imports
+router = APIRouter(...)
+```
+
+---
+
+## Test Type Hints for Locally-Imported Classes (added 2026-03-22)
+
+When a test helper imports a class inside the function body, don't use it as a string forward ref in the return type — ruff raises F821 even with `from __future__ import annotations`. Use `Any` instead:
+
+```python
+from typing import Any
+
+async def _make_activity(self, session: AsyncSession) -> Any:
+    from src.db.models import GarminActivity  # local import
+    ...
+```
+
+---
+
 ## Garmin Calendar Cleanup After Pairing (added 2026-03-22)
 
 Garmin's own calendar shows BOTH the scheduled planned workout AND the completed activity after a run. Our app correctly shows only the paired card; Garmin does not auto-remove the plan.
