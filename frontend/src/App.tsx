@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { AppShell } from './components/layout/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { CalendarPage } from './pages/CalendarPage'
+import { TodayPage } from './pages/TodayPage'
 import { ZonesPage } from './pages/ZonesPage'
 import { BuilderPage } from './pages/BuilderPage'
 import { LibraryPage } from './pages/LibraryPage'
@@ -14,6 +15,7 @@ import { HelpPage } from './pages/HelpPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SetupPage } from './pages/SetupPage'
+import { SmartRedirect } from './components/SmartRedirect'
 
 function App() {
   return (
@@ -21,7 +23,19 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/calendar" replace />} />
+            <Route path="/" element={<SmartRedirect />} />
+            <Route
+              path="/today"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary>
+                    <AppShell>
+                      <TodayPage />
+                    </AppShell>
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/setup" element={<SetupPage />} />

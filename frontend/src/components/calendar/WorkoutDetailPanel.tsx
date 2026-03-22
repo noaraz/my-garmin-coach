@@ -3,6 +3,7 @@ import type { ScheduledWorkoutWithActivity, GarminActivity, WorkoutTemplate, Syn
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 import { formatDateHeader, formatPace } from '../../utils/formatting'
 import { computeCompliance, type ComplianceLevel } from '../../utils/compliance'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // ---------------------------------------------------------------------------
 // Step rendering helpers
@@ -1043,6 +1044,8 @@ export function WorkoutDetailPanel({
   onUpdateNotes,
   onNavigateToBuilder,
 }: WorkoutDetailPanelProps) {
+  const isMobile = useIsMobile()
+
   // Escape key listener
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -1079,7 +1082,8 @@ export function WorkoutDetailPanel({
       {/* Panel */}
       <div
         data-testid="workout-detail-panel"
-        style={{
+        className={isMobile ? 'workout-detail-panel-mobile' : undefined}
+        style={isMobile ? undefined : {
           position: 'fixed',
           top: 0,
           right: 0,

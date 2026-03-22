@@ -4,6 +4,7 @@ import type { ActivePlan } from '../api/types'
 import { CsvImportTab } from '../components/plan-coach/CsvImportTab'
 import { ActivePlanCard } from '../components/plan-coach/ActivePlanCard'
 import { DeletePlanModal } from '../components/plan-coach/DeletePlanModal'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const pageTitle: React.CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
@@ -22,6 +23,7 @@ const pageSubtitle: React.CSSProperties = {
 }
 
 export function PlanCoachPage() {
+  const isMobile = useIsMobile()
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -65,9 +67,9 @@ export function PlanCoachPage() {
   const showCsvImport = !activePlan || showUpload
 
   return (
-    <div style={{
-      padding: '32px 36px',
-      maxWidth: '860px',
+    <div className="mobile-page-content" style={{
+      padding: isMobile ? '12px 14px' : '32px 36px',
+      maxWidth: isMobile ? 'none' : '860px',
       margin: '0 auto',
     }}>
       <h1 style={pageTitle}>Plan Coach</h1>

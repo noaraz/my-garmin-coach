@@ -99,7 +99,7 @@ export function Sidebar() {
   })
 
   return (
-    <aside style={{
+    <aside aria-label="Sidebar navigation" style={{
       width: '210px',
       minWidth: '210px',
       background: SIDE_BG,

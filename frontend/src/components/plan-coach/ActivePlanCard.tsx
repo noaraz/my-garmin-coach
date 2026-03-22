@@ -1,4 +1,5 @@
 import type { ActivePlan } from '../../api/types'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface ActivePlanCardProps {
   plan: ActivePlan
@@ -7,6 +8,7 @@ interface ActivePlanCardProps {
 }
 
 export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardProps) {
+  const isMobile = useIsMobile()
   const startDate = new Date(plan.start_date + 'T00:00:00').toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -26,7 +28,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
       }}
     >
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
@@ -44,9 +46,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
             fontSize: '18px',
             fontWeight: 700,
             color: 'var(--text-primary)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            wordBreak: 'break-word',
           }}>
             {plan.name}
           </div>
@@ -76,7 +76,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '8px', flexShrink: 0, alignItems: 'center', width: isMobile ? '100%' : undefined, marginTop: isMobile ? '12px' : undefined }}>
           <button
             onClick={onUploadNew}
             aria-label="Upload or update plan"
@@ -92,6 +92,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
               background: 'transparent',
               color: 'var(--accent)',
               cursor: 'pointer',
+              width: isMobile ? '100%' : undefined,
             }}
           >
             Upload / Update Plan
@@ -111,6 +112,7 @@ export function ActivePlanCard({ plan, onUploadNew, onDelete }: ActivePlanCardPr
               background: 'transparent',
               color: 'var(--text-muted)',
               cursor: 'pointer',
+              width: isMobile ? '100%' : undefined,
             }}
           >
             Delete Plan

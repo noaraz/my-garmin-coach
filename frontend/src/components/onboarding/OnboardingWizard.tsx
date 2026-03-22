@@ -1,7 +1,9 @@
+import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useOnboarding } from '../../contexts/OnboardingContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface StepConfig {
   route: string
@@ -70,6 +72,7 @@ export function OnboardingWizard() {
   const { user } = useAuth()
   const { isWizardOpen, openWizard, closeWizard } = useOnboarding()
   const [step, setStep] = useState(0)
+  const isMobile = useIsMobile()
 
   // Open wizard on mount if key is absent
   useEffect(() => {
@@ -115,6 +118,33 @@ export function OnboardingWizard() {
 
   const isLastStep = step === STEPS.length - 1
 
+  const modalCardStyle: CSSProperties = isMobile
+    ? {
+        // Mobile: 90vh bottom sheet — slides up from bottom
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '90vh',
+        background: 'var(--bg-surface)',
+        borderRadius: '20px 20px 0 0',
+        zIndex: 201,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        animation: 'slideUpSheet 280ms ease-out',
+        padding: '0 32px 32px 32px',
+      }
+    : {
+        // Desktop: centered modal card
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        padding: '32px',
+        maxWidth: '480px',
+        width: '100%',
+      }
+
   return (
     <div
       role="dialog"
@@ -130,16 +160,14 @@ export function OnboardingWizard() {
         justifyContent: 'center',
       }}
     >
-      <div
-        style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '8px',
-          padding: '32px',
-          maxWidth: '480px',
-          width: '100%',
-        }}
-      >
+      <div style={modalCardStyle}>
+        {/* Handle bar (mobile only) */}
+        {isMobile && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+          </div>
+        )}
+
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span

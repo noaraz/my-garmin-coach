@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 type ConnectionState = 'loading' | 'connected' | 'disconnected'
 
@@ -16,6 +17,7 @@ const sectionLabel: React.CSSProperties = {
 }
 
 export function SettingsPage() {
+  const isMobile = useIsMobile()
   const [connectionState, setConnectionState] = useState<ConnectionState>('loading')
   const [garminEmail, setGarminEmail] = useState('')
   const [garminPassword, setGarminPassword] = useState('')
@@ -97,7 +99,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '680px' }}>
+    <div className="mobile-page-content" style={{ padding: isMobile ? '12px 14px' : '28px 32px', maxWidth: isMobile ? 'none' : '680px' }}>
       {/* Page header */}
       <h1 style={{
         fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
