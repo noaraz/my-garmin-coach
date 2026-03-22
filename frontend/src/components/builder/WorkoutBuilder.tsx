@@ -8,6 +8,7 @@ import { StepPalette } from './StepPalette'
 import { StepConfigPanel } from './StepConfigPanel'
 import { WorkoutSummary } from './WorkoutSummary'
 import { generateDescription, generateWorkoutDetails } from '../../utils/generateDescription'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface WorkoutBuilderProps {
   initialName?: string
@@ -17,6 +18,7 @@ interface WorkoutBuilderProps {
 }
 
 export function WorkoutBuilder({ initialName, initialSteps, initialDescription, initialId }: WorkoutBuilderProps) {
+  const isMobile = useIsMobile()
   const [steps, setSteps] = useState<BuilderStep[]>(initialSteps ?? [])
   const [name, setName] = useState(initialName ?? 'New Workout')
   const [description, setDescription] = useState(initialDescription ?? '')
@@ -145,7 +147,7 @@ export function WorkoutBuilder({ initialName, initialSteps, initialDescription, 
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '0' }}>
+    <div className="mobile-page-content" style={{ padding: isMobile ? '12px 14px' : '28px 32px', maxWidth: isMobile ? 'none' : '1100px', display: 'flex', flexDirection: 'column', gap: '0', overflowX: isMobile ? 'auto' : 'hidden' }}>
       {/* Page header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{

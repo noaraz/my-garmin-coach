@@ -6,8 +6,10 @@ import { HRZoneTable } from './HRZoneTable'
 import { PaceZoneTable } from './PaceZoneTable'
 import { ThresholdInput } from './ThresholdInput'
 import type { HRZone } from '../../api/types'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export function ZoneManager() {
+  const isMobile = useIsMobile()
   const { hrZones, paceZones, loading: zonesLoading, error: zonesError, saveHRZones, recalcHR, recalcPace } = useZones()
   const { profile, loading: profileLoading, error: profileError, save } = useProfile()
   const { refreshZones } = useZonesStatus()
@@ -93,7 +95,7 @@ export function ZoneManager() {
   const error = zonesError || profileError
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '900px' }}>
+    <div className="mobile-page-content" style={{ padding: isMobile ? '12px 14px' : '28px 32px', maxWidth: isMobile ? 'none' : '900px' }}>
       {/* Page header */}
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{

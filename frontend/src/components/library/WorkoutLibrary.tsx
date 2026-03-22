@@ -4,8 +4,10 @@ import type { WorkoutTemplate } from '../../api/types'
 import { fetchWorkoutTemplates, deleteTemplate, createTemplate } from '../../api/client'
 import { TemplateCard } from './TemplateCard'
 import { ScheduleDialog } from './ScheduleDialog'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export function WorkoutLibrary() {
+  const isMobile = useIsMobile()
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -63,7 +65,7 @@ export function WorkoutLibrary() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="mobile-page-content" style={{ padding: isMobile ? '12px 14px' : '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Page header */}
       <div style={{
         display: 'flex',
