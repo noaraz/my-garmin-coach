@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOnboarding } from '../contexts/OnboardingContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const setupSteps = [
   {
@@ -45,6 +46,7 @@ const sectionLabelStyle: CSSProperties = {
 export function HelpPage() {
   const { user } = useAuth()
   const { openWizard } = useOnboarding()
+  const isMobile = useIsMobile()
 
   const handleReplay = () => {
     if (user?.id) {
@@ -54,7 +56,7 @@ export function HelpPage() {
   }
 
   return (
-    <div style={{ padding: '32px 40px' }}>
+    <div className="mobile-page-content" style={{ padding: '32px 40px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '40px' }}>
@@ -166,11 +168,14 @@ export function HelpPage() {
         {/* Section 2 — Feature Overview */}
         <section>
           <div style={sectionLabelStyle}>Features</div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '12px',
-          }}>
+          <div
+            data-testid="feature-cards-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+              gap: '12px',
+            }}
+          >
             {features.map((feature) => (
               <div
                 key={feature.title}
