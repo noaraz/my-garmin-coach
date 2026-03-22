@@ -18,6 +18,8 @@
 
 **Files:**
 - Modify: `STATUS.md`
+- Modify: `PLAN.md` (root)
+- Modify: `CLAUDE.md` (root)
 - Modify: `features/plan-coach/PLAN.md`
 - Modify: `features/plan-coach/CLAUDE.md`
 
@@ -25,7 +27,15 @@
 
 Open `STATUS.md`. In the Plan Coach row (or wherever plan-coach appears), note these prompt improvements are in progress.
 
-- [ ] **Step 2: Add a new phase to features/plan-coach/PLAN.md**
+- [ ] **Step 2: Update root PLAN.md**
+
+Open the root `PLAN.md`. Find the Plan Coach row in the feature table and update its status emoji to 🔄 (in progress). If a Phase 6 entry doesn't exist yet, add it.
+
+- [ ] **Step 3: Update root CLAUDE.md**
+
+Run the `claude-md-management:claude-md-improver` skill to audit all CLAUDE.md files and apply any improvements. Then open root `CLAUDE.md` and add any Plan Coach prompt-building patterns that are not already captured (the fetch button state machine, health notes field, 2–3 week horizon).
+
+- [ ] **Step 4: Add a new phase to features/plan-coach/PLAN.md**
 
 Append a new phase block at the bottom of `features/plan-coach/PLAN.md`:
 
@@ -43,12 +53,12 @@ Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improv
 - [ ] Remove old "Recent training included in prompt" summary block
 ```
 
-- [ ] **Step 3: Update features/plan-coach/CLAUDE.md**
+- [ ] **Step 5: Update features/plan-coach/CLAUDE.md**
 
 Add the following section at the bottom of `features/plan-coach/CLAUDE.md`:
 
 ```markdown
-## PlanPromptBuilder — Updated Patterns (added 2026-03-21)
+## PlanPromptBuilder — Updated Patterns (added 2026-03-22)
 
 ### State
 - `activities: GarminActivity[]` — renamed from `recentActivities`; initialises to `[]` (no auto-fetch)
@@ -68,11 +78,15 @@ Silent auto-fetch hid what context was being injected. The explicit button lets 
 activities are included before copying the prompt.
 ```
 
-- [ ] **Step 4: Commit docs**
+- [ ] **Step 6: Run revise-claude-md**
+
+Invoke `claude-md-management:revise-claude-md` to update all CLAUDE.md files with the session learnings from this feature.
+
+- [ ] **Step 7: Commit docs**
 
 ```bash
-git add STATUS.md features/plan-coach/PLAN.md features/plan-coach/CLAUDE.md
-git commit -m "docs: update plan-coach MD files for prompt improvements phase"
+git add STATUS.md PLAN.md CLAUDE.md features/plan-coach/PLAN.md features/plan-coach/CLAUDE.md
+git commit -m "docs: update all MD files for plan-coach prompt improvements phase"
 ```
 
 ---
