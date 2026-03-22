@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GarminCoach — Mobile Flows</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a0e;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:36px 28px 80px;font-family:'IBM Plex Sans',sans-serif;color:#fff;}
+h1{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#404050;margin-bottom:6px;}
+.subtitle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#2a2a33;letter-spacing:.05em;margin-bottom:44px;}
+
+/* sections */
+.section{width:100%;margin-bottom:52px;}
+.section-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#303040;margin-bottom:18px;}
+.flows{display:flex;gap:18px;align-items:flex-start;flex-wrap:nowrap;justify-content:center;}
+.flow{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.flow-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#44445a;}
+.flow-lbl.act{color:#4d8fff;}
+
+/* phone */
+.phone{width:200px;height:420px;background:#1a1a22;border-radius:28px;border:2px solid #2a2a38;position:relative;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04);display:flex;flex-direction:column;}
+.phone::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:56px;height:15px;background:#1a1a22;border-radius:0 0 8px 8px;z-index:10;border:2px solid #2a2a38;border-top:none;}
+
+/* status bar */
+.sb{height:26px;padding:6px 12px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;z-index:5;background:#1a1a22;}
+.sb-t{font-family:'IBM Plex Mono',monospace;font-size:8px;color:#888;font-weight:500;}
+.sb-i{display:flex;gap:3px;align-items:center;}
+
+/* page header */
+.ph{padding:5px 12px 6px;border-bottom:1px solid #2a2a38;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#1a1a22;}
+.ph-title{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.04em;color:#fff;}
+.ph-sub{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.06em;margin-top:1px;}
+
+/* content area */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;background:#1a1a22;}
+
+/* week strip */
+.ws{display:flex;padding:6px 8px 5px;gap:1px;border-bottom:1px solid #2a2a38;background:#1a1a22;}
+.wd{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.wd-l{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;}
+.wd-n{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#6a6a78;}
+.wd-n.t{background:#0057ff;color:#fff;}
+.wd-d{width:3px;height:3px;border-radius:50%;background:#2a2a38;}
+.wd-d.done{background:#22c55e;}
+.wd-d.plan{background:#4d8fff;}
+
+/* today body */
+.tb{flex:1;display:flex;flex-direction:column;padding:8px 10px;gap:6px;overflow:hidden;}
+
+/* hero card */
+.hero{background:rgba(0,87,255,.1);border:1px solid rgba(0,87,255,.25);border-radius:9px;padding:8px 10px;}
+.hero-l{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
+.hero-title{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.04em;color:#fff;margin-bottom:2px;}
+.hero-meta{font-family:'IBM Plex Mono',monospace;font-size:7px;color:#505060;display:flex;gap:7px;margin-bottom:7px;}
+.hero-btn{background:#0057ff;color:#fff;border:none;border-radius:5px;padding:5px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;width:100%;}
+
+/* chips */
+.chips{display:flex;gap:4px;}
+.chip{flex:1;background:#22222e;border:1px solid #2a2a38;border-radius:6px;padding:5px 6px;display:flex;flex-direction:column;gap:2px;}
+.chip-l{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;}
+.chip-v{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;color:#c8c8d8;display:flex;align-items:center;gap:2px;}
+.chip-v.g{color:#22c55e;}
+
+/* dots */
+.dg{width:4px;height:4px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+.dr{width:4px;height:4px;border-radius:50%;background:#ef4444;flex-shrink:0;}
+
+/* section label */
+.sec{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.1em;text-transform:uppercase;}
+
+/* yesterday card */
+.ycard{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;}
+.ycard-t{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.04em;color:#888;margin-bottom:1px;}
+.ycard-m{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;}
+
+/* badges */
+.badge{font-family:'IBM Plex Mono',monospace;font-size:6px;font-weight:500;padding:2px 4px;border-radius:3px;letter-spacing:.04em;}
+.badge.ok{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.2);}
+.badge.cl{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.2);}
+
+/* calendar */
+.cbody{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.cdays{flex:1;padding:7px 10px;display:flex;flex-direction:column;gap:4px;overflow:hidden;}
+.dhdr{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px;}
+.wcard{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;border-left:2px solid #4d8fff;}
+.wcard.z2{border-left-color:#22c55e;}
+.wcard.z5{border-left-color:#ef4444;}
+.wcard.done{border-left-color:#22c55e;opacity:.65;}
+.wcard-t{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.04em;color:#fff;margin-bottom:1px;}
+.wcard-m{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;display:flex;gap:5px;}
+
+/* library */
+.lbody{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.lsearch{margin:7px 10px 5px;background:#22222e;border:1px solid #2a2a38;border-radius:6px;padding:5px 8px;display:flex;align-items:center;gap:5px;}
+.lsearch-t{font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:#444454;}
+.lcards{flex:1;padding:0 10px 7px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.tcard{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:7px 8px;border-left:2px solid #4d8fff;}
+.tcard.z2{border-left-color:#22c55e;}
+.tcard.z5{border-left-color:#ef4444;}
+.tcard-t{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.04em;color:#fff;margin-bottom:1px;}
+.tcard-m{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;display:flex;gap:5px;margin-bottom:4px;}
+.tcard-btn{background:transparent;border:1px solid #2a2a38;border-radius:3px;padding:2px 6px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:6px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#505060;cursor:pointer;}
+
+/* zones */
+.zones-body{flex:1;display:flex;flex-direction:column;padding:8px 10px;gap:6px;overflow:hidden;}
+.zone-explain{background:rgba(77,143,255,.08);border:1px solid rgba(77,143,255,.18);border-radius:7px;padding:6px 8px;}
+.zone-explain-txt{font-family:'IBM Plex Sans',sans-serif;font-size:7px;color:#6680b0;line-height:1.4;}
+.zone-inputs{display:flex;flex-direction:column;gap:4px;}
+.zone-input-row{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.zone-input-lbl{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#888;flex:1;}
+.zone-input-lbl-sub{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;display:block;margin-top:1px;}
+.zone-input-field{background:#22222e;border:1px solid #333348;border-radius:5px;padding:4px 7px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#c8c8d8;width:72px;text-align:right;}
+.zone-calc-btn{background:#0057ff;border:none;border-radius:5px;padding:5px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;width:100%;}
+.zone-divider{height:1px;background:#2a2a38;margin:2px 0;}
+.zone-sec{display:flex;flex-direction:column;gap:2px;}
+.zone-sec-lbl{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1px;}
+.zone-row{display:flex;align-items:center;gap:5px;padding:3px 0;}
+.zone-pill{width:24px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:6px;font-weight:500;color:#fff;flex-shrink:0;}
+.zone-name{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#888;flex:1;}
+.zone-range{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;}
+.z1p{background:#3b82f6;}
+.z2p{background:#22c55e;}
+.z3p{background:#f59e0b;}
+.z4p{background:#f97316;}
+.z5p{background:#ef4444;}
+.recalc-btn{background:transparent;border:1px solid #2a2a38;border-radius:5px;padding:4px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:6px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4d8fff;cursor:pointer;width:100%;}
+
+/* plan coach csv */
+.csv-body{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;}
+.csv-steps{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.csv-drop{border:1px dashed #333348;border-radius:8px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.csv-drop-ico{width:24px;height:24px;background:#22222e;border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.csv-drop-lbl{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;color:#888;letter-spacing:.04em;}
+.csv-drop-sub{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;}
+.csv-upload-btn{background:#0057ff;border:none;border-radius:5px;padding:5px 10px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;}
+.csv-preview-hdr{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;}
+.csv-row{display:flex;align-items:center;gap:4px;padding:3px 0;border-bottom:1px solid #22222e;}
+.csv-row-day{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;width:18px;}
+.csv-row-name{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#c8c8d8;flex:1;}
+.csv-row-dur{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;}
+.csv-row-badge{font-family:'IBM Plex Mono',monospace;font-size:6px;padding:1px 4px;border-radius:2px;}
+.csv-row-badge.new{background:rgba(77,143,255,.15);color:#4d8fff;border:1px solid rgba(77,143,255,.25);}
+.csv-row-badge.chg{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.2);}
+.csv-row-badge.ok{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2);}
+.csv-footer{padding:6px 10px;border-top:1px solid #2a2a38;display:flex;gap:5px;}
+.csv-cancel{flex:1;background:transparent;border:1px solid #2a2a38;border-radius:5px;padding:5px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#505060;cursor:pointer;}
+.csv-commit{flex:1;background:#0057ff;border:none;border-radius:5px;padding:5px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;}
+
+/* help page */
+.help-body{flex:1;display:flex;flex-direction:column;padding:8px 10px;gap:6px;overflow:hidden;}
+.help-replay{background:rgba(77,143,255,.1);border:1px solid rgba(77,143,255,.22);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;}
+.help-replay-lbl{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;color:#c8c8d8;}
+.help-replay-sub{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;margin-top:1px;}
+.help-replay-btn{background:#0057ff;border:none;border-radius:5px;padding:4px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;flex-shrink:0;}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.help-card{background:#22222e;border:1px solid #2a2a38;border-radius:8px;padding:7px 8px;}
+.help-card-ico{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
+.help-card-title{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:700;letter-spacing:.04em;color:#c8c8d8;margin-bottom:2px;}
+.help-card-desc{font-family:'IBM Plex Sans',sans-serif;font-size:6px;color:#444454;line-height:1.3;}
+
+/* onboarding wizard */
+.wizard-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:10;display:flex;flex-direction:column;justify-content:flex-end;}
+.wizard-sheet{background:#22222e;border-radius:14px 14px 0 0;border-top:1px solid #333344;padding:14px 14px 10px;display:flex;flex-direction:column;gap:8px;}
+.wizard-step-lbl{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;letter-spacing:.1em;text-transform:uppercase;}
+.wizard-title{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.04em;color:#fff;}
+.wizard-body{font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:#6a6a78;line-height:1.45;}
+.wizard-dots{display:flex;gap:4px;align-items:center;justify-content:center;padding:4px 0;}
+.wizard-dot{width:5px;height:5px;border-radius:50%;background:#2a2a38;}
+.wizard-dot.on{background:#4d8fff;width:14px;border-radius:3px;}
+.wizard-actions{display:flex;gap:6px;}
+.wizard-skip{flex:1;background:transparent;border:1px solid #2a2a38;border-radius:6px;padding:6px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#505060;cursor:pointer;}
+.wizard-next{flex:2;background:#0057ff;border:none;border-radius:6px;padding:6px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;}
+
+/* builder */
+.builder-body{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.builder-steps{flex:1;padding:6px 10px;display:flex;flex-direction:column;gap:4px;overflow:hidden;}
+.bstep{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;display:flex;align-items:center;gap:6px;}
+.bstep-drag{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.bstep-drag span{display:block;width:10px;height:1px;background:#333344;}
+.bstep-info{flex:1;}
+.bstep-name{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;color:#fff;margin-bottom:1px;}
+.bstep-meta{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;}
+.bstep-zone{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:7px;font-weight:500;color:#fff;flex-shrink:0;}
+.bstep-repeat{background:#22222e;border:1px solid #333344;border-radius:7px;padding:5px 8px;margin-left:10px;}
+.bstep-repeat-hdr{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;margin-bottom:3px;}
+.builder-footer{padding:6px 10px;border-top:1px solid #2a2a38;display:flex;gap:5px;}
+.bfooter-add{flex:1;background:transparent;border:1px solid #2a2a38;border-radius:5px;padding:5px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#505060;cursor:pointer;}
+.bfooter-save{flex:1;background:#0057ff;border:none;border-radius:5px;padding:5px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;}
+
+/* plan coach */
+.plan-body{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.plan-chat{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+.msg{max-width:80%;}
+.msg.ai{align-self:flex-start;}
+.msg.user{align-self:flex-end;}
+.msg-bubble{padding:6px 8px;border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:8px;line-height:1.4;}
+.msg.ai .msg-bubble{background:#22222e;border:1px solid #2a2a38;color:#c8c8d8;border-bottom-left-radius:2px;}
+.msg.user .msg-bubble{background:#0057ff;color:#fff;border-bottom-right-radius:2px;}
+.msg-time{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;margin-top:2px;}
+.msg.user .msg-time{text-align:right;}
+.plan-week{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;}
+.plan-week-lbl{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;}
+.plan-day{display:flex;align-items:center;gap:5px;padding:2px 0;}
+.plan-day-l{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;width:14px;}
+.plan-day-name{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#888;flex:1;}
+.plan-day-dot{width:6px;height:6px;border-radius:50%;}
+.plan-input{padding:6px 10px;border-top:1px solid #2a2a38;display:flex;gap:5px;}
+.plan-input-box{flex:1;background:#22222e;border:1px solid #2a2a38;border-radius:5px;padding:5px 8px;font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:#444454;}
+.plan-send{background:#0057ff;border:none;border-radius:5px;padding:5px 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+
+/* detail panel */
+.detail-dim{position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:5;}
+.detail-sheet{position:absolute;bottom:0;left:0;right:0;height:86%;background:#22222e;border-top:1px solid #333344;border-radius:14px 14px 0 0;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
+.detail-handle{width:24px;height:2px;background:#444454;border-radius:2px;margin:8px auto 0;}
+.detail-header{padding:8px 12px 6px;border-bottom:1px solid #2a2a38;}
+.detail-type{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
+.detail-title{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:14px;font-weight:700;color:#fff;margin-bottom:2px;}
+.detail-meta{font-family:'IBM Plex Mono',monospace;font-size:7px;color:#505060;display:flex;gap:8px;}
+.detail-body{flex:1;padding:8px 12px;display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+.detail-sec-lbl{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;letter-spacing:.1em;text-transform:uppercase;}
+.detail-step{display:flex;align-items:center;gap:6px;padding:3px 0;}
+.detail-step-zone{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:6px;color:#fff;flex-shrink:0;}
+.detail-step-info{flex:1;}
+.detail-step-name{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#c8c8d8;}
+.detail-step-pace{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;}
+.detail-step-dur{font-family:'IBM Plex Mono',monospace;font-size:7px;color:#505060;}
+.detail-compliance{display:flex;align-items:center;justify-content:space-between;background:#1a1a22;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;}
+.detail-compliance-lbl{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;text-transform:uppercase;letter-spacing:.08em;}
+.detail-notes{background:#1a1a22;border:1px solid #2a2a38;border-radius:7px;padding:5px 8px;font-family:'IBM Plex Sans',sans-serif;font-size:7px;color:#444454;}
+.detail-sync-btn{background:#0057ff;border:none;border-radius:6px;padding:6px 10px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;cursor:pointer;width:100%;margin-top:auto;}
+
+/* settings */
+.set-body{flex:1;display:flex;flex-direction:column;padding:8px 10px;gap:6px;overflow:hidden;}
+.ssec{display:flex;flex-direction:column;gap:3px;}
+.ssec-l{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1px;}
+.srow{background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;}
+.srow-l{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:600;letter-spacing:.04em;color:#c8c8d8;}
+.srow-v{font-family:'IBM Plex Mono',monospace;font-size:7px;color:#505060;display:flex;align-items:center;gap:3px;}
+.srow-v.g{color:#22c55e;}
+.sa{background:#0057ff;color:#fff;border:none;border-radius:5px;padding:5px 8px;font-family:'IBM Plex Sans Condensed',sans-serif;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:1px;}
+.sa.d{background:transparent;border:1px solid #2a2a38;color:#ef4444;}
+
+/* more sheet */
+.mdim{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:5;}
+.msheet{position:absolute;bottom:0;left:0;right:0;background:#22222e;border-top:1px solid #333344;border-radius:12px 12px 0 0;padding:8px 12px 5px;z-index:10;display:flex;flex-direction:column;gap:1px;}
+.mhandle{width:24px;height:2px;background:#333344;border-radius:2px;margin:0 auto 8px;}
+.mitem{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;}
+.mico{width:24px;height:24px;background:#2a2a38;border:1px solid #333348;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mlbl{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.04em;color:#888;}
+
+/* tab bar */
+.tabbar{height:48px;background:#18181c;border-top:1px solid #2a2a38;display:flex;align-items:flex-start;padding:5px 0 0;flex-shrink:0;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:2px;cursor:pointer;}
+.tab-lbl{font-family:'IBM Plex Sans Condensed',sans-serif;font-size:6px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.tab.on .tab-lbl{color:#4d8fff;}
+.tab.on svg{stroke:#4d8fff;}
+.tab.off .tab-lbl{color:#44445a;}
+.tab.off svg{stroke:#44445a;}
+
+/* sync pill */
+.spill{display:flex;align-items:center;gap:3px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:20px;padding:2px 5px;}
+.spill-t{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#22c55e;}
+
+/* week/month toggle */
+.vtog{display:flex;gap:3px;}
+.vtog-i{font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;background:#22222e;border:1px solid #2a2a38;border-radius:3px;padding:2px 4px;}
+.vtog-i.on{color:#c8c8d8;border-color:#444454;}
+
+/* section divider */
+.divider{width:100%;height:1px;background:#1a1a24;margin-bottom:52px;}
+
+/* ic helper */
+svg{display:block;}
+</style>
+</head>
+<body>
+
+<h1>GarminCoach — Mobile · All Flows</h1>
+<p class="subtitle">brainstorming / visual companion — tabs: Today · Calendar · Library · Zones · ···</p>
+
+<!-- ═══ ROW 1: Main tabs ═══ -->
+<div class="section">
+  <div class="section-label">Main tabs</div>
+  <div class="flows">
+
+    <!-- TODAY -->
+    <div class="flow">
+      <div class="flow-lbl act">Today</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Today</div><div class="ph-sub">SAT 21 MARCH</div></div><div class="spill"><div class="dg"></div><span class="spill-t">Garmin</span></div></div>
+        <div class="content">
+          <div class="ws">
+            <div class="wd"><div class="wd-l">M</div><div class="wd-n">16</div><div class="wd-d done"></div></div>
+            <div class="wd"><div class="wd-l">T</div><div class="wd-n">17</div><div class="wd-d done"></div></div>
+            <div class="wd"><div class="wd-l">W</div><div class="wd-n">18</div><div class="wd-d done"></div></div>
+            <div class="wd"><div class="wd-l">T</div><div class="wd-n">19</div><div class="wd-d"></div></div>
+            <div class="wd"><div class="wd-l">F</div><div class="wd-n">20</div><div class="wd-d plan"></div></div>
+            <div class="wd"><div class="wd-l">S</div><div class="wd-n t">21</div><div class="wd-d plan"></div></div>
+            <div class="wd"><div class="wd-l">S</div><div class="wd-n">22</div><div class="wd-d"></div></div>
+          </div>
+          <div class="tb">
+            <div class="hero"><div class="hero-l">Today's Workout</div><div class="hero-title">Long Easy Run</div><div class="hero-meta"><span>1:30:00</span><span>14 km</span><span>Z1–Z2</span></div><button class="hero-btn">View Details →</button></div>
+            <div class="chips"><div class="chip"><div class="chip-l">Garmin</div><div class="chip-v"><div class="dg"></div>On</div></div><div class="chip"><div class="chip-l">Week</div><div class="chip-v">3/5</div></div><div class="chip"><div class="chip-l">Zones</div><div class="chip-v g">Set ✓</div></div></div>
+            <div class="sec">Yesterday</div>
+            <div class="ycard"><div><div class="ycard-t">Tempo Intervals</div><div class="ycard-m">52:00 · 10.2 km</div></div><div class="badge ok">✓ TARGET</div></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="flow">
+      <div class="flow-lbl">Calendar</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Calendar</div><div class="ph-sub">MARCH 2026</div></div><div class="vtog"><div class="vtog-i on">Week</div><div class="vtog-i">Month</div></div></div>
+        <div class="content">
+          <div class="cbody">
+            <div class="ws">
+              <div class="wd"><div class="wd-l">M</div><div class="wd-n">16</div><div class="wd-d done"></div></div>
+              <div class="wd"><div class="wd-l">T</div><div class="wd-n">17</div><div class="wd-d done"></div></div>
+              <div class="wd"><div class="wd-l">W</div><div class="wd-n">18</div><div class="wd-d done"></div></div>
+              <div class="wd"><div class="wd-l">T</div><div class="wd-n">19</div><div class="wd-d"></div></div>
+              <div class="wd"><div class="wd-l">F</div><div class="wd-n">20</div><div class="wd-d plan"></div></div>
+              <div class="wd"><div class="wd-l">S</div><div class="wd-n t">21</div><div class="wd-d plan"></div></div>
+              <div class="wd"><div class="wd-l">S</div><div class="wd-n">22</div><div class="wd-d"></div></div>
+            </div>
+            <div class="cdays">
+              <div class="dhdr">Today · Sat 21 Mar</div>
+              <div class="wcard z2"><div class="wcard-t">Long Easy Run</div><div class="wcard-m"><span>1:30:00</span><span>14 km</span><span>Z1–Z2</span></div></div>
+              <div class="dhdr" style="margin-top:4px">Yesterday · Fri 20</div>
+              <div class="wcard done"><div class="wcard-t">Tempo Intervals</div><div class="wcard-m"><span>52:00</span><span>10.2 km</span></div><div class="badge ok" style="margin-top:3px;display:inline-flex">✓ ON TARGET</div></div>
+              <div class="dhdr" style="margin-top:4px">Thu 19 · Rest day</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIBRARY -->
+    <div class="flow">
+      <div class="flow-lbl">Library</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Library</div><div class="ph-sub">12 TEMPLATES</div></div><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        <div class="content">
+          <div class="lbody">
+            <div class="lsearch"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="lsearch-t">Search workouts…</span></div>
+            <div class="lcards">
+              <div class="tcard z2"><div class="tcard-t">Zone 2 Base Run</div><div class="tcard-m"><span>1:00:00</span><span>10 km</span><span>Z1–Z2</span></div><button class="tcard-btn">Schedule</button></div>
+              <div class="tcard z5"><div class="tcard-t">VO2max Intervals</div><div class="tcard-m"><span>45:00</span><span>8 km</span><span>Z5</span></div><button class="tcard-btn">Schedule</button></div>
+              <div class="tcard"><div class="tcard-t">Threshold Run</div><div class="tcard-m"><span>52:00</span><span>10 km</span><span>Z4</span></div><button class="tcard-btn">Schedule</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZONES -->
+    <div class="flow">
+      <div class="flow-lbl">Zones</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Zones</div><div class="ph-sub">FRIEL METHOD</div></div></div>
+        <div class="content">
+          <div class="zones-body">
+            <div class="zone-explain">
+              <div class="zone-explain-txt">Enter your <strong style="color:#8ba8d8">Lactate Threshold HR</strong> and <strong style="color:#8ba8d8">Threshold Pace</strong> from a recent test or race. Zones are calculated automatically using the Friel method.</div>
+            </div>
+            <div class="zone-inputs">
+              <div class="zone-input-row">
+                <div class="zone-input-lbl">LTHR<span class="zone-input-lbl-sub">Lactate Threshold HR</span></div>
+                <div class="zone-input-field">162 bpm</div>
+              </div>
+              <div class="zone-input-row">
+                <div class="zone-input-lbl">Max HR<span class="zone-input-lbl-sub">Optional</span></div>
+                <div class="zone-input-field">185 bpm</div>
+              </div>
+              <div class="zone-input-row">
+                <div class="zone-input-lbl">Threshold Pace<span class="zone-input-lbl-sub">per km at threshold</span></div>
+                <div class="zone-input-field">5:30 /km</div>
+              </div>
+              <button class="zone-calc-btn">Recalculate Zones</button>
+            </div>
+            <div class="zone-divider"></div>
+            <div class="zone-sec">
+              <div class="zone-sec-lbl">HR Zones</div>
+              <div class="zone-row"><div class="zone-pill z1p">Z1</div><div class="zone-name">Recovery</div><div class="zone-range">&lt;114 bpm</div></div>
+              <div class="zone-row"><div class="zone-pill z2p">Z2</div><div class="zone-name">Aerobic</div><div class="zone-range">114–133</div></div>
+              <div class="zone-row"><div class="zone-pill z3p">Z3</div><div class="zone-name">Tempo</div><div class="zone-range">133–147</div></div>
+              <div class="zone-row"><div class="zone-pill z4p">Z4</div><div class="zone-name">Threshold</div><div class="zone-range">147–162</div></div>
+              <div class="zone-row"><div class="zone-pill z5p">Z5</div><div class="zone-name">VO2max</div><div class="zone-range">&gt;162 bpm</div></div>
+            </div>
+            <div class="zone-sec">
+              <div class="zone-sec-lbl">Pace Zones</div>
+              <div class="zone-row"><div class="zone-pill z1p">Z1</div><div class="zone-name">Easy</div><div class="zone-range">7:43–9:38</div></div>
+              <div class="zone-row"><div class="zone-pill z2p">Z2</div><div class="zone-name">Aerobic</div><div class="zone-range">6:26–7:43</div></div>
+              <div class="zone-row"><div class="zone-pill z3p">Z3</div><div class="zone-name">Tempo</div><div class="zone-range">5:50–6:26</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MORE SHEET -->
+    <div class="flow">
+      <div class="flow-lbl">More ···</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Today</div><div class="ph-sub">SAT 21 MARCH</div></div><div class="spill"><div class="dg"></div><span class="spill-t">Garmin</span></div></div>
+        <div class="content" style="position:relative">
+          <div style="filter:blur(2px);pointer-events:none;flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="ws"><div class="wd"><div class="wd-l">S</div><div class="wd-n t">21</div><div class="wd-d plan"></div></div></div>
+            <div class="tb"><div class="hero"><div class="hero-l">Today's Workout</div><div class="hero-title">Long Easy Run</div></div></div>
+          </div>
+          <div class="mdim"></div>
+          <div class="msheet">
+            <div class="mhandle"></div>
+            <div class="mitem"><div class="mico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><span class="mlbl">Workout Builder</span></div>
+            <div class="mitem"><div class="mico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><span class="mlbl">Plan Coach</span></div>
+            <div class="mitem"><div class="mico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l-.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><span class="mlbl">Settings</span></div>
+            <div class="mitem"><div class="mico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><span class="mlbl">Help</span></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══ ROW 2: Detail panels + deep screens ═══ -->
+<div class="section">
+  <div class="section-label">Detail panels &amp; deep screens</div>
+  <div class="flows">
+
+    <!-- VIEW DETAILS from Today -->
+    <div class="flow">
+      <div class="flow-lbl act">Today → View Details</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Today</div><div class="ph-sub">SAT 21 MARCH</div></div><div class="spill"><div class="dg"></div><span class="spill-t">Garmin</span></div></div>
+        <div class="content" style="position:relative">
+          <!-- blurred bg -->
+          <div style="filter:blur(2px);pointer-events:none;flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="ws"><div class="wd"><div class="wd-l">S</div><div class="wd-n t">21</div><div class="wd-d plan"></div></div></div>
+            <div class="tb"><div class="hero"><div class="hero-title">Long Easy Run</div></div></div>
+          </div>
+          <div class="detail-dim"></div>
+          <div class="detail-sheet">
+            <div class="detail-handle"></div>
+            <div class="detail-header">
+              <div class="detail-type">Today's Workout · Zone 1–2</div>
+              <div class="detail-title">Long Easy Run</div>
+              <div class="detail-meta"><span>1:30:00</span><span>14 km</span><span>Z1–Z2</span></div>
+            </div>
+            <div class="detail-body">
+              <div class="detail-sec-lbl">Steps</div>
+              <div class="detail-step"><div class="detail-step-zone z1p">Z1</div><div class="detail-step-info"><div class="detail-step-name">Warm Up</div><div class="detail-step-pace">7:43–9:38 /km</div></div><div class="detail-step-dur">15m</div></div>
+              <div class="detail-step"><div class="detail-step-zone z2p">Z2</div><div class="detail-step-info"><div class="detail-step-name">Main Set</div><div class="detail-step-pace">6:26–7:43 /km</div></div><div class="detail-step-dur">1h</div></div>
+              <div class="detail-step"><div class="detail-step-zone z1p">Z1</div><div class="detail-step-info"><div class="detail-step-name">Cool Down</div><div class="detail-step-pace">7:43–9:38 /km</div></div><div class="detail-step-dur">15m</div></div>
+              <div class="detail-sec-lbl" style="margin-top:4px">Notes</div>
+              <div class="detail-notes">Keep effort conversational. Easy breathing throughout.</div>
+              <button class="detail-sync-btn">Send to Garmin Watch →</button>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAP WORKOUT IN CALENDAR (completed) -->
+    <div class="flow">
+      <div class="flow-lbl">Calendar → Tap workout</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph"><div><div class="ph-title">Calendar</div><div class="ph-sub">MARCH 2026</div></div><div class="vtog"><div class="vtog-i on">Week</div><div class="vtog-i">Month</div></div></div>
+        <div class="content" style="position:relative">
+          <div style="filter:blur(2px);pointer-events:none;flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="ws"><div class="wd"><div class="wd-l">F</div><div class="wd-n">20</div><div class="wd-d done"></div></div></div>
+            <div class="cdays"><div class="wcard done"><div class="wcard-t">Tempo Intervals</div></div></div>
+          </div>
+          <div class="detail-dim"></div>
+          <div class="detail-sheet">
+            <div class="detail-handle"></div>
+            <div class="detail-header">
+              <div class="detail-type">Fri 20 Mar · Completed</div>
+              <div class="detail-title">Tempo Intervals</div>
+              <div class="detail-meta"><span>52:00</span><span>10.2 km</span><span>Z4</span></div>
+            </div>
+            <div class="detail-body">
+              <div class="detail-compliance">
+                <div><div class="detail-compliance-lbl">Compliance</div><div style="font-family:'IBM Plex Sans Condensed',sans-serif;font-size:9px;font-weight:700;color:#22c55e;margin-top:1px;">✓ ON TARGET</div></div>
+                <div style="text-align:right"><div class="detail-compliance-lbl">Avg HR</div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#c8c8d8;margin-top:1px;">154 bpm</div></div>
+              </div>
+              <div class="detail-sec-lbl">Steps (planned)</div>
+              <div class="detail-step"><div class="detail-step-zone z1p">Z1</div><div class="detail-step-info"><div class="detail-step-name">Warm Up</div><div class="detail-step-pace">7:43+ /km</div></div><div class="detail-step-dur">10m</div></div>
+              <div class="detail-step"><div class="detail-step-zone z5p">Z5</div><div class="detail-step-info"><div class="detail-step-name">6× Hard Intervals</div><div class="detail-step-pace">5:02–5:30 /km</div></div><div class="detail-step-dur">24m</div></div>
+              <div class="detail-step"><div class="detail-step-zone z1p">Z1</div><div class="detail-step-info"><div class="detail-step-name">Cool Down</div><div class="detail-step-pace">7:43+ /km</div></div><div class="detail-step-dur">10m</div></div>
+              <div class="detail-sec-lbl" style="margin-top:2px">Notes</div>
+              <div class="detail-notes">Felt strong in reps 3–5. Last rep was tough.</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUILDER -->
+    <div class="flow">
+      <div class="flow-lbl">Workout Builder</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph">
+          <div style="display:flex;align-items:center;gap:6px">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <div><div class="ph-title">Builder</div><div class="ph-sub">New Workout</div></div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;">Preview</div>
+        </div>
+        <div class="content">
+          <div class="builder-body">
+            <div class="builder-steps">
+              <div class="bstep">
+                <div class="bstep-drag"><span></span><span></span><span></span></div>
+                <div class="bstep-info"><div class="bstep-name">Warm Up</div><div class="bstep-meta">15 min · Easy</div></div>
+                <div class="bstep-zone z1p">Z1</div>
+              </div>
+              <div style="margin-left:10px;display:flex;flex-direction:column;gap:3px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#4d8fff;margin-bottom:1px;">Repeat × 6</div>
+                <div class="bstep">
+                  <div class="bstep-drag"><span></span><span></span><span></span></div>
+                  <div class="bstep-info"><div class="bstep-name">Hard</div><div class="bstep-meta">500 m · Fast</div></div>
+                  <div class="bstep-zone z5p">Z5</div>
+                </div>
+                <div class="bstep">
+                  <div class="bstep-drag"><span></span><span></span><span></span></div>
+                  <div class="bstep-info"><div class="bstep-name">Recovery</div><div class="bstep-meta">400 m · Easy</div></div>
+                  <div class="bstep-zone z1p">Z1</div>
+                </div>
+              </div>
+              <div class="bstep">
+                <div class="bstep-drag"><span></span><span></span><span></span></div>
+                <div class="bstep-info"><div class="bstep-name">Cool Down</div><div class="bstep-meta">10 min · Easy</div></div>
+                <div class="bstep-zone z1p">Z1</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border:1px dashed #2a2a38;border-radius:7px;cursor:pointer">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span style="font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:600;color:#444454;letter-spacing:.06em">Add Step</span>
+              </div>
+            </div>
+            <div class="builder-footer">
+              <button class="bfooter-add">Discard</button>
+              <button class="bfooter-save">Save Template</button>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAN COACH -->
+    <div class="flow">
+      <div class="flow-lbl">Plan Coach — CSV Import</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph">
+          <div style="display:flex;align-items:center;gap:6px">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <div><div class="ph-title">Plan Coach</div><div class="ph-sub">IMPORT CSV · 4 WEEKS</div></div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#22c55e;display:flex;align-items:center;gap:3px"><div class="dg"></div>Validated</div>
+        </div>
+        <div class="content">
+          <div class="csv-body">
+            <div class="csv-steps">
+              <!-- explain -->
+              <div class="zone-explain" style="margin-bottom:1px">
+                <div class="zone-explain-txt">Upload a CSV with columns: <strong style="color:#8ba8d8">date, workout, duration, notes</strong>. Existing completed workouts are preserved.</div>
+              </div>
+              <!-- file uploaded state -->
+              <div style="background:#22222e;border:1px solid #333348;border-radius:7px;padding:6px 8px;display:flex;align-items:center;gap:6px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <div style="flex:1"><div style="font-family:'IBM Plex Sans Condensed',sans-serif;font-size:8px;font-weight:700;color:#c8c8d8;">week9-12.csv</div><div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#444454;">28 workouts · 4 weeks</div></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#22c55e;">✓</div>
+              </div>
+              <!-- diff preview -->
+              <div class="csv-preview-hdr">Changes preview</div>
+              <div style="background:#22222e;border:1px solid #2a2a38;border-radius:7px;padding:4px 6px;display:flex;flex-direction:column;gap:0">
+                <div class="csv-row">
+                  <div class="csv-row-day">Mar 24</div>
+                  <div class="csv-row-name">Zone 2 Run</div>
+                  <div class="csv-row-dur">1h</div>
+                  <div class="csv-row-badge new">NEW</div>
+                </div>
+                <div class="csv-row">
+                  <div class="csv-row-day">Mar 25</div>
+                  <div class="csv-row-name">Tempo Intervals</div>
+                  <div class="csv-row-dur">52m</div>
+                  <div class="csv-row-badge new">NEW</div>
+                </div>
+                <div class="csv-row">
+                  <div class="csv-row-day">Mar 26</div>
+                  <div class="csv-row-name">Easy Run</div>
+                  <div class="csv-row-dur">45m</div>
+                  <div class="csv-row-badge chg">EDIT</div>
+                </div>
+                <div class="csv-row" style="border-bottom:none">
+                  <div class="csv-row-day">Mar 21</div>
+                  <div class="csv-row-name">Long Easy Run ✓</div>
+                  <div class="csv-row-dur">1h30</div>
+                  <div class="csv-row-badge ok">KEPT</div>
+                </div>
+              </div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;text-align:center">+24 new · 3 edited · 1 kept (completed)</div>
+            </div>
+            <div class="csv-footer">
+              <button class="csv-cancel">Cancel</button>
+              <button class="csv-commit">Commit to Calendar</button>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HELP PAGE -->
+    <div class="flow">
+      <div class="flow-lbl">Help</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <div class="ph">
+          <div style="display:flex;align-items:center;gap:6px">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#444454" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <div><div class="ph-title">Help</div></div>
+          </div>
+        </div>
+        <div class="content">
+          <div class="help-body">
+            <div class="help-replay">
+              <div>
+                <div class="help-replay-lbl">App Tour</div>
+                <div class="help-replay-sub">Replay the getting started guide</div>
+              </div>
+              <button class="help-replay-btn">▶ Replay</button>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:#505060;letter-spacing:.1em;text-transform:uppercase;">Features</div>
+            <div class="help-grid">
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(77,143,255,.15)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4d8fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                <div class="help-card-title">Calendar</div>
+                <div class="help-card-desc">Plan workouts. Drag to reschedule. Tap to see details.</div>
+              </div>
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(34,197,94,.12)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                <div class="help-card-title">Zones</div>
+                <div class="help-card-desc">Set LTHR & pace. Zones calculated automatically.</div>
+              </div>
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(245,158,11,.12)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+                <div class="help-card-title">Builder</div>
+                <div class="help-card-desc">Create structured workouts with steps & repeats.</div>
+              </div>
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(77,143,255,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4d8fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+                <div class="help-card-title">Plan Coach</div>
+                <div class="help-card-desc">Import a CSV training plan. Smart merge keeps completed workouts.</div>
+              </div>
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(239,68,68,.1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+                <div class="help-card-title">Garmin Sync</div>
+                <div class="help-card-desc">Push workouts to your watch. Activity compliance tracked.</div>
+              </div>
+              <div class="help-card">
+                <div class="help-card-ico" style="background:rgba(168,85,247,.12)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+                <div class="help-card-title">Library</div>
+                <div class="help-card-desc">Browse & schedule saved workout templates.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ONBOARDING WALKTHROUGH -->
+    <div class="flow">
+      <div class="flow-lbl">Onboarding Tour</div>
+      <div class="phone">
+        <div class="sb"><span class="sb-t">9:41</span><div class="sb-i"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5"><path d="M1.42 9a16 16 0 0 1 21.16 0M5 12.55a11 11 0 0 1 14.08 0M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg width="9" height="9" viewBox="0 0 24 24" fill="#666"><rect x="2" y="7" width="13" height="8" rx="2"/></svg></div></div>
+        <!-- blurred today behind modal -->
+        <div class="ph"><div><div class="ph-title">Today</div><div class="ph-sub">SAT 21 MARCH</div></div></div>
+        <div class="content" style="position:relative">
+          <!-- blurred bg -->
+          <div style="filter:blur(3px);pointer-events:none;flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="ws"><div class="wd"><div class="wd-l">S</div><div class="wd-n t">21</div><div class="wd-d plan"></div></div></div>
+            <div class="tb">
+              <div class="hero"><div class="hero-l">Today's Workout</div><div class="hero-title">Long Easy Run</div><div class="hero-meta"><span>1:30:00</span><span>14 km</span></div></div>
+              <div class="chips"><div class="chip"><div class="chip-l">Garmin</div><div class="chip-v"><div class="dg"></div>On</div></div><div class="chip"><div class="chip-l">Week</div><div class="chip-v">3/5</div></div></div>
+            </div>
+          </div>
+          <!-- wizard overlay -->
+          <div class="wizard-overlay">
+            <div class="wizard-sheet">
+              <div class="wizard-step-lbl">Step 3 of 7 · Today Tab</div>
+              <div class="wizard-title">Your daily home screen</div>
+              <div class="wizard-body">The <strong style="color:#c8c8d8">Today</strong> tab shows your current workout with a week strip above. Tap <strong style="color:#c8c8d8">View Details</strong> to see steps, paces and send it to your Garmin watch.</div>
+              <div class="wizard-dots">
+                <div class="wizard-dot"></div>
+                <div class="wizard-dot"></div>
+                <div class="wizard-dot on"></div>
+                <div class="wizard-dot"></div>
+                <div class="wizard-dot"></div>
+                <div class="wizard-dot"></div>
+                <div class="wizard-dot"></div>
+              </div>
+              <div class="wizard-actions">
+                <button class="wizard-skip">Skip tour</button>
+                <button class="wizard-next">Next →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tab-lbl">Today</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="tab-lbl">Calendar</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span class="tab-lbl">Library</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tab-lbl">Zones</span></div>
+          <div class="tab off"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="tab-lbl">More</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
