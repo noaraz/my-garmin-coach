@@ -557,4 +557,32 @@ describe('WorkoutDetailUnplanned', () => {
     )
     expect(screen.queryByPlaceholderText('Add notes...')).not.toBeInTheDocument()
   })
+
+  it('WorkoutDetailPanel_onMobile_usesMobileClass', () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true, // mobile
+      media: '(max-width: 767px)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })
+
+    render(
+      <WorkoutDetailPanel
+        workout={mockWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+      />
+    )
+
+    // Mobile panel should have the CSS class, not inline fixed-right positioning
+    const panel = document.querySelector('.workout-detail-panel-mobile')
+    expect(panel).toBeInTheDocument()
+  })
 })
