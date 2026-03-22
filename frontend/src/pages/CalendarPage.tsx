@@ -213,38 +213,40 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           }}
         >›</button>
 
-        {/* View toggle */}
-        <div style={{
-          display: 'flex',
-          marginLeft: '6px',
-          border: '1px solid var(--border-strong)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-        }}>
-          {(['week', 'month'] as const).map((v, i) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
-              style={{
-                padding: '5px 11px',
-                fontSize: '10px',
-                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                border: 'none',
-                borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
-                cursor: 'pointer',
-                background: view === v ? 'var(--text-primary)' : 'transparent',
-                color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
-                transition: 'background 0.1s, color 0.1s',
-              }}
-            >
-              {v.charAt(0).toUpperCase() + v.slice(1)}
-            </button>
-          ))}
-        </div>
+        {/* View toggle — desktop only */}
+        {!isMobile && (
+          <div style={{
+            display: 'flex',
+            marginLeft: '6px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+          }}>
+            {(['week', 'month'] as const).map((v, i) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
+                style={{
+                  padding: '5px 11px',
+                  fontSize: '10px',
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  border: 'none',
+                  borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
+                  cursor: 'pointer',
+                  background: view === v ? 'var(--text-primary)' : 'transparent',
+                  color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
+                  transition: 'background 0.1s, color 0.1s',
+                }}
+              >
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Sync All + Garmin status */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
