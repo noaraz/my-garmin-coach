@@ -73,6 +73,7 @@ export function PlanCoachPage() {
       <h1 style={pageTitle}>Plan Coach</h1>
       <p style={pageSubtitle}>
         Build a prompt for your AI assistant, copy it, and import the generated CSV.
+        Plan 2–3 weeks at a time and re-run every 2–3 weeks to keep your training current.
       </p>
 
       {activePlan && (
