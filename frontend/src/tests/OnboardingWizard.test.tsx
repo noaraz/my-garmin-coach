@@ -218,11 +218,10 @@ describe('OnboardingWizard', () => {
     renderWizard()
 
     const dialog = screen.getByRole('dialog')
-    // On mobile the modal card (child of dialog) fills screen — position: fixed, inset: 0
+    // Bottom sheet: position fixed, from bottom, 90vh, rounded top corners
     // The dialog itself is the overlay, we need to check its first child (the card)
     const modalCard = dialog.firstElementChild as HTMLElement
     expect(modalCard).toHaveStyle({ position: 'fixed' })
-    // Border radius should be 0 on mobile (no rounded corners)
-    expect(modalCard).toHaveStyle({ borderRadius: '0' })
+    expect(modalCard).toHaveStyle({ borderRadius: '20px 20px 0 0' })
   })
 })

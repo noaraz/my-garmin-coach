@@ -120,16 +120,20 @@ export function OnboardingWizard() {
 
   const modalCardStyle: CSSProperties = isMobile
     ? {
-        // Mobile: full-screen — fills entire viewport
+        // Mobile: 90vh bottom sheet — slides up from bottom
         position: 'fixed',
-        inset: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '90vh',
         background: 'var(--bg-surface)',
-        zIndex: 201, // above the overlay (which is 200)
+        borderRadius: '20px 20px 0 0',
+        zIndex: 201,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        borderRadius: 0,
-        padding: '32px',
+        animation: 'slideUpSheet 280ms ease-out',
+        padding: '0 32px 32px 32px',
       }
     : {
         // Desktop: centered modal card
@@ -157,6 +161,13 @@ export function OnboardingWizard() {
       }}
     >
       <div style={modalCardStyle}>
+        {/* Handle bar (mobile only) */}
+        {isMobile && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--border)' }} />
+          </div>
+        )}
+
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span

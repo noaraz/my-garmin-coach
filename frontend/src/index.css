@@ -134,8 +134,13 @@ html, body, #root {
   to { transform: translateX(0); }
 }
 
+/* Bottom sheet slide-up animation (used inline and in media query classes) */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 /* ── Mobile global resets ────────────────────────── */
-/* NOTE: @keyframes inside @media is valid CSS — keeps animation scoped to mobile */
 @media (max-width: 767px) {
   /* Prevent horizontal scroll from absolute positioned children */
   body {
@@ -168,11 +173,6 @@ html, body, #root {
     animation: slideUpSheet 200ms ease-out;
     max-height: 85vh;
     overflow-y: auto;
-  }
-
-  @keyframes slideUpSheet {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
   }
 
   /* Workout detail panel: bottom sheet instead of right panel */
