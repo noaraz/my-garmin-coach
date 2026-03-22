@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 
 // SVG icons — inline to avoid extra files
 const TodayIcon = () => (
@@ -59,6 +60,7 @@ const TABS = [
 export function BottomTabBar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { logout } = useAuth()
   const [moreOpen, setMoreOpen] = useState(false)
 
   const tabStyle = (active: boolean): CSSProperties => ({
@@ -120,6 +122,12 @@ export function BottomTabBar() {
                 {label}
               </button>
             ))}
+            <button
+              style={{ ...moreItemStyle, color: 'var(--color-zone-5)', borderBottom: 'none' }}
+              onClick={() => { setMoreOpen(false); logout() }}
+            >
+              Sign Out
+            </button>
           </div>
         </>
       )}

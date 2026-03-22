@@ -5,6 +5,7 @@ import { useCalendar } from '../hooks/useCalendar'
 import { fetchWorkoutTemplates, getActivePlan } from '../api/client'
 import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
+import { MobileCalendarDayView } from '../components/calendar/MobileCalendarDayView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { toDateString } from '../utils/formatting'
@@ -26,6 +27,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [activePlanName, setActivePlanName] = useState<string | undefined>(undefined)
+  // Mobile day view: which day is selected in the strip
+  const [selectedDay, setSelectedDay] = useState<string>(() => toDateString(initialDate ?? new Date()))
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Panel state
@@ -80,7 +83,12 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
 
   const handlePrev = () => {
     if (view === 'week') {
-      setCurrentDate(prev => subDays(prev, 7))
+      setCurrentDate(prev => {
+        const next = subDays(prev, 7)
+        // On mobile, jump selected day to the same weekday in the new week
+        setSelectedDay(d => toDateString(subDays(new Date(d + 'T00:00:00'), 7)))
+        return next
+      })
     } else {
       setCurrentDate(prev => subMonths(prev, 1))
     }
@@ -88,7 +96,11 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
 
   const handleNext = () => {
     if (view === 'week') {
-      setCurrentDate(prev => addDays(prev, 7))
+      setCurrentDate(prev => {
+        const next = addDays(prev, 7)
+        setSelectedDay(d => toDateString(addDays(new Date(d + 'T00:00:00'), 7)))
+        return next
+      })
     } else {
       setCurrentDate(prev => addMonths(prev, 1))
     }
@@ -325,18 +337,33 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             Loading...
           </div>
         )}
-        <CalendarView
-          view={view}
-          currentDate={currentDate}
-          workouts={workouts}
-          templates={templates}
-          unplannedActivities={unplannedActivities}
-          onAddWorkout={handleAddWorkout}
-          onRemove={remove}
-          onWorkoutClick={handleWorkoutClick}
-          onActivityClick={handleActivityClick}
-          activePlanName={activePlanName}
-        />
+        {isMobile ? (
+          <MobileCalendarDayView
+            weekStart={weekStart}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            workouts={workouts}
+            templates={templates}
+            unplannedActivities={unplannedActivities}
+            onAddWorkout={handleAddWorkout}
+            onRemove={remove}
+            onWorkoutClick={handleWorkoutClick}
+            onActivityClick={handleActivityClick}
+          />
+        ) : (
+          <CalendarView
+            view={view}
+            currentDate={currentDate}
+            workouts={workouts}
+            templates={templates}
+            unplannedActivities={unplannedActivities}
+            onAddWorkout={handleAddWorkout}
+            onRemove={remove}
+            onWorkoutClick={handleWorkoutClick}
+            onActivityClick={handleActivityClick}
+            activePlanName={activePlanName}
+          />
+        )}
       </div>
 
       {/* Workout picker modal */}
