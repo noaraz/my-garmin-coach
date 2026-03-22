@@ -150,7 +150,7 @@ export function PlanPromptBuilder() {
   const [longRunDay, setLongRunDay] = useState('')
   const [healthNotes, setHealthNotes] = useState('')
   const [activities, setActivities] = useState<GarminActivity[]>([])
-  const [fetchState, setFetchState] = useState<'idle' | 'fetching' | 'done' | 'empty'>('idle')
+  const [fetchState, setFetchState] = useState<'idle' | 'fetching' | 'done' | 'empty' | 'error'>('idle')
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const codeRef = useRef<HTMLElement>(null)
 
@@ -169,7 +169,7 @@ export function PlanPromptBuilder() {
     try {
       const end = new Date()
       const start = new Date()
-      start.setDate(start.getDate() - 14)
+      start.setDate(start.getDate() - 13) // -13 gives 14 days inclusive (today + 13 prior days)
       const data = await fetchCalendarRange(toDateString(start), toDateString(end))
       const matched = data.workouts
         .filter(w => w.activity !== null)
@@ -179,7 +179,8 @@ export function PlanPromptBuilder() {
       setActivities(all)
       setFetchState(all.length > 0 ? 'done' : 'empty')
     } catch {
-      setFetchState('empty')
+      // activities intentionally not cleared — old data stays in prompt until a new fetch succeeds
+      setFetchState('error')
     }
   }
 
@@ -281,7 +282,7 @@ export function PlanPromptBuilder() {
 
         {/* Health & shape */}
         <div>
-          <label style={fieldLabel}>CURRENT HEALTH &amp; SHAPE</label>
+          <label style={fieldLabel}>Current health &amp; shape</label>
           <textarea
             rows={3}
             value={healthNotes}
@@ -321,6 +322,7 @@ export function PlanPromptBuilder() {
             {fetchState === 'fetching' && 'Fetching\u2026'}
             {fetchState === 'done' && 'Refresh'}
             {fetchState === 'empty' && 'Retry'}
+            {fetchState === 'error' && 'Retry'}
           </button>
           {fetchState === 'done' && (
             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
@@ -330,6 +332,11 @@ export function PlanPromptBuilder() {
           {fetchState === 'empty' && (
             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
               No recent activities found
+            </span>
+          )}
+          {fetchState === 'error' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {activities.length > 0 ? 'Fetch failed — previous activities still included' : 'Fetch failed'}
             </span>
           )}
         </div>
