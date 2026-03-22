@@ -1,18 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-22 (plan-coach prompt improvements — phase 6 complete; added known-issues for ruff E402 + CVEs)
+Last updated: 2026-03-22 (v1.0.2 — mobile responsive)
 
-## Current Focus: Garmin Cleanup on Pairing (bugfix) ✅
-
-| Task | Status |
-|------|--------|
-| Update docs (STATUS, PLAN, CLAUDE, feature CLAUDE.md) | ✅ |
-| Tests: sync_all cleanup sweep + pair_activity Garmin delete | ✅ |
-| Fix: delete Garmin scheduled workout after pairing (sync_all + pair_activity) | ✅ |
-
----
-
-## Current Focus: Mobile Responsive 🔄
+## Current Focus: Mobile Responsive ✅
 
 Visual design: `frontend/public/mobile-mockup.html` (open in browser to see all screens)
 Implementation plan: `docs/superpowers/plans/2026-03-21-mobile-responsive.md`
@@ -21,12 +11,12 @@ Feature docs: `features/mobile-responsive/`
 ### Mobile Responsive
 | Task | Status |
 |------|--------|
-| Phase 0: MD files (STATUS.md, CLAUDE.md, PLAN.md, feature folder) | 🔄 |
-| Chunk 1: useIsMobile hook + CSS mobile vars + AppShell mobile layout | ⬜ |
-| Chunk 2: BottomTabBar + More sheet + /today route | ⬜ |
-| Chunk 3: TodayPage (week strip, hero card, chips) | ⬜ |
-| Chunk 4: WorkoutDetailPanel bottom sheet + OnboardingWizard + HelpPage mobile | ⬜ |
-| Chunk 5: All pages responsive padding/overflow audit | ⬜ |
+| Phase 0: MD files (STATUS.md, CLAUDE.md, PLAN.md, feature folder) | ✅ |
+| Chunk 1: useIsMobile hook + CSS mobile vars + AppShell mobile layout | ✅ |
+| Chunk 2: BottomTabBar + More sheet + /today route | ✅ |
+| Chunk 3: TodayPage (week strip, hero card, chips) | ✅ |
+| Chunk 4: WorkoutDetailPanel bottom sheet + OnboardingWizard + HelpPage mobile | ✅ |
+| Chunk 5: All pages responsive padding/overflow audit | ✅ |
 
 ---
 
@@ -361,7 +351,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: Dynamic sidebar version from package.json (`__APP_VERSION__` via Vite define, strips `-dev` in prod) | ✅ |
 | Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
 | Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
-| Mobile responsive | 🔄 |
+| Mobile responsive | ✅ |
 
 ### Auth + Deployment
 | Task | Status |
