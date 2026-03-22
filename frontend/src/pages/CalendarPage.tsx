@@ -9,6 +9,7 @@ import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { toDateString } from '../utils/formatting'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 interface CalendarPageProps {
   initialDate?: Date
@@ -17,6 +18,7 @@ interface CalendarPageProps {
 
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { garminConnected } = useGarminStatus()
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
@@ -161,6 +163,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         borderBottom: '1px solid var(--toolbar-border)',
         background: 'var(--toolbar-bg)',
         flexShrink: 0,
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}>
         <button
           aria-label="Prev"
@@ -303,7 +306,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       </div>
 
       {/* Calendar view */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', position: 'relative' }}>
+      <div className="mobile-page-content" style={{ flex: 1, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {loading && (
           <div style={{
             position: 'absolute',
