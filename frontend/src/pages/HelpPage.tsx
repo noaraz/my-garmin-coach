@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useOnboarding } from '../contexts/OnboardingContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -48,7 +47,6 @@ export function HelpPage() {
   const { user } = useAuth()
   const { openWizard } = useOnboarding()
   const isMobile = useIsMobile()
-  const navigate = useNavigate()
 
   const handleReplay = () => {
     if (user?.id) {
@@ -57,54 +55,61 @@ export function HelpPage() {
     openWizard()
   }
 
-  const content = (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '0' : '0' }}>
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{
-            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-            fontSize: isMobile ? '18px' : '24px',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            margin: '0 0 4px',
-            lineHeight: 1.2,
-          }}>
-            Help & Getting Started
-          </h1>
-          <p style={{
-            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-            fontSize: '13px',
-            color: 'var(--text-secondary)',
-            margin: 0,
-          }}>
-            Everything you need to set up and use GarminCoach.
-          </p>
+  const padding = isMobile ? '20px 16px' : '32px 40px'
+  const maxWidth = isMobile ? '100%' : '800px'
+
+  return (
+    <div
+      className="mobile-page-content"
+      style={{ padding, overflowY: 'auto', flex: 1 }}
+    >
+      <div style={{ maxWidth, margin: '0 auto' }}>
+        {/* Page header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: isMobile ? '20px' : '40px' }}>
+          <div>
+            <h1 style={{
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontSize: isMobile ? '20px' : '24px',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 4px',
+              lineHeight: 1.2,
+            }}>
+              Help & Getting Started
+            </h1>
+            <p style={{
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              margin: 0,
+            }}>
+              Everything you need to set up and use GarminCoach.
+            </p>
+          </div>
+          <button
+            aria-label="Replay Tour"
+            onClick={handleReplay}
+            style={{
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              padding: '6px 12px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Replay Tour
+          </button>
         </div>
-        <button
-          aria-label="Replay Tour"
-          onClick={handleReplay}
-          style={{
-            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            color: 'var(--text-secondary)',
-            padding: '6px 12px',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          Replay Tour
-        </button>
-      </div>
 
         {/* Section 1 — Setup Guide */}
-        <section style={{ marginBottom: isMobile ? '20px' : '40px' }}>
+        <section style={{ marginBottom: isMobile ? '24px' : '40px' }}>
           <div style={sectionLabelStyle}>Recommended Setup</div>
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
             {setupSteps.map((step) => (
@@ -216,62 +221,7 @@ export function HelpPage() {
             ))}
           </div>
         </section>
-    </div>
-  )
-
-  if (isMobile) {
-    return (
-      <>
-        {/* Backdrop */}
-        <div
-          onClick={() => navigate(-1)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 200,
-          }}
-        />
-        {/* Bottom sheet */}
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '85vh',
-            background: 'var(--bg-surface)',
-            borderRadius: '20px 20px 0 0',
-            zIndex: 201,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            animation: 'slideUpSheet 280ms ease-out',
-          }}
-        >
-          {/* Handle + header row */}
-          <div style={{ flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
-              <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--border)' }} />
-            </div>
-          </div>
-          {/* Scrollable content */}
-          <div style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '16px 20px',
-            paddingBottom: 'calc(var(--bottom-tab-height) + 16px)',
-          }}>
-            {content}
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  return (
-    <div className="mobile-page-content" style={{ padding: '32px 40px' }}>
-      {content}
+      </div>
     </div>
   )
 }
