@@ -370,6 +370,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
 | Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
 | Mobile responsive | ✅ |
+| Post-ship: Zones UX — single Save recalculates HR + pace zones; HR table display-only; saving indicator | ✅ |
 
 ### Auth + Deployment
 | Task | Status |
