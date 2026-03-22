@@ -226,3 +226,24 @@ Form inputs → generated prompt that the user copies to Claude/ChatGPT/Gemini:
 | `plan_import_service.py` | 80%+ |
 | `plan_coach_service.py` | 80%+ |
 | Frontend components | RTL per-component |
+
+---
+
+## PlanPromptBuilder — Updated Patterns (added 2026-03-22)
+
+### State
+- `activities: GarminActivity[]` — renamed from `recentActivities`; initialises to `[]` (no auto-fetch)
+- `healthNotes: string` — free text; empty string = omit from prompt
+- `fetchState: 'idle' | 'fetching' | 'done' | 'empty'` — drives fetch button label/feedback
+
+### Fetch button state machine
+`idle → fetching → done | empty`. Re-clicking "Refresh"/"Retry" always goes through `fetching` first.
+`activities` is never cleared on re-fetch or error — old activities stay in the prompt until new ones load.
+
+### Prompt order (health notes + activity section)
+After long run day line: `My current health & shape: [notes]` (only when non-empty)
+Then: `## Recent Training (last 14 days)` (only when `activities.length > 0`)
+
+### Why `useEffect` was removed
+Silent auto-fetch hid what context was being injected. The explicit button lets the user see which
+activities are included before copying the prompt.

@@ -711,6 +711,26 @@ Replay Tour (HelpPage) clears the key and calls `openWizard()` from `OnboardingC
 
 ---
 
+## PlanPromptBuilder Patterns (added 2026-03-22)
+
+### Fetch button state machine
+`fetchState: 'idle' | 'fetching' | 'done' | 'empty'` drives the fetch button label and inline feedback badge.
+`idle → fetching → done | empty`. Re-clicking "Refresh" / "Retry" always transitions through `fetching` first.
+`activities` is never cleared on re-fetch or error — old activities stay in the prompt until new ones load successfully.
+
+### Health notes field
+`healthNotes: string` — free text textarea placed after the long run day select.
+When non-empty, the prompt includes: `My current health & shape: [notes]`.
+When empty, the line is omitted entirely from the generated prompt.
+
+### Rolling 2–3 week horizon
+`buildPrompt()` uses a rolling 2–3 week window (not a fixed calendar range). Activity section label: `## Recent Training (last 14 days)`. Only rendered when `activities.length > 0`.
+
+### Why `useEffect` was removed
+Silent auto-fetch hid what Garmin context was being injected into the prompt. The explicit fetch button lets the user inspect which activities are included before copying to their LLM.
+
+---
+
 ## Nice to Have (future features)
 
 Ideas for future iterations, roughly in priority order.

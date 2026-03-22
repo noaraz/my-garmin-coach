@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-22 (Garmin calendar cleanup on pairing)
+Last updated: 2026-03-22 (plan-coach prompt improvements — phase 6 complete)
 
 ## Current Focus: Garmin Cleanup on Pairing (bugfix) ✅
 
@@ -128,6 +128,17 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Prompt includes "output CSV only, no markdown" instruction | ✅ |
 | ActivePlanCard: rename "Upload New Plan" → "Upload / Update Plan" | ✅ |
 | Frontend tests: fix tab-bar + empty state text for Phase 4b changes | ✅ |
+
+### Plan Coach — Phase 6: Prompt Improvements `feature/plan-coach-prompt-improvements` ✅
+| Task | Status |
+|------|--------|
+| Update all MD files (STATUS.md, PLAN.md, CLAUDE.md, feature docs) | ✅ |
+| `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label | ✅ |
+| Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine | ✅ |
+| Add health textarea (after long run day select) | ✅ |
+| Add fetch button + inline feedback badge (above generated prompt) | ✅ |
+| Remove old "Recent training included in prompt" summary block | ✅ |
+| Code review fixes: `'error'` state in catch, date window off-by-one (-13), label casing | ✅ |
 
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
