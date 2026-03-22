@@ -16,6 +16,7 @@ export function ZoneManager() {
   const [lthr, setLthr] = useState<number | null>(null)
   const [thresholdPace, setThresholdPace] = useState<number | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const resolvedLthr = lthr !== null ? lthr : (profile?.lthr ?? null)
   const resolvedThresholdPace = thresholdPace !== null ? thresholdPace : (profile?.threshold_pace ?? null)
@@ -26,6 +27,7 @@ export function ZoneManager() {
   }
 
   const handleSave = async () => {
+    setSaving(true)
     try {
       await save({
         lthr: resolvedLthr ?? undefined,
@@ -37,6 +39,7 @@ export function ZoneManager() {
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Save failed')
     } finally {
+      setSaving(false)
       refreshZones()
     }
   }
@@ -183,6 +186,7 @@ export function ZoneManager() {
             onLthrChange={val => setLthr(val)}
             onThresholdPaceChange={val => setThresholdPace(val)}
             onSave={handleSave}
+            isSaving={saving}
           />
         </div>
       </section>
