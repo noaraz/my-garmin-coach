@@ -38,6 +38,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "frame-src 'none'; "
             "object-src 'none'"
         )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
         return response
 
 
