@@ -65,13 +65,6 @@ const codeStyle: React.CSSProperties = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function weeksUntil(dateStr: string): number | null {
-  if (!dateStr) return null
-  const diff = new Date(dateStr).getTime() - Date.now()
-  if (diff <= 0) return null
-  return Math.round(diff / (7 * 24 * 60 * 60 * 1000))
-}
-
 function toDateString(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -94,10 +87,8 @@ function buildPrompt(
   days: string[],
   longRunDay: string,
   recentActivities: GarminActivity[],
+  healthNotes: string = '',
 ): string {
-  const weeks = weeksUntil(raceDate)
-  const weeksLabel = weeks ? `${weeks}-week` : 'N-week'
-  const weeksNote = weeks ? ` (${weeks} weeks from today)` : ''
   const distLine = distance || '[distance]'
   const dateLine = raceDate || '[date]'
   const daysLine = days.length ? days.join(', ') : '[your training days]'
@@ -105,15 +96,20 @@ function buildPrompt(
   const lrLine = longRunDay || '[long run day]'
 
   const activitySection = recentActivities.length
-    ? `\n## Recent Training (last 30 days)\n${recentActivities.map(formatActivity).join('\n')}\n`
+    ? `\n## Recent Training (last 14 days)\n${recentActivities.map(formatActivity).join('\n')}\n`
     : ''
 
-  return `Generate a ${weeksLabel} running training plan as a CSV with these columns:
+  const healthSection = healthNotes.trim()
+    ? `\nMy current health & shape: ${healthNotes.trim()}`
+    : ''
+
+  return `Generate the next 2–3 weeks of my running training plan as a CSV with these columns:
 date,name,steps_spec,sport_type,description
 
-My goal: ${distLine} race on ${dateLine}${weeksNote}
+My goal: ${distLine} race on ${dateLine}
+Plan the next 2–3 weeks only — I'll come back to update it regularly.
 Training: ${nDays} days/week on ${daysLine}
-Long run day: ${lrLine}
+Long run day: ${lrLine}${healthSection}
 ${activitySection}
 Rules:
 - date: ISO format YYYY-MM-DD (schedule only on my training days above)
@@ -135,6 +131,8 @@ Example rows:
 2026-04-09,Tempo,10m@Z1 + 20m@Z3 + 10m@Z1,running,
 2026-04-12,Long Run,10m@Z1 + 90m@Z2 + 10m@Z1,running,Weekly long run
 2026-04-14,Intervals,10m@Z1 + 6x(400m@Z5 + 200m@Z1) + 5m@Z1,running,VO2max
+
+Note: plan 2–3 weeks only, not the full race block. I'll re-run this prompt every 2–3 weeks to keep the plan current.
 
 Output as a downloadable file named training_plan.csv — no explanation, no markdown fences.`
 }
