@@ -147,8 +147,8 @@ Design spec: `docs/superpowers/specs/2026-03-21-plan-coach-prompt-improvements-d
 Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improvements.md`
 
 ### Changes
-- [ ] `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label
-- [ ] Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine
-- [ ] Add health textarea (after long run day select)
-- [ ] Add fetch button + inline feedback badge (above generated prompt)
-- [ ] Remove old "Recent training included in prompt" summary block
+- [x] `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label
+- [x] Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine
+- [x] Add health textarea (after long run day select)
+- [x] Add fetch button + inline feedback badge (above generated prompt)
+- [x] Remove old "Recent training included in prompt" summary block
