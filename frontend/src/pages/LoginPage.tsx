@@ -2,14 +2,32 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGoogleOAuth } from '@react-oauth/google'
 import { useAuth } from '../contexts/AuthContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export function LoginPage() {
   const { googleLogin } = useAuth()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { clientId, scriptLoadedSuccessfully } = useGoogleOAuth()
   const [error, setError] = useState<string | null>(null)
 
   const handleSignIn = () => {
+    if (!clientId) return
+
+    if (isMobile) {
+      // On mobile use a full-page redirect (implicit flow) — no popup, full-screen Google UX.
+      // Google returns the token in the hash: /auth/callback#access_token=...
+      // Requires {origin}/auth/callback to be an Authorized Redirect URI in Google Cloud Console.
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: window.location.origin + '/auth/callback',
+        response_type: 'token',
+        scope: 'openid profile email',
+      })
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+      return
+    }
+
     if (!scriptLoadedSuccessfully) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = (window as any).google.accounts.oauth2.initTokenClient({
