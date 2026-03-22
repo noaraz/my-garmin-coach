@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from collections.abc import AsyncGenerator
 from datetime import date
 from unittest.mock import MagicMock
@@ -539,6 +540,125 @@ class TestCalendarNotesUpdate:
 
 class TestActivityPairing:
     """Tests for manual activity pairing/unpairing."""
+
+    @pytest.fixture
+    def mock_garmin(self) -> MagicMock:
+        svc = MagicMock()
+        svc.delete_workout.return_value = None
+        return svc
+
+    @pytest.fixture
+    async def garmin_client(
+        self, session: AsyncSession, mock_garmin: MagicMock
+    ) -> AsyncGenerator[AsyncClient, None]:
+        from src.api.routers.sync import get_optional_garmin_sync_service
+
+        app = create_app()
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[get_optional_garmin_sync_service] = lambda: mock_garmin
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            yield ac
+
+        app.dependency_overrides.clear()
+
+    async def _make_activity(self, session: AsyncSession, activity_id: str = "act-001") -> Any:
+        from datetime import datetime
+
+        from src.db.models import GarminActivity
+
+        activity = GarminActivity(
+            garmin_activity_id=activity_id,
+            user_id=1,
+            activity_type="running",
+            name="Morning Run",
+            start_time=datetime(2026, 3, 10, 8, 0, 0),  # noqa: DTZ001
+            date=date(2026, 3, 10),
+            duration_sec=3600,
+            distance_m=10000,
+            avg_hr=None,
+            max_hr=None,
+            avg_pace_sec_per_km=None,
+            calories=None,
+        )
+        session.add(activity)
+        await session.commit()
+        await session.refresh(activity)
+        return activity
+
+    async def test_pair_activity_deletes_garmin_workout_when_connected(
+        self, garmin_client: AsyncClient, session: AsyncSession, mock_garmin: MagicMock
+    ) -> None:
+        """pair_activity deletes the Garmin scheduled workout when Garmin is connected."""
+        from src.db.models import GarminActivity  # noqa: F401
+
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            garmin_workout_id="garmin-plan-id",
+            sync_status="synced",
+        )
+        session.add(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
+
+        activity = await self._make_activity(session, "act-pair-001")
+
+        # Act
+        response = await garmin_client.post(
+            f"/api/v1/calendar/{scheduled.id}/pair/{activity.id}"
+        )
+
+        # Assert — paired, Garmin delete called, garmin_workout_id cleared
+        assert response.status_code == 200
+        mock_garmin.delete_workout.assert_called_once_with("garmin-plan-id")
+        await session.refresh(scheduled)
+        assert scheduled.garmin_workout_id is None
+
+    async def test_pair_activity_no_error_when_garmin_not_connected(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """pair_activity succeeds without Garmin connection (no garmin_workout_id to delete)."""
+        from src.db.models import GarminActivity  # noqa: F401
+
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            garmin_workout_id=None,
+        )
+        session.add(scheduled)
+        await session.commit()
+        await session.refresh(scheduled)
+
+        activity = await self._make_activity(session, "act-no-garmin-001")
+
+        # Act — using the basic client (no Garmin override = garmin=None)
+        response = await client.post(
+            f"/api/v1/calendar/{scheduled.id}/pair/{activity.id}"
+        )
+
+        # Assert — succeeds without error
+        assert response.status_code == 200
+        assert response.json()["completed"] is True
 
     async def test_unpair_activity_preserves_completed_status(
         self, client: AsyncClient, session: AsyncSession

@@ -65,12 +65,15 @@ async def _make_scheduled_workout(
     *,
     sync_status: str = "pending",
     garmin_workout_id: str | None = None,
+    completed: bool = False,
+    workout_date: date = date(2026, 3, 10),
 ) -> ScheduledWorkout:
     """Helper: insert a ScheduledWorkout row and return it."""
     sw = ScheduledWorkout(
-        date=date(2026, 3, 10),
+        date=workout_date,
         sync_status=sync_status,
         garmin_workout_id=garmin_workout_id,
+        completed=completed,
         user_id=1,  # must match _TEST_USER.id for user-scoped queries
     )
     session.add(sw)
@@ -264,6 +267,206 @@ class TestSyncAll:
         body = response.json()
         assert body["synced"] == 0
         assert body["failed"] == 2
+
+    async def test_sync_all_deletes_garmin_workout_for_completed_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all deletes the Garmin scheduled workout for completed+paired workouts."""
+        # Arrange — a previously synced workout that got paired after the run
+        sw = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="garmin-paired-id",
+            completed=True,
+            workout_date=date(2026, 3, 10),
+        )
+
+        # Act
+        response = await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — response OK, and Garmin delete was called
+        assert response.status_code == 200
+        mock_sync_service.delete_workout.assert_called_with("garmin-paired-id")
+
+        # garmin_workout_id should be cleared in DB
+        await session.refresh(sw)
+        assert sw.garmin_workout_id is None
+
+    async def test_sync_all_clears_garmin_id_of_past_paired_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all retroactively cleans up past paired workouts still holding garmin_workout_id."""
+        # Arrange — two completed workouts with stale garmin IDs (paired in a prior sync)
+        sw1 = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="old-garmin-1",
+            completed=True,
+            workout_date=date(2026, 3, 8),
+        )
+        sw2 = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="old-garmin-2",
+            completed=True,
+            workout_date=date(2026, 3, 9),
+        )
+
+        # Act
+        await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — both cleared
+        await session.refresh(sw1)
+        await session.refresh(sw2)
+        assert sw1.garmin_workout_id is None
+        assert sw2.garmin_workout_id is None
+
+    async def test_sync_all_continues_when_garmin_delete_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all response is still 200 even if Garmin delete raises during cleanup."""
+        # Arrange — completed workout with garmin ID, but Garmin delete will fail
+        await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="failing-garmin-id",
+            completed=True,
+        )
+        mock_sync_service.delete_workout.side_effect = RuntimeError("Garmin unreachable")
+
+        # Act
+        response = await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — still returns 200, failure swallowed
+        assert response.status_code == 200
+
+    async def test_sync_all_is_idempotent_when_garmin_id_already_cleared(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Second sync after cleanup is a no-op: garmin_workout_id=None means nothing to delete."""
+        # Arrange — workout already cleaned up by a previous sync (garmin_workout_id already None)
+        # This is the state after the first cleanup sweep: completed=True, sync_status="synced",
+        # garmin_workout_id=None
+        await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id=None,
+            completed=True,
+        )
+
+        # Act
+        await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — no Garmin delete called; workout not in PENDING_STATUSES so not re-pushed either
+        mock_sync_service.delete_workout.assert_not_called()
+
+    async def test_sync_all_does_not_delete_non_completed_synced_workout(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """A synced-but-not-yet-completed workout must NOT be deleted during cleanup."""
+        # Arrange — workout pushed to Garmin but run not yet done
+        sw = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="active-garmin-id",
+            completed=False,
+        )
+        mock_sync_service.sync_workout.return_value = "garmin-skip"
+
+        # Act
+        await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — garmin_workout_id untouched
+        await session.refresh(sw)
+        assert sw.garmin_workout_id == "active-garmin-id"
+
+    async def test_sync_all_does_not_delete_workout_outside_date_window(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Completed workout outside fetch_days window is not touched by the cleanup sweep."""
+        from datetime import timedelta
+
+        from src.db.models import ScheduledWorkout as SW  # local alias avoids confusion
+
+        # Arrange — completed workout 40 days ago, fetch_days=30 means it's outside the window
+        old_date = date.today() - timedelta(days=40)
+        sw = SW(
+            date=old_date,
+            sync_status="synced",
+            garmin_workout_id="old-out-of-window",
+            completed=True,
+            user_id=1,
+        )
+        session.add(sw)
+        await session.commit()
+        await session.refresh(sw)
+
+        # Act — fetch_days=30, so old_date is outside the window
+        await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert — garmin_workout_id NOT cleared
+        await session.refresh(sw)
+        assert sw.garmin_workout_id == "old-out-of-window"
+
+    async def test_sync_all_continues_cleanup_after_single_delete_failure(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """If one Garmin delete fails in the batch, the rest still succeed."""
+        # Arrange — two completed workouts; first delete fails, second should still be cleared
+        sw1 = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="garmin-fail",
+            completed=True,
+            workout_date=date(2026, 3, 8),
+        )
+        sw2 = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="garmin-ok",
+            completed=True,
+            workout_date=date(2026, 3, 9),
+        )
+
+        def _delete_side_effect(garmin_id: str) -> None:
+            if garmin_id == "garmin-fail":
+                raise RuntimeError("rate limited")
+            # "garmin-ok" succeeds silently
+
+        mock_sync_service.delete_workout.side_effect = _delete_side_effect
+
+        # Act
+        response = await client.post("/api/v1/sync/all?fetch_days=30")
+
+        # Assert
+        assert response.status_code == 200
+        await session.refresh(sw1)
+        await session.refresh(sw2)
+        # sw1 failed → ID retained
+        assert sw1.garmin_workout_id == "garmin-fail"
+        # sw2 succeeded → ID cleared
+        assert sw2.garmin_workout_id is None
 
 
 # ---------------------------------------------------------------------------

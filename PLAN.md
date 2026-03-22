@@ -135,6 +135,9 @@ The core value — what TrainingPeaks does that we're replicating:
    - Grey: unplanned activity (no scheduled workout)
    - Muted: missed (past-date scheduled workout, no activity)
 4. Users can manually pair/unpair to correct mismatches
+5. After pairing, the Garmin scheduled workout is deleted from Garmin's calendar
+   (idempotent cleanup sweep in sync_all — handles both new and past paired workouts)
+   so Garmin's own calendar only shows the completed activity, not both
 ```
 
 ### 3. Workout Detail Panel (Feature 10)

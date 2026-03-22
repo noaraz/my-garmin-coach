@@ -530,6 +530,22 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 ---
 
+## Garmin Calendar Cleanup After Pairing (added 2026-03-22)
+
+Garmin's own calendar shows BOTH the scheduled planned workout AND the completed activity after a run. Our app correctly shows only the paired card; Garmin does not auto-remove the plan.
+
+**Fix**: `sync_all` (`backend/src/api/routers/sync.py`) runs an idempotent cleanup sweep after `match_activities()`:
+- Queries `completed=True, garmin_workout_id IS NOT NULL` within the sync date window
+- Deletes each from Garmin (best-effort, logged + swallowed on failure), clears `garmin_workout_id = None`
+- One final `session.commit()` if any rows were touched
+- Handles both newly-paired workouts AND retroactive past paired workouts (clearing on next Sync All)
+
+`pair_activity` endpoint (`backend/src/api/routers/calendar.py`) does the same inline before commit, using the optional `get_optional_garmin_sync_service` dependency (already imported, already used by the delete endpoint).
+
+**Why idempotent**: once `garmin_workout_id` is cleared, the query finds no rows on subsequent syncs.
+
+---
+
 ## Fixie Proxy for Garmin OAuth (added 2026-03-17)
 
 - **Problem**: Garmin rate-limits OAuth requests (429) from Render's shared datacenter IPs
