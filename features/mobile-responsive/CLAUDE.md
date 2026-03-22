@@ -19,15 +19,18 @@
 
 ## BottomTabBar
 - Tabs: Today · Calendar · Library · Zones · ···
-- More sheet items (slide-up): Builder · Plan Coach · Settings · Help
+- More sheet items (slide-up): Builder · Plan Coach · Settings · Help · Sign Out
+- Sign Out calls `logout()` from `useAuth()` — closes sheet, fires logout
 - More sheet uses `.mobile-bottom-sheet` CSS class (in `@media` block in `index.css`)
 - Backdrop: `data-testid="more-sheet-backdrop"` for test selection
+- **Test**: `BottomTabBar.test.tsx` mocks `useAuth` via `vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ logout: mockLogout }) }))`
+- **Mock is load-bearing**: `BottomTabBar.tsx` calls `useAuth()` for logout. If `BottomTabBar.test.tsx` loses the `vi.mock('../contexts/AuthContext', ...)` block (e.g. from a linter revert), all 6 tests fail with "useAuth is not a function". Always restore the mock.
 
 ## CSS mobile vars
 - `--bottom-tab-height: 56px` — added to existing `:root` block in `index.css` (NOT a second block)
 - `--bottom-sheet-radius: 16px` — same
 - `.mobile-page-content` — class for scrollable containers needing bottom padding above tab bar
-- `.workout-detail-panel-mobile` — 75vh bottom sheet for WorkoutDetailPanel
+- `.workout-detail-panel-mobile` — **60vh** bottom sheet for WorkoutDetailPanel (NOT 75vh)
 
 ## WorkoutDetailPanel field names (CRITICAL)
 - `ScheduledWorkout.date` (NOT `scheduled_date`)
@@ -37,14 +40,34 @@
   — pass no-ops in TodayPage since it's view-only
 
 ## OnboardingWizard Mobile
-- On mobile: `position: fixed; inset: 0` — full-screen, no border-radius, no max-width cap
+- On mobile: **90vh bottom sheet** with handle bar (8px × 40px pill, rounded, draggable feel)
+- Slides up via `@keyframes slideUpSheet` (defined globally outside `@media` so inline animation styles work)
+  — `animation: slideUpSheet 280ms ease`
+- NOT full-screen on mobile — uses border-radius `var(--bottom-sheet-radius)` at top corners
 - On desktop: existing centered modal (max-width ~540px, border-radius, shadow) — unchanged
 - Wizard navigates between routes — all existing routes work with BottomTabBar
 
+## MobileCalendarDayView
+- Replaces the cramped 7-column `CalendarView` grid on mobile
+- Component: `frontend/src/components/calendar/MobileCalendarDayView.tsx`
+- 7-day horizontal strip: each day is a `<button>` showing abbreviated day name + date number + workout dot indicator
+  - `data-testid="mobile-day-strip"`
+  - `aria-label="Select YYYY-MM-DD"` + `aria-pressed={isSelected}`
+  - Selected state: accent background + 2px bottom border accent
+- Vertical scrollable day list below strip (`data-testid="mobile-day-list"`)
+  - Workout cards: name, duration·distance in mono, activity actual stats if paired, Done/Synced badges, remove button
+  - Activity cards: accent left border, name, duration·distance·pace
+  - "+ Add Workout" dashed button at bottom
+- `CalendarPage` holds `selectedDay: string` state — initialized to today's date string
+- `handlePrev`/`handleNext` also call `setSelectedDay` to keep selection in sync when week changes
+- Week/month toggle wrapped in `{!isMobile && (...)}` — completely hidden on mobile
+
 ## HelpPage Mobile
 - Feature cards: `grid-template-columns: 1fr` on mobile (stacked), multi-column on desktop
-- Replay Tour button: `openWizard()` from `OnboardingContext` — works identically on mobile
-- The onboarding wizard full-screen mode activates because `useIsMobile` returns true
+- Setup steps: `flexDirection: 'column'` on mobile, `'row'` on desktop
+- HelpPage is a **normal mobile-compatible page**, NOT a bottom sheet
+- Replay Tour button: `openWizard()` from `OnboardingContext` — opens the OnboardingWizard (90vh bottom sheet)
+- The onboarding wizard activates because `useIsMobile` returns true — no special Help logic needed
 
 ## Desktop Regression Policy
 After every task: `npm test -- --run && npx tsc -b --noEmit`

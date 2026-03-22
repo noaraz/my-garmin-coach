@@ -200,6 +200,7 @@ Project slash commands in `.claude/commands/`:
 - **Audience validation via tokeninfo** — `GET https://oauth2.googleapis.com/tokeninfo?access_token={token}` returns `azp` (authorized party = the OAuth2 client_id). Check `azp == settings.google_client_id`.
 - **`VITE_GOOGLE_CLIENT_ID` is a build-time variable** — Vite bakes it into the bundle at `npm run build`. In `Dockerfile.prod`, pass it as a Docker `ARG` before `RUN npm run build`. Reuse `GOOGLE_CLIENT_ID` (already in Render) via `ARG GOOGLE_CLIENT_ID` → `ENV VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID` — no separate Render env var needed.
 - **Don't mock `_google_userinfo` in tests** — mocking the whole function hides bugs in its body. Mock `httpx.AsyncClient` instead so the audience check, email_verified check, and URL logic are all exercised.
+- **Google OAuth popup on mobile is broken** — `window.open()` popup UX is unusable on mobile browsers. Implicit redirect flow (`response_type=token`) requires registering exact redirect URIs in Google Cloud Console and is not worth implementing. Mobile users use the same popup flow as desktop (acceptable tradeoff).
 
 ## Settings / Garmin Connect UI (added 2026-03-09)
 
@@ -276,6 +277,7 @@ This function no longer exists in `src/db/database.py`. Alembic (`alembic upgrad
 - **TypeScript strict build**: `npm run build` runs `tsc -b` which is stricter than Vitest. Common gotchas: unused imports/vars, `null` vs `undefined` in props, missing explicit types on `as` casts.
 - **Prod Docker**: `frontend/Dockerfile.prod` (node:20-alpine builder → nginx:alpine), `frontend/nginx.conf` (SPA try_files + `/api/` proxy to `http://backend:8000`).
 - **Docker credential helper**: `docker-credential-desktop` must be in PATH. Prefix commands: `PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" docker compose ...`
+- **CSS `@keyframes` must be global for inline animation** — keyframes defined inside an `@media` block are NOT reachable by `style={{ animation: 'myAnim 280ms ease' }}`. Define `@keyframes` at the top level in `index.css` even if the animation is only used in mobile contexts.
 
 ## Color Token Conventions (added 2026-03-09)
 

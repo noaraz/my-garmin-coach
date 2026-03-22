@@ -15,8 +15,12 @@ Feature docs: `features/mobile-responsive/`
 | Chunk 1: useIsMobile hook + CSS mobile vars + AppShell mobile layout | ✅ |
 | Chunk 2: BottomTabBar + More sheet + /today route | ✅ |
 | Chunk 3: TodayPage (week strip, hero card, chips) | ✅ |
-| Chunk 4: WorkoutDetailPanel bottom sheet + OnboardingWizard + HelpPage mobile | ✅ |
+| Chunk 4: WorkoutDetailPanel bottom sheet + OnboardingWizard 90vh sheet + HelpPage mobile page | ✅ |
 | Chunk 5: All pages responsive padding/overflow audit | ✅ |
+| Fix: WorkoutDetailPanel height 75vh → 60vh | ✅ |
+| Fix: BottomTabBar Sign Out button in More sheet | ✅ |
+| MobileCalendarDayView: day strip + vertical workout/activity list | ✅ |
+| CalendarPage: hide week/month toggle on mobile | ✅ |
 
 ---
 
