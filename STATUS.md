@@ -1,6 +1,18 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (v1.1.0 — mobile responsive + plan coach improvements)
+Last updated: 2026-03-23 (zones UX — auto-recalculate on save)
+
+## Current Focus: Zones UX — Auto-Recalculate on Save ✅
+
+### Zones Simplification
+| Task | Status |
+|------|--------|
+| Remove standalone Recalculate / Update from Threshold buttons | ✅ |
+| HRZoneTable: make BPM cells display-only (remove click-to-edit) | ✅ |
+| ZoneManager.handleSave: auto-call recalcHR + recalcPace after save | ✅ |
+| Update ZoneManager tests | ✅ |
+
+---
 
 ## Current Focus: Mobile Responsive ✅
 
@@ -358,6 +370,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
 | Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
 | Mobile responsive | ✅ |
+| Post-ship: Zones UX — single Save recalculates HR + pace zones; HR table display-only; saving indicator | ✅ |
 
 ### Auth + Deployment
 | Task | Status |
@@ -390,6 +403,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
 ## Known Issues (to fix later)
+
+- **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
 
 - **Ruff E402 in `backend/src/api/routers/calendar.py`**: `logging.getLogger(__name__)` is called on line 8, *before* all the `from sqlmodel import ...` and `from src.* import ...` statements. Ruff's E402 rule ("module-level import not at top of file") flags all 11 imports below it. Fix: move `logger = logging.getLogger(__name__)` to after the last import. This is the only file with this issue. Running `ruff check src/` or the CI lint step will show 11 E402 errors all pointing to this file. Also one `F821 Undefined name GarminActivity` in `tests/integration/test_api_calendar.py` line 571 — `GarminActivity` is used as a string annotation in a method return type but is not imported at the module level (only imported inside the method body). Fix: add `from src.db.models import GarminActivity` at the top of the test file (or use `TYPE_CHECKING` guard).
 

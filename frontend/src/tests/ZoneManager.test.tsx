@@ -3,13 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ZoneManager } from '../components/zones/ZoneManager'
 
-vi.mock('../contexts/ZonesStatusContext', () => ({
-  useZonesStatus: () => ({ zonesConfigured: true, refreshZones: vi.fn() }),
+const { mockRecalcHR, mockRecalcPace, mockSave, mockRefreshZones } = vi.hoisted(() => ({
+  mockRecalcHR: vi.fn(),
+  mockRecalcPace: vi.fn(),
+  mockSave: vi.fn(),
+  mockRefreshZones: vi.fn(),
 }))
 
-const mockSaveHRZones = vi.fn()
-const mockRecalcHR = vi.fn()
-const mockSave = vi.fn()
+vi.mock('../contexts/ZonesStatusContext', () => ({
+  useZonesStatus: () => ({ zonesConfigured: true, refreshZones: mockRefreshZones }),
+}))
 
 vi.mock('../hooks/useZones', () => ({
   useZones: () => ({
@@ -29,9 +32,8 @@ vi.mock('../hooks/useZones', () => ({
     ],
     loading: false,
     error: null,
-    saveHRZones: mockSaveHRZones,
     recalcHR: mockRecalcHR,
-    recalcPace: vi.fn(),
+    recalcPace: mockRecalcPace,
   }),
 }))
 
@@ -45,9 +47,10 @@ vi.mock('../hooks/useProfile', () => ({
 }))
 
 beforeEach(() => {
-  mockSaveHRZones.mockReset()
   mockRecalcHR.mockReset()
+  mockRecalcPace.mockReset()
   mockSave.mockReset()
+  mockRefreshZones.mockReset()
 })
 
 describe('test_renders_5_hr_zone_rows', () => {
@@ -82,6 +85,8 @@ describe('test_change_lthr_and_save', () => {
   it('type new LTHR, save → save called with lthr 165', async () => {
     const user = userEvent.setup()
     mockSave.mockResolvedValue(undefined)
+    mockRecalcHR.mockResolvedValue(undefined)
+    mockRecalcPace.mockResolvedValue(undefined)
     render(<ZoneManager />)
     const input = screen.getByLabelText(/lthr/i)
     await user.clear(input)
@@ -92,24 +97,25 @@ describe('test_change_lthr_and_save', () => {
   })
 })
 
-describe('test_recalculate_button', () => {
-  it('click recalculate → recalcHR called', async () => {
+describe('test_save_auto_recalculates_zones', () => {
+  it('save → recalcHR and recalcPace both called', async () => {
     const user = userEvent.setup()
+    mockSave.mockResolvedValue(undefined)
     mockRecalcHR.mockResolvedValue(undefined)
+    mockRecalcPace.mockResolvedValue(undefined)
     render(<ZoneManager />)
-    const btn = screen.getByRole('button', { name: /recalculate/i })
-    await user.click(btn)
+    const saveBtn = screen.getByRole('button', { name: /save/i })
+    await user.click(saveBtn)
     expect(mockRecalcHR).toHaveBeenCalledTimes(1)
+    expect(mockRecalcPace).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('test_zone_boundaries_editable', () => {
-  it('click zone BPM cell → inline input appears', async () => {
-    const user = userEvent.setup()
+describe('test_no_standalone_recalculate_buttons', () => {
+  it('no Recalculate or Update from Threshold buttons present', () => {
     render(<ZoneManager />)
-    const cell = screen.getByTestId('hr-upper-bpm-2')
-    await user.click(cell)
-    expect(screen.getByRole('spinbutton', { name: /upper bpm/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /recalculate/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /update from threshold/i })).not.toBeInTheDocument()
   })
 })
 
@@ -117,6 +123,8 @@ describe('test_success_feedback', () => {
   it('save succeeds → success toast shown', async () => {
     const user = userEvent.setup()
     mockSave.mockResolvedValue(undefined)
+    mockRecalcHR.mockResolvedValue(undefined)
+    mockRecalcPace.mockResolvedValue(undefined)
     render(<ZoneManager />)
     const saveBtn = screen.getByRole('button', { name: /save/i })
     await user.click(saveBtn)
