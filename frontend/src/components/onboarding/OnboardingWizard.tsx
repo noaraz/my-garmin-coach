@@ -1,7 +1,9 @@
+import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useOnboarding } from '../../contexts/OnboardingContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface StepConfig {
   route: string
@@ -70,6 +72,7 @@ export function OnboardingWizard() {
   const { user } = useAuth()
   const { isWizardOpen, openWizard, closeWizard } = useOnboarding()
   const [step, setStep] = useState(0)
+  const isMobile = useIsMobile()
 
   // Open wizard on mount if key is absent
   useEffect(() => {
@@ -115,6 +118,29 @@ export function OnboardingWizard() {
 
   const isLastStep = step === STEPS.length - 1
 
+  const modalCardStyle: CSSProperties = isMobile
+    ? {
+        // Mobile: full-screen — fills entire viewport
+        position: 'fixed',
+        inset: 0,
+        background: 'var(--bg-surface)',
+        zIndex: 201, // above the overlay (which is 200)
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        borderRadius: 0,
+        padding: '32px',
+      }
+    : {
+        // Desktop: centered modal card
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        padding: '32px',
+        maxWidth: '480px',
+        width: '100%',
+      }
+
   return (
     <div
       role="dialog"
@@ -130,16 +156,7 @@ export function OnboardingWizard() {
         justifyContent: 'center',
       }}
     >
-      <div
-        style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '8px',
-          padding: '32px',
-          maxWidth: '480px',
-          width: '100%',
-        }}
-      >
+      <div style={modalCardStyle}>
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span
