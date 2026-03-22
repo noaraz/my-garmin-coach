@@ -6,7 +6,14 @@
     "Bash(git log*)",
     "Bash(git diff*)",
     "Bash(git blame*)",
-    "Bash(gh pr*)"
+    "Bash(gh pr*)",
+    "Bash(backend/.venv/bin/pytest*)",
+    "Bash(.venv/bin/pytest*)",
+    "Bash(backend/.venv/bin/ruff*)",
+    "Bash(.venv/bin/ruff*)",
+    "Bash(/Users/noa.raz/.pyenv/versions/3.11.3/bin/python -m venv*)",
+    "Bash(.venv/bin/pip*)",
+    "Bash(backend/.venv/bin/pip*)"
   ],
   "hooks": {
     "session_start": {
