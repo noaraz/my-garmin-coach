@@ -114,12 +114,17 @@ git commit -m "feat: <short description>"
 
 ### Ask about Render Preview
 
-Before creating the PR, ask the user:
+Before creating the PR, use the `AskUserQuestion` tool to ask:
 
-> "Should this PR include `[Render Preview]` in the title to trigger a Render preview deployment?"
+```
+Question: "Should this PR include [Render Preview] in the title to trigger a Render preview deployment?"
+Header: "Render Preview"
+Options:
+  - Yes — append [Render Preview] to the PR title and add a placeholder ## Preview section to the body
+  - No  — create the PR without the tag or preview section
+```
 
-- If **yes**: append ` [Render Preview]` to the PR title and add a placeholder `## Preview` section to the body (the real URL comes after Render deploys — see below)
-- If **no**: create the PR without the tag or preview section
+Wait for the user's answer before creating the PR.
 
 ### Fetch Render Preview URL and Check Deployment (if Render Preview was chosen)
 
