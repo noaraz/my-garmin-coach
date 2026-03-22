@@ -226,3 +226,36 @@ Form inputs → generated prompt that the user copies to Claude/ChatGPT/Gemini:
 | `plan_import_service.py` | 80%+ |
 | `plan_coach_service.py` | 80%+ |
 | Frontend components | RTL per-component |
+
+---
+
+## PlanPromptBuilder — Updated Patterns (added 2026-03-22)
+
+### State
+- `activities: GarminActivity[]` — renamed from `recentActivities`; initialises to `[]` (no auto-fetch)
+- `healthNotes: string` — free text; empty string = omit from prompt
+- `fetchState: 'idle' | 'fetching' | 'done' | 'empty'` — drives fetch button label/feedback
+
+### Fetch button state machine
+`idle → fetching → done | empty | error`. Re-clicking "Refresh"/"Retry" always goes through `fetching` first.
+`activities` is never cleared on re-fetch or error — old activities stay in the prompt until new ones load successfully.
+
+State semantics:
+- `done` — fetch succeeded, one or more activities returned
+- `empty` — fetch succeeded with zero results (genuine "no runs in last 14 days")
+- `error` — fetch threw (network failure, 401, etc.); badge shows "Fetch failed — previous activities still included" when stale data exists, "Fetch failed" otherwise
+- **Do not collapse `error` into `empty`** — the user cannot tell whether they have no runs or whether Garmin is disconnected
+
+### Date window
+`start.setDate(start.getDate() - 13)` → exactly 14 days inclusive (today + 13 prior days). Backend range is inclusive on both ends.
+
+### Label casing convention
+All field labels use lowercase source strings (e.g. `"Current health & shape"`) and rely on `fieldLabel` style's `textTransform: 'uppercase'` for display. Do NOT write uppercase in the literal — it breaks the pattern when `textTransform` is later modified.
+
+### Prompt order (health notes + activity section)
+After long run day line: `My current health & shape: [notes]` (only when non-empty)
+Then: `## Recent Training (last 14 days)` (only when `activities.length > 0`)
+
+### Why `useEffect` was removed
+Silent auto-fetch hid what context was being injected. The explicit button lets the user see which
+activities are included before copying the prompt.

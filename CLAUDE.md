@@ -170,6 +170,7 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 
 ## Skills & Tools
 
+- **wrap-up-docs-check** — installed at `.claude/skills/wrap-up-docs-check/`. Run when user signals feature complete ("all good", "ship it", "done"). Checks root STATUS.md + PLAN.md + CLAUDE.md and feature subfolder docs are updated, then runs `revise-claude-md` on all touched CLAUDE.md files.
 - **Do NOT install generic skills.** Feature CLAUDE.md files have all needed context.
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
@@ -708,6 +709,27 @@ When adding a new page/feature to GarminCoach, also:
 **localStorage key**: `onboarding_completed_${userId}` — one per user, set on wizard Finish or Skip.
 Replay Tour (HelpPage) clears the key and calls `openWizard()` from `OnboardingContext`.
 `OnboardingProvider` is mounted in `AppShell.tsx` (outermost provider, wraps GarminStatusProvider + ZonesStatusProvider).
+
+---
+
+## PlanPromptBuilder Patterns (added 2026-03-22)
+
+### Fetch button state machine
+`fetchState: 'idle' | 'fetching' | 'done' | 'empty' | 'error'` drives the fetch button label and inline feedback badge.
+`idle → fetching → done | empty | error`. `empty` = API returned 0 results; `error` = network/auth failure.
+`activities` is never cleared on re-fetch or error — old data stays in the prompt until a new fetch succeeds.
+Do not collapse `error` into `empty` — user must know whether they have no runs or whether the fetch failed.
+
+### Health notes field
+`healthNotes: string` — free text textarea placed after the long run day select.
+When non-empty, the prompt includes: `My current health & shape: [notes]`.
+When empty, the line is omitted entirely from the generated prompt.
+
+### Rolling 2–3 week horizon
+`buildPrompt()` uses a rolling 2–3 week window (not a fixed calendar range). Activity section label: `## Recent Training (last 14 days)`. Only rendered when `activities.length > 0`.
+
+### Why `useEffect` was removed
+Silent auto-fetch hid what Garmin context was being injected into the prompt. The explicit fetch button lets the user inspect which activities are included before copying to their LLM.
 
 ---
 

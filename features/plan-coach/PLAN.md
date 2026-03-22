@@ -138,3 +138,18 @@ RTL: JSON detection → Validate → DiffTable → Import.
 - Backend unit: `test_compute_diff_*` (3 new)
 - Backend integration: `test_commit_plan_*` (3 new)
 - Frontend: `DiffTable` (4 new RTL tests)
+
+---
+
+## Phase 6 — Prompt Improvements `feature/plan-coach-prompt-improvements`
+
+Design spec: `docs/superpowers/specs/2026-03-21-plan-coach-prompt-improvements-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improvements.md`
+
+### Changes
+- [x] `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label
+- [x] Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine
+- [x] Add health textarea (after long run day select)
+- [x] Add fetch button + inline feedback badge (above generated prompt)
+- [x] Remove old "Recent training included in prompt" summary block
+- [x] Code review fixes: `'error'` state in catch (not `'empty'`), date window -13 for exact 14 days inclusive, label literal lowercased (CSS textTransform handles casing)

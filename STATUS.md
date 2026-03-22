@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-22 (Garmin calendar cleanup on pairing)
+Last updated: 2026-03-22 (plan-coach prompt improvements — phase 6 complete; added known-issues for ruff E402 + CVEs)
 
 ## Current Focus: Garmin Cleanup on Pairing (bugfix) ✅
 
@@ -128,6 +128,17 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Prompt includes "output CSV only, no markdown" instruction | ✅ |
 | ActivePlanCard: rename "Upload New Plan" → "Upload / Update Plan" | ✅ |
 | Frontend tests: fix tab-bar + empty state text for Phase 4b changes | ✅ |
+
+### Plan Coach — Phase 6: Prompt Improvements `feature/plan-coach-prompt-improvements` ✅
+| Task | Status |
+|------|--------|
+| Update all MD files (STATUS.md, PLAN.md, CLAUDE.md, feature docs) | ✅ |
+| `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label | ✅ |
+| Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine | ✅ |
+| Add health textarea (after long run day select) | ✅ |
+| Add fetch button + inline feedback badge (above generated prompt) | ✅ |
+| Remove old "Recent training included in prompt" summary block | ✅ |
+| Code review fixes: `'error'` state in catch, date window off-by-one (-13), label casing | ✅ |
 
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
@@ -365,6 +376,15 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
 ## Known Issues (to fix later)
+
+- **Ruff E402 in `backend/src/api/routers/calendar.py`**: `logging.getLogger(__name__)` is called on line 8, *before* all the `from sqlmodel import ...` and `from src.* import ...` statements. Ruff's E402 rule ("module-level import not at top of file") flags all 11 imports below it. Fix: move `logger = logging.getLogger(__name__)` to after the last import. This is the only file with this issue. Running `ruff check src/` or the CI lint step will show 11 E402 errors all pointing to this file. Also one `F821 Undefined name GarminActivity` in `tests/integration/test_api_calendar.py` line 571 — `GarminActivity` is used as a string annotation in a method return type but is not imported at the module level (only imported inside the method body). Fix: add `from src.db.models import GarminActivity` at the top of the test file (or use `TYPE_CHECKING` guard).
+
+- **Backend dependency CVEs (pip-audit warnings)**: `pip-audit --local` currently reports several CVEs that are pre-existing and not caused by project code changes. Context for future sessions:
+  - `urllib3 2.5.0` — CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 → fix: upgrade to `urllib3>=2.6.3` in pyproject.toml (or let `python-garminconnect` pull the latest transitively)
+  - `pyasn1 0.6.2` — CVE-2026-30922 → fix: upgrade to `pyasn1>=0.6.3`
+  - `selenium 3.141.0` — PYSEC-2023-206, PYSEC-2022-43167 → selenium is pulled in by `garth` (Garmin auth library); not a direct dependency; no fix available without upstream change
+  - `wheel 0.45.1` — CVE-2026-24049 → build tool, not a runtime dependency; upgrade or ignore
+  - The only approved-ignore CVE is `GHSA-25h7-pfq9-p65f` (ecdsa, used by `garth`; no fix available) — already in the ship workflow's `pip-audit --ignore-vuln` flag. Do NOT add new --ignore-vuln flags without reviewing the CVE.
 
 - **`google_auth` two sequential commits**: `auth/service.py` `google_auth()` has two `session.commit()` calls (line ~155: create user, line ~161: mark invite used). Should be batched into one commit for atomicity and to reduce DB round-trips. Requires restructuring the FK dependency (user must exist before invite references it). Related CLAUDE.md rule: "Batch commits. Call session.add() multiple times, then a single session.commit()."
 - **`reset_admins` has no rate limiting**: `POST /api/v1/auth/reset-admins` is a destructive endpoint (factory reset) with no rate limiting. An attacker who brute-forces the setup token can wipe all users. Needs `slowapi` or equivalent before public deployment. Flagged as Critical in PR #19 review. See CLAUDE.md "Nice to Have — Rate Limiting on Auth Routes."
