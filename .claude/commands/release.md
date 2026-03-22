@@ -57,16 +57,23 @@ Wait for their response. Fix any flagged items, re-run tests, then continue.
 
 ## 4. Determine Version
 
-Ask the user:
+Get the current latest tag:
+```bash
+git describe --tags --abbrev=0
+```
 
-> What version should this release be? (current latest tag: `git describe --tags --abbrev=0`)
->
-> Versioning guide:
-> - `PATCH` — bug fixes, no schema change
-> - `MINOR` — new features, may include a migration
-> - `MAJOR` — breaking API or schema changes
+Use the `AskUserQuestion` tool with a single question and three options. Compute the next PATCH/MINOR/MAJOR versions from the current tag and include them in the option labels. Example structure (replace vX.Y.Z with actual computed values):
 
-Wait for their answer (e.g. `v1.0.0`).
+```
+Question: "What version should this release be? (current latest tag: vX.Y.Z)"
+Header: "Version"
+Options:
+  - label: "vX.Y.Z+1 — PATCH"  description: "Bug fixes, no schema change"
+  - label: "vX.Y+1.0 — MINOR"  description: "New features, may include a migration"
+  - label: "vX+1.0.0 — MAJOR"  description: "Breaking API or schema changes"
+```
+
+Wait for their selection.
 
 ---
 
