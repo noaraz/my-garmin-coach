@@ -199,6 +199,25 @@ export function MobileCalendarDayView({
                     </div>
                   )}
 
+                  {/* Description — NOTE: WorkoutCard has equivalent rendering; keep in sync */}
+                  {template?.description && (
+                    <div style={{ marginBottom: 6, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      {template.description.split(',').map((seg, i) => (
+                        <span key={i} style={{
+                          fontFamily: 'var(--font-family-mono)',
+                          fontSize: 11,
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.4,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {seg.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {isCompleted && (
                       <span style={{

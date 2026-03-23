@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (Claude Code automation suite — MCP servers, hooks, skills, agents)
+Last updated: 2026-03-23 (Calendar/library: description visible in all views — month, week, mobile, library)
 
 ## Current Focus: Claude Code Automation Suite ✅
 

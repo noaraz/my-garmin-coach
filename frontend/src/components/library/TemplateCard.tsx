@@ -86,6 +86,9 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
                 fontSize: '10px',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}>
                 {seg.trim()}
               </span>
