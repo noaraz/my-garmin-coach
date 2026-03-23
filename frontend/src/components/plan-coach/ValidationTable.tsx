@@ -70,6 +70,7 @@ export function ValidationTable({ rows }: ValidationTableProps) {
             <th style={th}>Date</th>
             <th style={th}>Name</th>
             <th style={th}>Steps</th>
+            <th style={{ ...th, width: 72, textAlign: 'center' }}>Library</th>
             <th style={{ ...th, textAlign: 'center' }}>OK</th>
           </tr>
         </thead>
@@ -87,6 +88,28 @@ export function ValidationTable({ rows }: ValidationTableProps) {
                   <div style={{ color: 'var(--color-error)', fontSize: '10px', marginTop: '3px' }}>
                     {row.error}
                   </div>
+                )}
+              </td>
+              <td style={{ ...td, textAlign: 'center' }}>
+                {row.template_status === 'new' && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    background: 'var(--accent)',
+                    color: 'var(--text-on-accent)',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase' as const,
+                  }}>NEW</span>
+                )}
+                {row.template_status === 'existing' && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                  }}>in library</span>
                 )}
               </td>
               <td style={{ ...td, textAlign: 'center', color: row.valid ? 'var(--color-success)' : 'var(--color-error)', fontSize: '14px' }}>
