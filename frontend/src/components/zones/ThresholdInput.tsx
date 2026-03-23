@@ -4,6 +4,7 @@ interface ThresholdInputProps {
   onLthrChange: (val: number) => void
   onThresholdPaceChange: (val: number) => void
   onSave: () => void
+  isSaving?: boolean
 }
 
 export function ThresholdInput({
@@ -12,6 +13,7 @@ export function ThresholdInput({
   onLthrChange,
   onThresholdPaceChange,
   onSave,
+  isSaving = false,
 }: ThresholdInputProps) {
   return (
     <div className="flex flex-wrap items-end gap-4">
@@ -43,9 +45,10 @@ export function ThresholdInput({
       </div>
       <button
         onClick={onSave}
-        className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+        disabled={isSaving}
+        className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Save
+        {isSaving ? 'Saving…' : 'Save'}
       </button>
     </div>
   )

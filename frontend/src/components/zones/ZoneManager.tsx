@@ -5,24 +5,21 @@ import { useZonesStatus } from '../../contexts/ZonesStatusContext'
 import { HRZoneTable } from './HRZoneTable'
 import { PaceZoneTable } from './PaceZoneTable'
 import { ThresholdInput } from './ThresholdInput'
-import type { HRZone } from '../../api/types'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 export function ZoneManager() {
   const isMobile = useIsMobile()
-  const { hrZones, paceZones, loading: zonesLoading, error: zonesError, saveHRZones, recalcHR, recalcPace } = useZones()
+  const { hrZones, paceZones, loading: zonesLoading, error: zonesError, recalcHR, recalcPace } = useZones()
   const { profile, loading: profileLoading, error: profileError, save } = useProfile()
   const { refreshZones } = useZonesStatus()
 
   const [lthr, setLthr] = useState<number | null>(null)
   const [thresholdPace, setThresholdPace] = useState<number | null>(null)
-  const [localZones, setLocalZones] = useState<HRZone[]>([])
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  // Sync local state from profile when it loads
   const resolvedLthr = lthr !== null ? lthr : (profile?.lthr ?? null)
   const resolvedThresholdPace = thresholdPace !== null ? thresholdPace : (profile?.threshold_pace ?? null)
-  const displayZones = localZones.length > 0 ? localZones : hrZones
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message })
@@ -30,48 +27,21 @@ export function ZoneManager() {
   }
 
   const handleSave = async () => {
+    setSaving(true)
     try {
       await save({
         lthr: resolvedLthr ?? undefined,
         threshold_pace: resolvedThresholdPace ?? undefined,
       })
-      if (localZones.length > 0) {
-        await saveHRZones(localZones)
-        setLocalZones([])
-      }
-      showToast('success', 'Saved successfully')
-      refreshZones()
+      await recalcHR()
+      await recalcPace()
+      showToast('success', 'Saved and zones updated')
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Save failed')
-    }
-  }
-
-  const handleRecalcHR = async () => {
-    try {
-      await recalcHR()
-      setLocalZones([])
+    } finally {
+      setSaving(false)
       refreshZones()
-      showToast('success', 'HR zones recalculated')
-    } catch (e) {
-      showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
     }
-  }
-
-  const handleRecalcPace = async () => {
-    try {
-      await recalcPace()
-      refreshZones()
-      showToast('success', 'Pace zones recalculated')
-    } catch (e) {
-      showToast('error', e instanceof Error ? e.message : 'Recalculation failed')
-    }
-  }
-
-  const handleZoneChange = (zoneNumber: number, field: 'lower_bpm' | 'upper_bpm', value: number) => {
-    const base = localZones.length > 0 ? localZones : hrZones
-    setLocalZones(base.map(z =>
-      z.zone_number === zoneNumber ? { ...z, [field]: value } : z
-    ))
   }
 
   const sectionLabel: React.CSSProperties = {
@@ -216,35 +186,16 @@ export function ZoneManager() {
             onLthrChange={val => setLthr(val)}
             onThresholdPaceChange={val => setThresholdPace(val)}
             onSave={handleSave}
+            isSaving={saving}
           />
         </div>
       </section>
 
       {/* HR Zones */}
       <section style={{ marginBottom: '28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={sectionLabel}>Heart Rate Zones</div>
-          <button
-            onClick={handleRecalcHR}
-            style={{
-              padding: '5px 12px',
-              background: 'transparent',
-              border: '1px solid var(--border-strong)',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
-          >
-            Recalculate
-          </button>
-        </div>
+        <div style={sectionLabel}>Heart Rate Zones</div>
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-          <HRZoneTable zones={displayZones} onZoneChange={handleZoneChange} />
+          <HRZoneTable zones={hrZones} />
         </div>
       </section>
 
@@ -252,7 +203,7 @@ export function ZoneManager() {
       <section>
         <div style={sectionLabel}>Pace Zones</div>
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-          <PaceZoneTable zones={paceZones} onRecalculate={handleRecalcPace} />
+          <PaceZoneTable zones={paceZones} />
         </div>
       </section>
     </div>

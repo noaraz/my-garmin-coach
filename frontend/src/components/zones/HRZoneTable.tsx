@@ -1,22 +1,10 @@
-import { useState } from 'react'
 import type { HRZone } from '../../api/types'
 
 interface HRZoneTableProps {
   zones: HRZone[]
-  onZoneChange: (zoneNumber: number, field: 'lower_bpm' | 'upper_bpm', value: number) => void
 }
 
-export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
-  const [editingCell, setEditingCell] = useState<{ zoneNumber: number; field: 'lower_bpm' | 'upper_bpm' } | null>(null)
-
-  const handleCellClick = (zoneNumber: number, field: 'lower_bpm' | 'upper_bpm') => {
-    setEditingCell({ zoneNumber, field })
-  }
-
-  const handleInputBlur = () => {
-    setEditingCell(null)
-  }
-
+export function HRZoneTable({ zones }: HRZoneTableProps) {
   const zoneHex = (zoneNumber: number): string => {
     const colors: Record<number, string> = {
       1: '#3B82F6',
@@ -59,7 +47,6 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
       <tbody>
         {zones.map(zone => (
           <tr key={zone.id} style={{ transition: 'background 0.08s' }}>
-            {/* Zone indicator */}
             <td style={tdStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <div style={{
@@ -82,80 +69,18 @@ export function HRZoneTable({ zones, onZoneChange }: HRZoneTableProps) {
               {zone.name}
             </td>
             <td style={tdStyle}>
-              {editingCell?.zoneNumber === zone.zone_number && editingCell.field === 'lower_bpm' ? (
-                <input
-                  type="number"
-                  aria-label="lower bpm"
-                  defaultValue={zone.lower_bpm}
-                  onBlur={e => {
-                    onZoneChange(zone.zone_number, 'lower_bpm', Number(e.target.value))
-                    handleInputBlur()
-                  }}
-                  autoFocus
-                  style={{
-                    width: '72px',
-                    border: '1px solid #0057ff',
-                    borderRadius: '3px',
-                    padding: '3px 6px',
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: '12px',
-                    color: 'var(--text-primary)',
-                    outline: 'none',
-                  }}
-                />
-              ) : (
-                <span
-                  data-testid={`hr-lower-bpm-${zone.zone_number}`}
-                  onClick={() => handleCellClick(zone.zone_number, 'lower_bpm')}
-                  style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: '12px',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    borderRadius: '3px',
-                    display: 'inline-block',
-                  }}
-                >{zone.lower_bpm}</span>
-              )}
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+              }}>{zone.lower_bpm}</span>
             </td>
             <td style={tdStyle}>
-              {editingCell?.zoneNumber === zone.zone_number && editingCell.field === 'upper_bpm' ? (
-                <input
-                  type="number"
-                  aria-label="upper bpm"
-                  defaultValue={zone.upper_bpm}
-                  onBlur={e => {
-                    onZoneChange(zone.zone_number, 'upper_bpm', Number(e.target.value))
-                    handleInputBlur()
-                  }}
-                  autoFocus
-                  style={{
-                    width: '72px',
-                    border: '1px solid #0057ff',
-                    borderRadius: '3px',
-                    padding: '3px 6px',
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: '12px',
-                    color: 'var(--text-primary)',
-                    outline: 'none',
-                  }}
-                />
-              ) : (
-                <span
-                  data-testid={`hr-upper-bpm-${zone.zone_number}`}
-                  onClick={() => handleCellClick(zone.zone_number, 'upper_bpm')}
-                  style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: '12px',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    borderRadius: '3px',
-                    display: 'inline-block',
-                  }}
-                >{zone.upper_bpm}</span>
-              )}
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+              }}>{zone.upper_bpm}</span>
             </td>
           </tr>
         ))}
