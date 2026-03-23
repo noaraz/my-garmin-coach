@@ -20,6 +20,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import ScheduledWorkout, TrainingPlan, WorkoutTemplate
 from src.services.plan_step_parser import StepParseError, parse_steps_spec
+from src.services.workout_description import generate_description_from_steps
 
 logger = logging.getLogger(__name__)
 
@@ -478,7 +479,7 @@ async def commit_plan(
             template = WorkoutTemplate(
                 user_id=user_id,
                 name=pw.name,
-                description=pw.description,
+                description=generate_description_from_steps(steps_json),
                 sport_type=pw.sport_type,
                 steps=steps_json,
                 created_at=now,
