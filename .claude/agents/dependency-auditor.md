@@ -17,7 +17,8 @@ Run security audits for both backend (Python) and frontend (npm) dependencies an
 ```bash
 cd backend
 pip install pip-audit --quiet
-pip-audit --local
+# CVE-2024-23342: ecdsa timing attack — transitive dep from garth, no fix version available
+pip-audit --local --ignore-vuln CVE-2024-23342
 ```
 
 ### 2. Frontend npm audit

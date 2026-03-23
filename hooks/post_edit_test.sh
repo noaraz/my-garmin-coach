@@ -13,9 +13,14 @@ if [[ "$FILE" == */backend/src/* && "$FILE" == *.py ]]; then
   TEST="$REPO_ROOT/backend/tests/unit/test_${MODULE}.py"
   if [[ -f "$TEST" ]]; then
     echo "--- auto-test: test_${MODULE}.py ---"
-    PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" \
-      docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend \
-      pytest "tests/unit/test_${MODULE}.py" -q 2>&1 | tail -8 || true
+    VENV="$REPO_ROOT/backend/.venv/bin/pytest"
+    if [[ -x "$VENV" ]]; then
+      "$VENV" "$TEST" -q 2>&1 | tail -8 || true
+    else
+      PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" \
+        docker compose -f "$REPO_ROOT/docker-compose.yml" exec -T backend \
+        pytest "tests/unit/test_${MODULE}.py" -q 2>&1 | tail -8 || true
+    fi
   fi
 
 # Frontend: src file → matching .test file
