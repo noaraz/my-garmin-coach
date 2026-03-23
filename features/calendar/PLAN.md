@@ -39,6 +39,14 @@ Track progress in **STATUS.md**.
 - [x] Implement `DayCell.tsx`, `WorkoutCard.tsx`, `WorkoutPicker.tsx`
 - [x] Run tests → GREEN
 
+### Completed Workout Description (2026-03-23)
+Design spec: `docs/superpowers/specs/2026-03-23-completed-workout-description-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-23-completed-workout-description.md`
+- [x] `WorkoutCard` — show description on completed cards (removed `!workout.activity` guard); visible in both week and month view; IBM Plex Sans font
+- [x] `WorkoutDetailPanel` — description removed from Notes section (lives on the card only)
+- [x] `TodayPage` — description added to hero card
+- [x] `MobileCalendarDayView` — description added to mobile workout cards
+
 ### Post-Ship Polish (2026-03-09)
 - [x] `WorkoutPicker` — convert Tailwind classes to CSS vars (respects dark/light theme)
 - [x] `DayCell` — expand click area to entire day column (not just "+ Add workout" button)

@@ -39,6 +39,16 @@ const renderPage = (props: { initialDate?: Date } = {}) =>
 
 Apply this wrapper whenever any child component uses `useNavigate`, `useParams`, `useLocation`, etc.
 
+## Description on Workout Cards (2026-03-23)
+
+Design spec: `docs/superpowers/specs/2026-03-23-completed-workout-description-design.md`
+
+- `template.description` (e.g. `10m@Z1,25m@Z2`) is rendered on the card in **all states** — planned and completed.
+- The `!workout.activity` guard was intentionally removed: description persists after Garmin activity is matched.
+- Font: IBM Plex Sans (body), not mono — it's prose shorthand, not a numeric value.
+- Description is NOT shown in the `WorkoutDetailPanel` Notes section — it lives on the card only.
+- Both week view (font-size 11px) and compact/month view (font-size 9px) show the description.
+
 ## Workout Detail Panel (2026-03-20)
 
 Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
