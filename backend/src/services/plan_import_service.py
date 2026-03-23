@@ -84,6 +84,20 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _normalize_steps(steps_str: str | None) -> str:
+    """Normalize steps JSON for dedup key comparison.
+
+    Parses and re-serializes with sort_keys=True to ensure byte-identical
+    comparison regardless of the original serialization path.
+    """
+    if not steps_str:
+        return ""
+    try:
+        return json.dumps(json.loads(steps_str), sort_keys=True)
+    except (ValueError, TypeError):
+        return steps_str
+
+
 def _compute_diff(
     incoming: list[ParsedWorkout],
     active_parsed: list[dict],
@@ -426,7 +440,7 @@ async def commit_plan(
         select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
     )
     existing_templates: dict[tuple[str, str], WorkoutTemplate] = {
-        (t.name, t.steps or ""): t for t in templates_result.all()
+        (t.name, _normalize_steps(t.steps)): t for t in templates_result.all()
     }
 
     now = _now()
@@ -439,7 +453,7 @@ async def commit_plan(
         except ValueError:
             continue
 
-        steps_json = json.dumps(pw.steps) if pw.steps else None
+        steps_json = json.dumps(pw.steps, sort_keys=True) if pw.steps else None
         dedup_key = (pw.name, steps_json or "")
         if dedup_key in existing_templates:
             template = existing_templates[dedup_key]
