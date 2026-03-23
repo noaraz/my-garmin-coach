@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (v1.1.0 — mobile responsive + plan coach improvements)
+Last updated: 2026-03-23 (infra fix — venv-in-Docker eliminates pip root warning)
 
 ## Current Focus: Mobile Responsive ✅
 

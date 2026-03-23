@@ -223,6 +223,15 @@ Project slash commands in `.claude/commands/`:
 
 ## Docker + Dev Environment Gotchas (added 2026-03-17)
 
+### venv-in-Docker (updated 2026-03-23)
+Both `Dockerfile.prod` (Stage 2) and `backend/Dockerfile` use a venv at `/venv` to avoid the pip root-user warning. Always follow this pattern when adding Python Docker images:
+```dockerfile
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN pip install --no-cache-dir -e "."
+```
+`/venv` is owned by root but world-readable — `appuser` can execute from it without owning it.
+
 ### Local API testing — JWT token generation
 Generate a valid token without Google OAuth (container must be running):
 ```bash
