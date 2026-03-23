@@ -32,7 +32,8 @@ jobs:
         working-directory: backend
         run: |
           pip install pip-audit
-          pip-audit --local
+          # CVE-2024-23342: timing attack in ecdsa — transitive dep from garth, no fix version available
+          pip-audit --local --ignore-vuln CVE-2024-23342
 
   frontend:
     name: Frontend tests + build
