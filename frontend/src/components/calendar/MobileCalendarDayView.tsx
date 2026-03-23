@@ -184,6 +184,19 @@ export function MobileCalendarDayView({
                     </div>
                   )}
 
+                  {/* Description */}
+                  {template?.description && (
+                    <div style={{
+                      fontFamily: 'var(--font-family-mono)',
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      fontStyle: 'italic',
+                      marginBottom: 4,
+                    }}>
+                      {template.description}
+                    </div>
+                  )}
+
                   {/* Actual activity stats */}
                   {act && (
                     <div style={{
