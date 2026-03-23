@@ -1,6 +1,7 @@
 # Plan Coach — Feature Plan
 
 Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
+Step format grammar: `features/plan-coach/CLAUDE.md` → **Step Text Format (Import Grammar)**
 Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 
 ---
