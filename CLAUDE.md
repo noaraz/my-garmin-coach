@@ -7,6 +7,7 @@ Replaces TrainingPeaks for self-coached athletes.
 - **features/** — each feature has its own PLAN.md and CLAUDE.md.
 - **docs/superpowers/specs/** — design specs (brainstorming output). **docs/superpowers/plans/** — implementation plans (writing-plans output).
 - **.claude/agents/** — specialist agents for parallel work.
+- **docs/claude-automation.md** — MCP servers, hooks, agents, and skills available in this repo. Read when deciding how to query the DB, check GitHub, run browser automation, or invoke any slash command.
 
 ---
 
