@@ -200,7 +200,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
         )}
 
         {/* Description — one row per comma-segment (hide in compact mode) */}
-        {template?.description && !workout.activity && !compact && (
+        {template?.description && !compact && (
           <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
             {template.description.split(',').map((seg, i) => (
               <span key={i} style={{
