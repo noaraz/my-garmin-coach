@@ -73,3 +73,5 @@ Make every page of GarminCoach fully usable on mobile phones (< 768px) without c
 | MobileCalendarDayView component (day strip + vertical workout list) | ✅ |
 | CalendarPage: selectedDay state + MobileCalendarDayView integration | ✅ |
 | CalendarPage: hide week/month toggle on mobile | ✅ |
+| Display Settings section in SettingsPage (mobile only) — theme toggle | ✅ |
+| Fix: TodayPage date parsing — parseLocalDate() helper for local midnight | ✅ |

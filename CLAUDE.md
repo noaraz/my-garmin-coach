@@ -429,6 +429,33 @@ alembic upgrade head
 
 ---
 
+## Date Parsing — Local Midnight Rule (added 2026-03-23)
+
+`new Date("YYYY-MM-DD")` parses as **UTC midnight** — in non-UTC timezones this is "yesterday" in local time, breaking `isToday`/`isYesterday`/`isSameDay`. Always parse date-only strings as local midnight:
+
+```ts
+// ✅ Correct — local midnight
+const [y, m, d] = dateStr.split('-').map(Number)
+return new Date(y, m - 1, d)
+
+// ❌ Wrong — UTC midnight, fails in UTC- timezones
+new Date("2026-03-23")      // → 2026-03-22T16:00:00 in Pacific time
+```
+
+Same rule in tests: use local date format for today's date constant:
+```ts
+// ✅ Correct
+const now = new Date()
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+// ❌ Wrong
+const TODAY = new Date().toISOString().split('T')[0]  // UTC date, wrong in UTC- timezones
+```
+
+`formatDateHeader()` in `formatting.ts` is safe — it appends `'T00:00:00'` before parsing.
+
+---
+
 ## Vitest Testing Gotchas (added 2026-03-09)
 
 ### React 18 StrictMode double-fires effects
