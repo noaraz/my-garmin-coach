@@ -46,3 +46,4 @@ Thumbs.db
 
 # Claude local session state (allowed commands, per-machine config)
 .claude/settings.local.json
+.mcp.json.local
