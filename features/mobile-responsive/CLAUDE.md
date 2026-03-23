@@ -69,6 +69,33 @@
 - Replay Tour button: `openWizard()` from `OnboardingContext` — opens the OnboardingWizard (90vh bottom sheet)
 - The onboarding wizard activates because `useIsMobile` returns true — no special Help logic needed
 
+## Display Settings — SettingsPage (mobile only)
+
+- **Where**: `SettingsPage.tsx` — added after the Garmin Connect section
+- **Mobile-only guard**: `{isMobile && <div>...</div>}` — on desktop the Sidebar toggle handles theme switching
+- **Hook**: `useTheme()` from `ThemeContext` — provides `{ theme, toggleTheme }`
+- **Test**: `frontend/src/tests/SettingsPage.test.tsx` — uses `vi.hoisted` for `mockIsMobile` and `mockToggleTheme`; two `describe` blocks — mobile (section visible) + desktop (section absent)
+- **Mock pattern**: `vi.mock('../hooks/useIsMobile', () => ({ useIsMobile: () => mockIsMobile() }))` with `mockIsMobile.mockReturnValue(true/false)` per describe block
+
+## Date Parsing — Local Midnight Rule
+
+`new Date("YYYY-MM-DD")` is parsed as **UTC midnight** — in non-UTC timezones this is "yesterday" in local time, breaking `isToday`/`isYesterday`/`isSameDay` comparisons.
+
+**Fix**: Parse date-only strings as local midnight:
+```ts
+const [y, m, d] = dateStr.split('-').map(Number)
+return new Date(y, m - 1, d)  // local midnight, not UTC
+```
+
+Applied in `TodayPage.tsx` (`parseLocalDate` helper). Same pattern needed anywhere date strings from the API are compared to local dates.
+
+**Test fix**: Use local date format for test constants:
+```ts
+const now = new Date()
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+// NOT: new Date().toISOString().split('T')[0]  ← UTC date, wrong in UTC- timezones
+```
+
 ## Desktop Regression Policy
 After every task: `npm test -- --run && npx tsc -b --noEmit`
 If any existing test fails, fix before proceeding. Never skip.

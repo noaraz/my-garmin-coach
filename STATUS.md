@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (infra fix — venv-in-Docker eliminates pip root warning)
+Last updated: 2026-03-23 (mobile: Display Settings theme toggle in SettingsPage)
 
 ## Current Focus: Zones UX — Auto-Recalculate on Save ✅
 
@@ -33,6 +33,8 @@ Feature docs: `features/mobile-responsive/`
 | Fix: BottomTabBar Sign Out button in More sheet | ✅ |
 | MobileCalendarDayView: day strip + vertical workout/activity list | ✅ |
 | CalendarPage: hide week/month toggle on mobile | ✅ |
+| Display Settings section in SettingsPage (mobile only) — theme toggle | ✅ |
+| Fix: TodayPage date parsing uses local midnight (was UTC, broke in non-UTC timezones) | ✅ |
 
 ---
 
