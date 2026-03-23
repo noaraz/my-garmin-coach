@@ -2,6 +2,12 @@
 
 Last updated: 2026-03-23 (v1.1.0 — mobile responsive + plan coach improvements)
 
+## In Progress
+
+- Show description on completed workout cards (WorkoutCard, WorkoutDetailPanel, MobileCalendarDayView, TodayPage)
+
+---
+
 ## Current Focus: Mobile Responsive ✅
 
 Visual design: `frontend/public/mobile-mockup.html` (open in browser to see all screens)
