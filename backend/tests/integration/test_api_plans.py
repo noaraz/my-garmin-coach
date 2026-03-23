@@ -221,6 +221,63 @@ class TestValidate:
         stale_plans = result.all()
         assert len(stale_plans) == 0
 
+    async def test_validate_template_status_new_and_existing(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Rows annotated 'existing' when template already in DB, 'new' otherwise."""
+        # Create an existing template by committing a plan first
+        setup = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Setup Plan",
+                "workouts": [
+                    {
+                        "date": "2027-08-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert setup.status_code == 200
+        await client.post(f"/api/v1/plans/{setup.json()['plan_id']}/commit")
+
+        # Now validate a new plan: "Easy Run" (same steps = existing) + "Tempo" (new)
+        resp = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "New Plan",
+                "workouts": [
+                    {
+                        "date": "2027-09-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                    {
+                        "date": "2027-09-03",
+                        "name": "Tempo",
+                        "steps_spec": "10m@Z1, 20m@Z3, 5m@Z1",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        rows = resp.json()["rows"]
+        assert len(rows) == 2
+
+        easy_row = next(r for r in rows if r["name"] == "Easy Run")
+        tempo_row = next(r for r in rows if r["name"] == "Tempo")
+
+        assert easy_row["template_status"] == "existing", (
+            f"Easy Run has same name+steps as existing template — expected 'existing', got {easy_row['template_status']!r}"
+        )
+        assert tempo_row["template_status"] == "new", (
+            f"Tempo is brand new — expected 'new', got {tempo_row['template_status']!r}"
+        )
+
 
 class TestCommit:
     async def test_commit_fresh_plan_creates_scheduled_workouts(

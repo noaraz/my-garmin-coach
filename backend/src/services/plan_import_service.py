@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date as date_type, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 from sqlalchemy import delete, update
@@ -45,6 +45,7 @@ class ValidateRow(BaseModel):
     sport_type: str
     valid: bool
     error: str | None = None
+    template_status: Literal["new", "existing"] = "new"
 
 
 class WorkoutDiff(BaseModel):
@@ -258,6 +259,22 @@ async def validate_plan(
     if not all_valid:
         # Sentinel — no DB write
         return ValidateResult(plan_id=-1, rows=rows, diff=None)
+
+    # Annotate valid rows with template_status (new vs existing in library).
+    # Only runs when all rows are valid — zip(valid_rows, parsed_list) is safe.
+    if parsed_list:
+        tmpl_result = await session.exec(
+            select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
+        )
+        existing_keys: set[tuple[str, str]] = {
+            (t.name, _normalize_steps(t.steps)) for t in tmpl_result.all()
+        }
+        valid_rows = [r for r in rows if r.valid]
+        for vrow, pw in zip(valid_rows, parsed_list):
+            steps_json = json.dumps(pw.steps, sort_keys=True) if pw.steps else None
+            incoming_key = (pw.name, steps_json or "")
+            if incoming_key in existing_keys:
+                vrow.template_status = "existing"
 
     # Compute diff against active plan if one exists
     diff: DiffResult | None = None
