@@ -450,6 +450,22 @@ describe('WorkoutDetailCompleted', () => {
     const textarea = screen.getByPlaceholderText('Add notes...')
     expect(textarea).toBeInTheDocument()
   })
+
+  it('test_description_completedDetailPanel_isVisible', () => {
+    render(
+      <WorkoutDetailPanel
+        workout={completedWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+      />
+    )
+    expect(screen.getByText('30m@Z2')).toBeInTheDocument()
+  })
 })
 
 describe('WorkoutDetailUnplanned', () => {
