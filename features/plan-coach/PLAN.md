@@ -128,6 +128,9 @@ RTL: JSON detection → Validate → DiffTable → Import.
 - `_compute_diff` — new `completed_dates: set[str]` param; 5 output buckets
 - `validate_plan` — one extra query for completed dates
 - `commit_plan` — smart merge: batch-load SWs + templates, classify, bulk delete, batch add
+- [x] Deduplicate templates by (name + steps JSON) on plan commit —
+      same name + same steps → single shared template;
+      same name + different steps → separate templates
 
 ### Frontend
 - `WorkoutDiff` type — add `old_name?`, `old_steps_spec?`, `new_steps_spec?`
