@@ -156,3 +156,17 @@ Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improv
 - [x] Add fetch button + inline feedback badge (above generated prompt)
 - [x] Remove old "Recent training included in prompt" summary block
 - [x] Code review fixes: `'error'` state in catch (not `'empty'`), date window -13 for exact 14 days inclusive, label literal lowercased (CSS textTransform handles casing)
+
+---
+
+## Phase 7 — Validation Template Status Column
+
+### Backend
+- [ ] `ValidateRow.template_status: Literal["new", "existing"] = "new"`
+- [ ] `validate_plan()`: single WorkoutTemplate query, per-valid-row annotation
+- [ ] Integration test: `test_validate_template_status_new_and_existing`
+
+### Frontend
+- [ ] `ValidateRow` type: optional `template_status?: 'new' | 'existing'`
+- [ ] `ValidationTable`: Library column + NEW badge / in library cell
+- [ ] 3 RTL tests in `describe('ValidationTable', ...)`
