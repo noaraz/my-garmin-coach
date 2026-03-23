@@ -1,0 +1,9 @@
+name: garmincoach
+version: 1.0.0
+description: GarminCoach development automation suite — migrations, schema drift, security, env audit, coverage gate
+skills:
+  - alembic-migration
+  - api-contract-check
+  - new-feature
+  - env-var-audit
+  - coverage-gate

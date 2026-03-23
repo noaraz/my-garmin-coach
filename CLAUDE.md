@@ -586,6 +586,18 @@ cd backend
 
 Integration tests default to SQLite in-memory — no DB container required.
 
+### File paths in worktrees
+Always write files to the worktree path, not the main repo root. Files written to `/workspace/my-garmin-coach/` land on the `main` branch working tree. Files written to `/workspace/my-garmin-coach/.claude/worktrees/<name>/` land on the feature branch.
+
+### MCP servers in worktrees
+Each worktree has its own `.mcp.json` (copied from the template at worktree creation time). This file uses `${GITHUB_PERSONAL_ACCESS_TOKEN}` / `${NEON_READONLY_URL}` env var placeholders — but the **Claude Code desktop app does not source `~/.zshrc`**, so those vars are always empty.
+
+**Fix**: hardcode credentials directly in the worktree's `.mcp.json` (it is gitignored):
+```json
+"env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here" }
+```
+Also update the project-root `.mcp.json` with the same hardcoded values (desktop app reads from the root first, then the worktree). Restart Claude Code after any `.mcp.json` change — MCP servers are spawned at session start and don't hot-reload.
+
 ---
 
 ## Ruff E402 — Logger Placement (added 2026-03-22)

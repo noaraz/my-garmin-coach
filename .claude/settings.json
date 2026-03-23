@@ -13,7 +13,12 @@
     "Bash(.venv/bin/ruff*)",
     "Bash(/Users/noa.raz/.pyenv/versions/3.11.3/bin/python -m venv*)",
     "Bash(.venv/bin/pip*)",
-    "Bash(backend/.venv/bin/pip*)"
+    "Bash(backend/.venv/bin/pip*)",
+    "Bash(bash hooks/post_python_edit.sh*)",
+    "Bash(bash hooks/post_ts_edit.sh*)",
+    "Bash(bash hooks/post_edit_test.sh*)",
+    "Bash(bash hooks/pre_edit_guard.sh*)",
+    "Bash(/Applications/Docker.app/Contents/Resources/bin/docker compose exec backend alembic*)"
   ],
   "hooks": {
     "session_start": {
@@ -32,6 +37,24 @@
             "command": "[[ \"$PWD\" == *\".claude/worktrees/\"* ]] && [[ ! -d \"$PWD/frontend/node_modules\" ]] && npm --prefix \"$PWD/frontend\" install || true",
             "statusMessage": "Installing frontend dependencies in worktree…"
           }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "bash hooks/post_python_edit.sh" },
+          { "type": "command", "command": "bash hooks/post_ts_edit.sh" },
+          { "type": "command", "command": "bash hooks/post_edit_test.sh" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "bash hooks/pre_edit_guard.sh" }
         ]
       }
     ]
