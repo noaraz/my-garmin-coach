@@ -1,10 +1,26 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (v1.1.0 — mobile responsive + plan coach improvements)
+Last updated: 2026-03-23 (completed-workout-description — show description on all workout cards)
 
 ## In Progress
 
-- Show description on completed workout cards (WorkoutCard, WorkoutDetailPanel, MobileCalendarDayView, TodayPage)
+---
+
+## Current Focus: Completed Workout Description ✅
+
+Design spec: `docs/superpowers/specs/2026-03-23-completed-workout-description-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-23-completed-workout-description.md`
+
+### Completed Workout Description
+| Task | Status |
+|------|--------|
+| Show description on completed WorkoutCard (remove !workout.activity guard) | ✅ |
+| Show description in WorkoutDetailCompleted panel | ✅ |
+| Show description on mobile workout cards (MobileCalendarDayView) | ✅ |
+| Show description in TodayPage hero card | ✅ |
+| Remove description from panel Notes section (card only) | ✅ |
+| Change font: IBM Plex Mono → IBM Plex Sans, single line (no comma-split) | ✅ |
+| Show description in month view (remove !compact guard) | ✅ |
 
 ---
 
