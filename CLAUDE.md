@@ -508,6 +508,10 @@ async def get_optional_garmin_sync_service(
 
 Callers check `if garmin is not None:` before using. Keeps Garmin logic out of the service layer and makes all Garmin calls best-effort without breaking the primary operation.
 
+## docs/superpowers Linking Convention (added 2026-03-23)
+
+When a feature has `docs/superpowers/specs/<date>-<name>-design.md` or `docs/superpowers/plans/<date>-<name>.md`, add references to both from `features/<name>/PLAN.md` (new section with tasks) and `features/<name>/CLAUDE.md` (new pattern section). Follow the pattern in `features/calendar/CLAUDE.md` — `Design spec: docs/superpowers/specs/...` — so future sessions can find design decisions without searching.
+
 ## generateDescription Pattern (added 2026-03-09)
 
 Two pure utility functions in `frontend/src/utils/generateDescription.ts`:
