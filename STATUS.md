@@ -152,11 +152,11 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Remove old "Recent training included in prompt" summary block | ✅ |
 | Code review fixes: `'error'` state in catch, date window off-by-one (-13), label casing | ✅ |
 
-### Plan Coach — Phase 7: Validation Template Status Column (in progress)
+### Plan Coach — Phase 7: Validation Template Status Column ✅
 | Task | Status |
 |------|--------|
 | Backend: ValidateRow.template_status, validate_plan query, integration test | ✅ |
-| Frontend: ValidationTable Library column, NEW badge, 3 RTL tests | ⬜ |
+| Frontend: ValidationTable Library column, NEW badge, 3 RTL tests | ✅ |
 
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |

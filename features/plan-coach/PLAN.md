@@ -162,11 +162,11 @@ Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improv
 ## Phase 7 — Validation Template Status Column
 
 ### Backend
-- [ ] `ValidateRow.template_status: Literal["new", "existing"] = "new"`
-- [ ] `validate_plan()`: single WorkoutTemplate query, per-valid-row annotation
-- [ ] Integration test: `test_validate_template_status_new_and_existing`
+- [x] `ValidateRow.template_status: Literal["new", "existing"] = "new"`
+- [x] `validate_plan()`: single WorkoutTemplate query, per-valid-row annotation
+- [x] Integration test: `test_validate_template_status_new_and_existing`
 
 ### Frontend
-- [ ] `ValidateRow` type: optional `template_status?: 'new' | 'existing'`
-- [ ] `ValidationTable`: Library column + NEW badge / in library cell
-- [ ] 3 RTL tests in `describe('ValidationTable', ...)`
+- [x] `ValidateRow` type: optional `template_status?: 'new' | 'existing'`
+- [x] `ValidationTable`: Library column + NEW badge / in library cell
+- [x] 3 RTL tests in `describe('ValidationTable', ...)`
