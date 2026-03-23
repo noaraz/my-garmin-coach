@@ -28,6 +28,12 @@ jobs:
         working-directory: backend
         run: pytest tests/ -v --cov=src --cov-report=term-missing
 
+      - name: Dependency audit (pip-audit)
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit --local
+
   frontend:
     name: Frontend tests + build
     runs-on: ubuntu-latest
@@ -46,7 +52,7 @@ jobs:
 
       - name: Dependency audit
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=moderate
 
       - name: Tests
         working-directory: frontend
