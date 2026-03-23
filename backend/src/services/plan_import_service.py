@@ -479,7 +479,7 @@ async def commit_plan(
             template = WorkoutTemplate(
                 user_id=user_id,
                 name=pw.name,
-                description=pw.description or generate_description_from_steps(steps_json),
+                description=generate_description_from_steps(steps_json),
                 sport_type=pw.sport_type,
                 steps=steps_json,
                 created_at=now,
@@ -494,6 +494,7 @@ async def commit_plan(
             date=workout_date,
             workout_template_id=template.id,
             training_plan_id=plan_id,
+            notes=pw.description or None,
             sync_status="pending",
             created_at=now,
             updated_at=now,
