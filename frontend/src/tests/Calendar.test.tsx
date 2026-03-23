@@ -319,7 +319,7 @@ describe('WorkoutCard description visibility', () => {
     expect(screen.getByText('10m@Z1')).toBeInTheDocument()
   })
 
-  it('test_description_compactMode_isHidden', () => {
+  it('test_description_compactMode_isVisible', () => {
     render(
       <MemoryRouter>
         <WorkoutCard
@@ -330,6 +330,6 @@ describe('WorkoutCard description visibility', () => {
         />
       </MemoryRouter>
     )
-    expect(screen.queryByText('10m@Z1')).not.toBeInTheDocument()
+    expect(screen.getByText('10m@Z1')).toBeInTheDocument()
   })
 })
