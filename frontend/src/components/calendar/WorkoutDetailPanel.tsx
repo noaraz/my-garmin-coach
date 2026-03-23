@@ -367,19 +367,6 @@ function WorkoutDetailPlanned({
               </span>
             )}
           </div>
-        {template?.description && (
-            <div
-              style={{
-                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-                fontSize: '12px',
-                color: 'var(--text-secondary)',
-                marginBottom: '6px',
-                fontStyle: 'italic',
-              }}
-            >
-              {template.description}
-            </div>
-          )}
           <textarea
             value={localNotes}
             onChange={(e) => handleNotesChange(e.target.value)}
@@ -807,19 +794,6 @@ function WorkoutDetailCompleted({
               </span>
             )}
           </div>
-          {template?.description && (
-            <div
-              style={{
-                fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-                fontSize: '12px',
-                color: 'var(--text-secondary)',
-                marginBottom: '6px',
-                fontStyle: 'italic',
-              }}
-            >
-              {template.description}
-            </div>
-          )}
           <textarea
             value={localNotes}
             onChange={(e) => handleNotesChange(e.target.value)}

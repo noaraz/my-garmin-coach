@@ -315,8 +315,7 @@ describe('WorkoutCard description visibility', () => {
         />
       </MemoryRouter>
     )
-    // Description is split by comma — first segment should be present
-    expect(screen.getByText('10m@Z1')).toBeInTheDocument()
+    expect(screen.getByText('10m@Z1,25m@Z2,5m@Z1')).toBeInTheDocument()
   })
 
   it('test_description_compactMode_isVisible', () => {
@@ -330,6 +329,6 @@ describe('WorkoutCard description visibility', () => {
         />
       </MemoryRouter>
     )
-    expect(screen.getByText('10m@Z1')).toBeInTheDocument()
+    expect(screen.getByText('10m@Z1,25m@Z2,5m@Z1')).toBeInTheDocument()
   })
 })

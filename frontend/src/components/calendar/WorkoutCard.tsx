@@ -199,19 +199,16 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
           </div>
         )}
 
-        {/* Description — one row per comma-segment (shown in all views) */}
+        {/* Description */}
         {template?.description && (
-          <div style={{ marginTop: compact ? '2px' : '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
-            {template.description.split(',').map((seg, i) => (
-              <span key={i} style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: compact ? '9px' : '10px',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.4,
-              }}>
-                {seg.trim()}
-              </span>
-            ))}
+          <div style={{
+            marginTop: compact ? '2px' : '4px',
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+            fontSize: compact ? '9px' : '11px',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.4,
+          }}>
+            {template.description}
           </div>
         )}
       </div>

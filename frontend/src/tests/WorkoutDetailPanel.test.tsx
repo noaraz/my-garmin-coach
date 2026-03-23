@@ -216,7 +216,7 @@ describe('WorkoutDetailPlanned', () => {
     expect(screen.getByText('5.0 km')).toBeInTheDocument()
   })
 
-  it('shows template description', () => {
+  it('does not show description in panel (description is on the card only)', () => {
     render(
       <WorkoutDetailPanel
         workout={mockWorkout}
@@ -229,7 +229,7 @@ describe('WorkoutDetailPlanned', () => {
         onNavigateToBuilder={mockOnNavigateToBuilder}
       />
     )
-    expect(screen.getByText('30m@Z2')).toBeInTheDocument()
+    expect(screen.queryByText('30m@Z2')).not.toBeInTheDocument()
   })
 
   it('shows sync status indicator', () => {
@@ -451,7 +451,7 @@ describe('WorkoutDetailCompleted', () => {
     expect(textarea).toBeInTheDocument()
   })
 
-  it('test_description_completedDetailPanel_isVisible', () => {
+  it('test_description_completedDetailPanel_notInPanel', () => {
     render(
       <WorkoutDetailPanel
         workout={completedWorkout}
@@ -464,7 +464,7 @@ describe('WorkoutDetailCompleted', () => {
         onNavigateToBuilder={mockOnNavigateToBuilder}
       />
     )
-    expect(screen.getByText('30m@Z2')).toBeInTheDocument()
+    expect(screen.queryByText('30m@Z2')).not.toBeInTheDocument()
   })
 })
 
