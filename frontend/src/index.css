@@ -56,6 +56,9 @@
   --color-warning-bg:          rgba(202,138,4,0.08);
   --overlay-bg:                rgba(0,0,0,0.55);
   --shadow-overlay:            rgba(0,0,0,0.3);
+  /* Mobile layout */
+  --bottom-tab-height:         56px;
+  --bottom-sheet-radius:       16px;
 }
 
 /* ── Dark theme ──────────────────────────────────── */
@@ -129,4 +132,62 @@ html, body, #root {
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+/* Bottom sheet slide-up animation (used inline and in media query classes) */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── Mobile global resets ────────────────────────── */
+@media (max-width: 767px) {
+  /* Prevent horizontal scroll from absolute positioned children */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Give scrollable page content space above the fixed tab bar */
+  .mobile-page-content {
+    padding-bottom: calc(var(--bottom-tab-height) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Bottom sheet overlay backdrop */
+  .mobile-bottom-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay-bg);
+    z-index: 200;
+  }
+
+  /* Bottom sheet panel */
+  .mobile-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border-radius: var(--bottom-sheet-radius) var(--bottom-sheet-radius) 0 0;
+    border-top: 1px solid var(--border);
+    z-index: 201;
+    animation: slideUpSheet 200ms ease-out;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  /* Workout detail panel: bottom sheet instead of right panel */
+  .workout-detail-panel-mobile {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60vh;
+    background: var(--bg-surface);
+    border-radius: var(--bottom-sheet-radius) var(--bottom-sheet-radius) 0 0;
+    border-top: 1px solid var(--border);
+    z-index: 300;
+    animation: slideUpSheet 200ms ease-out;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

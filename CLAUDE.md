@@ -108,6 +108,7 @@ Each feature has its own `PLAN.md` (what to build, tests, data model) and
 | Plan Coach | `features/plan-coach/` | Multi-week training plan via CSV import or Gemini Flash chat; validate/diff/commit pipeline; smart merge (keep unchanged + completed workouts on re-import) |
 | Status Indicators | `features/status-indicators/` | Garmin connection dot + Zones "Not set" inline warning in sidebar; Garmin toolbar button on CalendarPage |
 | Onboarding | `features/onboarding/` | First-time modal wizard (7 steps, localStorage flag) + Help page with Replay tour |
+| Mobile Responsive | `features/mobile-responsive/` | Bottom tab bar, TodayPage, responsive layout for all pages |
 
 ---
 
@@ -170,6 +171,7 @@ export CLAUDE_CODE_SUBAGENT_MODEL="claude-sonnet-4-5-20250929"
 
 ## Skills & Tools
 
+- **wrap-up-docs-check** — installed at `.claude/skills/wrap-up-docs-check/`. Run when user signals feature complete ("all good", "ship it", "done"). Checks root STATUS.md + PLAN.md + CLAUDE.md and feature subfolder docs are updated, then runs `revise-claude-md` on all touched CLAUDE.md files.
 - **Do NOT install generic skills.** Feature CLAUDE.md files have all needed context.
 - **jezweb/claude-skills/fastapi** — install when implementing auth feature.
 - **garmin-workouts-mcp** — reference only, NOT a dependency.
@@ -198,6 +200,7 @@ Project slash commands in `.claude/commands/`:
 - **Audience validation via tokeninfo** — `GET https://oauth2.googleapis.com/tokeninfo?access_token={token}` returns `azp` (authorized party = the OAuth2 client_id). Check `azp == settings.google_client_id`.
 - **`VITE_GOOGLE_CLIENT_ID` is a build-time variable** — Vite bakes it into the bundle at `npm run build`. In `Dockerfile.prod`, pass it as a Docker `ARG` before `RUN npm run build`. Reuse `GOOGLE_CLIENT_ID` (already in Render) via `ARG GOOGLE_CLIENT_ID` → `ENV VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID` — no separate Render env var needed.
 - **Don't mock `_google_userinfo` in tests** — mocking the whole function hides bugs in its body. Mock `httpx.AsyncClient` instead so the audience check, email_verified check, and URL logic are all exercised.
+- **Google OAuth popup on mobile is broken** — `window.open()` popup UX is unusable on mobile browsers. Implicit redirect flow (`response_type=token`) requires registering exact redirect URIs in Google Cloud Console and is not worth implementing. Mobile users use the same popup flow as desktop (acceptable tradeoff).
 
 ## Settings / Garmin Connect UI (added 2026-03-09)
 
@@ -219,6 +222,15 @@ Project slash commands in `.claude/commands/`:
 - **Zone method**: Friel only — `MethodSelector` component deleted. `zone_service.py` hardcodes `method="friel"`. Do not re-introduce method selection.
 
 ## Docker + Dev Environment Gotchas (added 2026-03-17)
+
+### venv-in-Docker (updated 2026-03-23)
+Both `Dockerfile.prod` (Stage 2) and `backend/Dockerfile` use a venv at `/venv` to avoid the pip root-user warning. Always follow this pattern when adding Python Docker images:
+```dockerfile
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN pip install --no-cache-dir -e "."
+```
+`/venv` is owned by root but world-readable — `appuser` can execute from it without owning it.
 
 ### Local API testing — JWT token generation
 Generate a valid token without Google OAuth (container must be running):
@@ -274,6 +286,7 @@ This function no longer exists in `src/db/database.py`. Alembic (`alembic upgrad
 - **TypeScript strict build**: `npm run build` runs `tsc -b` which is stricter than Vitest. Common gotchas: unused imports/vars, `null` vs `undefined` in props, missing explicit types on `as` casts.
 - **Prod Docker**: `frontend/Dockerfile.prod` (node:20-alpine builder → nginx:alpine), `frontend/nginx.conf` (SPA try_files + `/api/` proxy to `http://backend:8000`).
 - **Docker credential helper**: `docker-credential-desktop` must be in PATH. Prefix commands: `PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH" docker compose ...`
+- **CSS `@keyframes` must be global for inline animation** — keyframes defined inside an `@media` block are NOT reachable by `style={{ animation: 'myAnim 280ms ease' }}`. Define `@keyframes` at the top level in `index.css` even if the animation is only used in mobile contexts.
 
 ## Color Token Conventions (added 2026-03-09)
 
@@ -416,6 +429,33 @@ alembic upgrade head
 
 ---
 
+## Date Parsing — Local Midnight Rule (added 2026-03-23)
+
+`new Date("YYYY-MM-DD")` parses as **UTC midnight** — in non-UTC timezones this is "yesterday" in local time, breaking `isToday`/`isYesterday`/`isSameDay`. Always parse date-only strings as local midnight:
+
+```ts
+// ✅ Correct — local midnight
+const [y, m, d] = dateStr.split('-').map(Number)
+return new Date(y, m - 1, d)
+
+// ❌ Wrong — UTC midnight, fails in UTC- timezones
+new Date("2026-03-23")      // → 2026-03-22T16:00:00 in Pacific time
+```
+
+Same rule in tests: use local date format for today's date constant:
+```ts
+// ✅ Correct
+const now = new Date()
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+// ❌ Wrong
+const TODAY = new Date().toISOString().split('T')[0]  // UTC date, wrong in UTC- timezones
+```
+
+`formatDateHeader()` in `formatting.ts` is safe — it appends `'T00:00:00'` before parsing.
+
+---
+
 ## Vitest Testing Gotchas (added 2026-03-09)
 
 ### React 18 StrictMode double-fires effects
@@ -530,6 +570,70 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 ---
 
+## Testing in Git Worktrees (added 2026-03-22)
+
+When running tests inside a worktree, the main repo container already holds port 8000.
+Never use `docker cp` to sync files — it conflicts with parallel worktree sessions.
+Instead, create a local venv:
+
+```bash
+cd backend
+/Users/noa.raz/.pyenv/versions/3.11.3/bin/python -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest tests/ -v --cov=src --cov-report=term-missing
+.venv/bin/ruff check src/ tests/
+```
+
+Integration tests default to SQLite in-memory — no DB container required.
+
+---
+
+## Ruff E402 — Logger Placement (added 2026-03-22)
+
+`logger = logging.getLogger(__name__)` must be placed **after all module-level imports**, not between them. Placing it between stdlib and third-party imports triggers E402 on every subsequent import. Correct pattern:
+
+```python
+import logging
+from sqlmodel import select
+from src.auth.models import User
+# ... all imports ...
+
+logger = logging.getLogger(__name__)  # ← after all imports
+router = APIRouter(...)
+```
+
+---
+
+## Test Type Hints for Locally-Imported Classes (added 2026-03-22)
+
+When a test helper imports a class inside the function body, don't use it as a string forward ref in the return type — ruff raises F821 even with `from __future__ import annotations`. Use `Any` instead:
+
+```python
+from typing import Any
+
+async def _make_activity(self, session: AsyncSession) -> Any:
+    from src.db.models import GarminActivity  # local import
+    ...
+```
+
+---
+
+## Garmin Calendar Cleanup After Pairing (added 2026-03-22)
+
+Garmin's own calendar shows BOTH the scheduled planned workout AND the completed activity after a run. Our app correctly shows only the paired card; Garmin does not auto-remove the plan.
+
+**Fix**: `sync_all` (`backend/src/api/routers/sync.py`) runs an idempotent cleanup sweep after `match_activities()`:
+- Queries `completed=True, garmin_workout_id IS NOT NULL` within the sync date window
+- Deletes each from Garmin (best-effort, logged + swallowed on failure), clears `garmin_workout_id = None`
+- One final `session.commit()` if any rows were touched
+- Handles both newly-paired workouts AND retroactive past paired workouts (clearing on next Sync All)
+
+`pair_activity` endpoint (`backend/src/api/routers/calendar.py`) does the same inline before commit, using the optional `get_optional_garmin_sync_service` dependency (already imported, already used by the delete endpoint).
+
+**Why idempotent**: once `garmin_workout_id` is cleared, the query finds no rows on subsequent syncs.
+
+---
+
 ## Fixie Proxy for Garmin OAuth (added 2026-03-17)
 
 - **Problem**: Garmin rate-limits OAuth requests (429) from Render's shared datacenter IPs
@@ -613,7 +717,14 @@ The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TI
 
 ## Context Refresh Pattern (added 2026-03-21)
 
-When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Example: `ZoneManager` must call `refreshZones()` after `handleSave`, `handleRecalcHR`, and `handleRecalcPace`. Missing any handler leaves the sidebar indicator stale until the next page load.
+When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Put it in a `finally` block so it runs even on error. Example: `ZoneManager.handleSave` calls `refreshZones()` in `finally` so the sidebar indicator always reflects current DB state, regardless of whether the save succeeded or failed.
+
+## ZoneManager UX Pattern (added 2026-03-23)
+
+- **Single Save action**: `handleSave` calls `save(profile)` → `recalcHR()` → `recalcPace()` in sequence. No standalone recalc buttons.
+- **Saving indicator**: `isSaving` boolean state passed to `ThresholdInput` — button shows "Saving…" and is `disabled` while the async chain is in flight.
+- **HR zones are display-only**: `HRZoneTable` renders BPM values as plain text; no click-to-edit. Zones update only via the Save recalc.
+- **`refreshZones()` in `finally`**: always runs after save, even on error, so the sidebar indicator stays in sync with DB state.
 
 ## PLAN.md Tracking (added 2026-03-21)
 
@@ -630,7 +741,7 @@ Root `PLAN.md` feature table emoji must be updated to ✅ when a feature is comp
 - **Sidebar Garmin row**: `<button>` below Settings NavLink. `aria-label="Garmin: Connected – go to Settings"` / `"Not connected"` variant. Hover via local `hovered` state + `onMouseEnter`/`onMouseLeave`. Constants: `SIDE_GARMIN_CONNECTED = '#22c55e'`, `SIDE_GARMIN_DISCONNECTED = '#ef4444'`, `SIDE_ZONES_WARN = '#f59e0b'`.
 - **CalendarPage auto-sync migration**: null guard (`if (garminConnected === null) return`) MUST come before `autoSyncDone` ref check to avoid the ref being consumed on the first null render before context resolves. Effect deps: `[garminConnected]`.
 - **SettingsPage**: calls `refresh()` from `useGarminStatus()` after connect and after disconnect.
-- **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` after successful save.
+- **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` in a `finally` block in `handleSave` — runs on both success and error paths.
 - **Sidebar tests**: wrap render in `<GarminStatusProvider><ZonesStatusProvider>`. Both contexts need mocks via `vi.hoisted`.
 - **Calendar tests**: wrap `renderPage` in `<GarminStatusProvider>`. Add `mockGetGarminStatus` to `vi.hoisted` + existing `vi.mock('../api/client')` factory.
 
@@ -644,6 +755,27 @@ When adding a new page/feature to GarminCoach, also:
 **localStorage key**: `onboarding_completed_${userId}` — one per user, set on wizard Finish or Skip.
 Replay Tour (HelpPage) clears the key and calls `openWizard()` from `OnboardingContext`.
 `OnboardingProvider` is mounted in `AppShell.tsx` (outermost provider, wraps GarminStatusProvider + ZonesStatusProvider).
+
+---
+
+## PlanPromptBuilder Patterns (added 2026-03-22)
+
+### Fetch button state machine
+`fetchState: 'idle' | 'fetching' | 'done' | 'empty' | 'error'` drives the fetch button label and inline feedback badge.
+`idle → fetching → done | empty | error`. `empty` = API returned 0 results; `error` = network/auth failure.
+`activities` is never cleared on re-fetch or error — old data stays in the prompt until a new fetch succeeds.
+Do not collapse `error` into `empty` — user must know whether they have no runs or whether the fetch failed.
+
+### Health notes field
+`healthNotes: string` — free text textarea placed after the long run day select.
+When non-empty, the prompt includes: `My current health & shape: [notes]`.
+When empty, the line is omitted entirely from the generated prompt.
+
+### Rolling 2–3 week horizon
+`buildPrompt()` uses a rolling 2–3 week window (not a fixed calendar range). Activity section label: `## Recent Training (last 14 days)`. Only rendered when `activities.length > 0`.
+
+### Why `useEffect` was removed
+Silent auto-fetch hid what Garmin context was being injected into the prompt. The explicit fetch button lets the user inspect which activities are included before copying to their LLM.
 
 ---
 

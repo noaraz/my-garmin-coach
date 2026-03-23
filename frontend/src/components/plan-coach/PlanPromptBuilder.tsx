@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { fetchCalendarRange } from '../../api/client'
 import type { GarminActivity } from '../../api/types'
 import { formatPace } from '../../utils/formatting'
@@ -65,13 +65,6 @@ const codeStyle: React.CSSProperties = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function weeksUntil(dateStr: string): number | null {
-  if (!dateStr) return null
-  const diff = new Date(dateStr).getTime() - Date.now()
-  if (diff <= 0) return null
-  return Math.round(diff / (7 * 24 * 60 * 60 * 1000))
-}
-
 function toDateString(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -93,27 +86,30 @@ function buildPrompt(
   raceDate: string,
   days: string[],
   longRunDay: string,
-  recentActivities: GarminActivity[],
+  activities: GarminActivity[],
+  healthNotes: string,
 ): string {
-  const weeks = weeksUntil(raceDate)
-  const weeksLabel = weeks ? `${weeks}-week` : 'N-week'
-  const weeksNote = weeks ? ` (${weeks} weeks from today)` : ''
   const distLine = distance || '[distance]'
   const dateLine = raceDate || '[date]'
   const daysLine = days.length ? days.join(', ') : '[your training days]'
   const nDays = days.length || 'N'
   const lrLine = longRunDay || '[long run day]'
 
-  const activitySection = recentActivities.length
-    ? `\n## Recent Training (last 30 days)\n${recentActivities.map(formatActivity).join('\n')}\n`
+  const activitySection = activities.length
+    ? `\n## Recent Training (last 14 days)\n${activities.map(formatActivity).join('\n')}\n`
     : ''
 
-  return `Generate a ${weeksLabel} running training plan as a CSV with these columns:
+  const healthSection = healthNotes.trim()
+    ? `\nMy current health & shape: ${healthNotes.trim()}`
+    : ''
+
+  return `Generate the next 2–3 weeks of my running training plan as a CSV with these columns:
 date,name,steps_spec,sport_type,description
 
-My goal: ${distLine} race on ${dateLine}${weeksNote}
+My goal: ${distLine} race on ${dateLine}
+Plan the next 2–3 weeks only — I'll come back to update it regularly.
 Training: ${nDays} days/week on ${daysLine}
-Long run day: ${lrLine}
+Long run day: ${lrLine}${healthSection}
 ${activitySection}
 Rules:
 - date: ISO format YYYY-MM-DD (schedule only on my training days above)
@@ -136,6 +132,8 @@ Example rows:
 2026-04-12,Long Run,10m@Z1 + 90m@Z2 + 10m@Z1,running,Weekly long run
 2026-04-14,Intervals,10m@Z1 + 6x(400m@Z5 + 200m@Z1) + 5m@Z1,running,VO2max
 
+Note: plan 2–3 weeks only, not the full race block. I'll re-run this prompt every 2–3 weeks to keep the plan current.
+
 Output as a downloadable file named training_plan.csv — no explanation, no markdown fences.`
 }
 
@@ -150,29 +148,13 @@ export function PlanPromptBuilder() {
   const [raceDate, setRaceDate] = useState('')
   const [selectedDays, setSelectedDays] = useState<string[]>([])
   const [longRunDay, setLongRunDay] = useState('')
-  const [recentActivities, setRecentActivities] = useState<GarminActivity[]>([])
+  const [healthNotes, setHealthNotes] = useState('')
+  const [activities, setActivities] = useState<GarminActivity[]>([])
+  const [fetchState, setFetchState] = useState<'idle' | 'fetching' | 'done' | 'empty' | 'error'>('idle')
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const codeRef = useRef<HTMLElement>(null)
 
-  // Fetch last 30 days of activities on mount
-  useEffect(() => {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 30)
-    fetchCalendarRange(toDateString(start), toDateString(end))
-      .then(data => {
-        // Collect matched activities from workouts + unplanned activities, newest first
-        const matched = data.workouts
-          .filter(w => w.activity !== null)
-          .map(w => w.activity as GarminActivity)
-        const all = [...matched, ...data.unplanned_activities]
-          .sort((a, b) => b.date.localeCompare(a.date))
-        setRecentActivities(all)
-      })
-      .catch(() => { /* silently ignore — activities are optional context */ })
-  }, [])
-
-  const prompt = buildPrompt(distance, raceDate, selectedDays, longRunDay, recentActivities)
+  const prompt = buildPrompt(distance, raceDate, selectedDays, longRunDay, activities, healthNotes)
 
   function toggleDay(day: string) {
     setSelectedDays(prev => {
@@ -180,6 +162,26 @@ export function PlanPromptBuilder() {
       if (longRunDay && !next.includes(longRunDay)) setLongRunDay('')
       return next
     })
+  }
+
+  async function handleFetchActivities() {
+    setFetchState('fetching')
+    try {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 13) // -13 gives 14 days inclusive (today + 13 prior days)
+      const data = await fetchCalendarRange(toDateString(start), toDateString(end))
+      const matched = data.workouts
+        .filter(w => w.activity !== null)
+        .map(w => w.activity as GarminActivity)
+      const all = [...matched, ...data.unplanned_activities]
+        .sort((a, b) => b.date.localeCompare(a.date))
+      setActivities(all)
+      setFetchState(all.length > 0 ? 'done' : 'empty')
+    } catch {
+      // activities intentionally not cleared — old data stays in prompt until a new fetch succeeds
+      setFetchState('error')
+    }
   }
 
   const handleCopy = async () => {
@@ -278,17 +280,66 @@ export function PlanPromptBuilder() {
           </select>
         </div>
 
-        {/* Recent activity summary */}
-        {recentActivities.length > 0 && (
-          <div>
-            <span style={fieldLabel}>
-              Recent training included in prompt
-              <span style={{ marginLeft: '8px', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                — {recentActivities.length} activit{recentActivities.length === 1 ? 'y' : 'ies'} (last 30 days)
-              </span>
+        {/* Health & shape */}
+        <div>
+          <label style={fieldLabel}>Current health &amp; shape</label>
+          <textarea
+            rows={3}
+            value={healthNotes}
+            onChange={e => setHealthNotes(e.target.value)}
+            placeholder="E.g. good base fitness, returning from injury, peak week fatigue, feeling strong…"
+            style={{
+              ...inputStyle,
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              width: '100%',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        {/* Fetch recent activities */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={handleFetchActivities}
+            disabled={fetchState === 'fetching'}
+            style={{
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontWeight: 700,
+              fontSize: '11px',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+              padding: '5px 10px',
+              borderRadius: '4px',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface-2)',
+              color: 'var(--text-secondary)',
+              cursor: fetchState === 'fetching' ? 'not-allowed' : 'pointer',
+              opacity: fetchState === 'fetching' ? 0.5 : 1,
+              transition: 'opacity 0.12s',
+            }}
+          >
+            {fetchState === 'idle' && 'Fetch last 2 weeks of training'}
+            {fetchState === 'fetching' && 'Fetching\u2026'}
+            {fetchState === 'done' && 'Refresh'}
+            {fetchState === 'empty' && 'Retry'}
+            {fetchState === 'error' && 'Retry'}
+          </button>
+          {fetchState === 'done' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {activities.length === 1 ? '1 activity included' : `${activities.length} activities included`}
             </span>
-          </div>
-        )}
+          )}
+          {fetchState === 'empty' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              No recent activities found
+            </span>
+          )}
+          {fetchState === 'error' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {activities.length > 0 ? 'Fetch failed — previous activities still included' : 'Fetch failed'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Generated prompt */}

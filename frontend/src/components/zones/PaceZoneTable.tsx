@@ -3,7 +3,6 @@ import { formatPace } from '../../utils/formatting'
 
 interface PaceZoneTableProps {
   zones: PaceZone[]
-  onRecalculate: () => void
 }
 
 const ZONE_COLORS: Record<number, string> = {
@@ -14,7 +13,7 @@ const ZONE_COLORS: Record<number, string> = {
   5: 'var(--color-zone-5)',
 }
 
-export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
+export function PaceZoneTable({ zones }: PaceZoneTableProps) {
   const thStyle: React.CSSProperties = {
     padding: '6px 10px',
     fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
@@ -59,26 +58,6 @@ export function PaceZoneTable({ zones, onRecalculate }: PaceZoneTableProps) {
           ))}
         </tbody>
       </table>
-      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          onClick={onRecalculate}
-          style={{
-            padding: '5px 14px',
-            background: 'transparent',
-            border: '1px solid var(--border-strong)',
-            borderRadius: '3px',
-            color: 'var(--text-secondary)',
-            fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-          }}
-        >
-          Update from Threshold
-        </button>
-      </div>
     </div>
   )
 }

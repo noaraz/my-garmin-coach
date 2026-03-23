@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOnboarding } from '../contexts/OnboardingContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const setupSteps = [
   {
@@ -45,6 +46,7 @@ const sectionLabelStyle: CSSProperties = {
 export function HelpPage() {
   const { user } = useAuth()
   const { openWizard } = useOnboarding()
+  const isMobile = useIsMobile()
 
   const handleReplay = () => {
     if (user?.id) {
@@ -53,25 +55,31 @@ export function HelpPage() {
     openWizard()
   }
 
+  const padding = isMobile ? '20px 16px' : '32px 40px'
+  const maxWidth = isMobile ? '100%' : '800px'
+
   return (
-    <div style={{ padding: '32px 40px' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div
+      className="mobile-page-content"
+      style={{ padding, overflowY: 'auto', flex: 1 }}
+    >
+      <div style={{ maxWidth, margin: '0 auto' }}>
         {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: isMobile ? '20px' : '40px' }}>
           <div>
             <h1 style={{
               fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-              fontSize: '24px',
+              fontSize: isMobile ? '20px' : '24px',
               fontWeight: 700,
               color: 'var(--text-primary)',
-              margin: '0 0 6px',
+              margin: '0 0 4px',
               lineHeight: 1.2,
             }}>
               Help & Getting Started
             </h1>
             <p style={{
               fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-              fontSize: '14px',
+              fontSize: '13px',
               color: 'var(--text-secondary)',
               margin: 0,
             }}>
@@ -101,9 +109,9 @@ export function HelpPage() {
         </div>
 
         {/* Section 1 — Setup Guide */}
-        <section style={{ marginBottom: '40px' }}>
+        <section style={{ marginBottom: isMobile ? '24px' : '40px' }}>
           <div style={sectionLabelStyle}>Recommended Setup</div>
-          <div style={{ display: 'flex', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
             {setupSteps.map((step) => (
               <div
                 key={step.number}
@@ -166,11 +174,14 @@ export function HelpPage() {
         {/* Section 2 — Feature Overview */}
         <section>
           <div style={sectionLabelStyle}>Features</div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '12px',
-          }}>
+          <div
+            data-testid="feature-cards-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+              gap: '12px',
+            }}
+          >
             {features.map((feature) => (
               <div
                 key={feature.title}

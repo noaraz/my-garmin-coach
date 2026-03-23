@@ -1,6 +1,7 @@
 # Plan Coach — Feature Plan
 
 Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
+Step format grammar: `features/plan-coach/CLAUDE.md` → **Step Text Format (Import Grammar)**
 Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 
 ---
@@ -128,6 +129,9 @@ RTL: JSON detection → Validate → DiffTable → Import.
 - `_compute_diff` — new `completed_dates: set[str]` param; 5 output buckets
 - `validate_plan` — one extra query for completed dates
 - `commit_plan` — smart merge: batch-load SWs + templates, classify, bulk delete, batch add
+- [x] Deduplicate templates by (name + steps JSON) on plan commit —
+      same name + same steps → single shared template;
+      same name + different steps → separate templates
 
 ### Frontend
 - `WorkoutDiff` type — add `old_name?`, `old_steps_spec?`, `new_steps_spec?`
@@ -138,3 +142,32 @@ RTL: JSON detection → Validate → DiffTable → Import.
 - Backend unit: `test_compute_diff_*` (3 new)
 - Backend integration: `test_commit_plan_*` (3 new)
 - Frontend: `DiffTable` (4 new RTL tests)
+
+---
+
+## Phase 6 — Prompt Improvements `feature/plan-coach-prompt-improvements`
+
+Design spec: `docs/superpowers/specs/2026-03-21-plan-coach-prompt-improvements-design.md`
+Implementation plan: `docs/superpowers/plans/2026-03-21-plan-coach-prompt-improvements.md`
+
+### Changes
+- [x] `buildPrompt()` — rolling 2–3 week horizon, health notes param, re-run note, 14-day activity label
+- [x] Remove `useEffect` auto-fetch; add `handleFetchActivities` with `fetchState` state machine
+- [x] Add health textarea (after long run day select)
+- [x] Add fetch button + inline feedback badge (above generated prompt)
+- [x] Remove old "Recent training included in prompt" summary block
+- [x] Code review fixes: `'error'` state in catch (not `'empty'`), date window -13 for exact 14 days inclusive, label literal lowercased (CSS textTransform handles casing)
+
+---
+
+## Phase 7 — Validation Template Status Column
+
+### Backend
+- [x] `ValidateRow.template_status: Literal["new", "existing"] = "new"`
+- [x] `validate_plan()`: single WorkoutTemplate query, per-valid-row annotation
+- [x] Integration test: `test_validate_template_status_new_and_existing`
+
+### Frontend
+- [x] `ValidateRow` type: optional `template_status?: 'new' | 'existing'`
+- [x] `ValidationTable`: Library column + NEW badge / in library cell
+- [x] 3 RTL tests in `describe('ValidationTable', ...)`

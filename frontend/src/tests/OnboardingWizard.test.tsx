@@ -196,4 +196,32 @@ describe('OnboardingWizard', () => {
     // Should be on step 1 of 7 (reset to step 0)
     expect(screen.getByText('Step 1 of 7')).toBeInTheDocument()
   })
+
+  test('OnboardingWizard_onMobile_isFullScreen', () => {
+    // Override matchMedia to simulate mobile
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true, // mobile
+      media: '(max-width: 767px)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })
+
+    // Render wizard in open state
+    mockUseOnboarding.mockReturnValue({
+      isWizardOpen: true,
+      openWizard: mockOpenWizard,
+      closeWizard: mockCloseWizard,
+    })
+
+    renderWizard()
+
+    const dialog = screen.getByRole('dialog')
+    // Bottom sheet: position fixed, from bottom, 90vh, rounded top corners
+    // The dialog itself is the overlay, we need to check its first child (the card)
+    const modalCard = dialog.firstElementChild as HTMLElement
+    expect(modalCard).toHaveStyle({ position: 'fixed' })
+    expect(modalCard).toHaveStyle({ borderRadius: '20px 20px 0 0' })
+  })
 })

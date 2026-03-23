@@ -2,6 +2,14 @@
 
 ## Docker Gotchas
 
+- **Always use a venv in Python Docker images**: Install into `/venv` to avoid the pip-root-user warning and follow official Docker best practice. Pattern used in both `Dockerfile.prod` and `backend/Dockerfile`:
+  ```dockerfile
+  RUN python -m venv /venv
+  ENV PATH="/venv/bin:$PATH"
+  RUN pip install --no-cache-dir -e "."
+  ```
+  `/venv` is created as root but is world-readable, so `appuser` can execute from it at runtime.
+
 - **Proxy in Docker Compose**: frontend proxies to `http://backend:8000`, not `localhost`.
 - **Volumes**: Mount `src/` for hot reload. Use anonymous volumes for `node_modules`:
   ```yaml

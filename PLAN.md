@@ -99,13 +99,17 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | 10 | Workout Detail Panel | `features/calendar/` | calendar, garmin-activity-fetch | ✅ |
 | 11 | Plan Coach | `features/plan-coach/` | calendar, garmin-activity-fetch | 🟡 |
 | 12 | Status Indicators | `features/status-indicators/` | calendar, settings | ✅ |
+| 13 | Mobile Responsive | `features/mobile-responsive/` | all frontend | ✅ |
+| — | Zones UX | `features/zone-engine/` | zone-engine, status-indicators | ✅ |
 
 Features 2–4 are pure logic with zero I/O. Feature 5 adds persistence.
 Features 6–7 are frontend. Feature 8 is auth. Deploy after auth.
 Feature 9 adds bidirectional Garmin sync with compliance tracking.
 Feature 10 adds a slide-out Quick View panel for workout/activity details.
 Feature 11 adds multi-week training plan creation via CSV import and Gemini Flash chat. Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
+Phase 6 (prompt improvements): rolling 2–3 week horizon, health notes field, explicit fetch button with state machine. Design spec: `docs/superpowers/specs/2026-03-21-plan-coach-prompt-improvements-design.md`
 Feature 12 adds Garmin connection status + Zones "Not set" indicators in the sidebar and calendar toolbar. Design spec: `docs/superpowers/specs/2026-03-20-garmin-status-indicator-design.md`
+Feature 13 adds mobile-responsive layout with bottom tab bar, TodayPage, and responsive design for all pages. Visual design: `frontend/public/mobile-mockup.html`
 
 ---
 
@@ -135,6 +139,9 @@ The core value — what TrainingPeaks does that we're replicating:
    - Grey: unplanned activity (no scheduled workout)
    - Muted: missed (past-date scheduled workout, no activity)
 4. Users can manually pair/unpair to correct mismatches
+5. After pairing, the Garmin scheduled workout is deleted from Garmin's calendar
+   (idempotent cleanup sweep in sync_all — handles both new and past paired workouts)
+   so Garmin's own calendar only shows the completed activity, not both
 ```
 
 ### 3. Workout Detail Panel (Feature 10)

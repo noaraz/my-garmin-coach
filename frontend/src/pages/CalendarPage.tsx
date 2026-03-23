@@ -5,10 +5,12 @@ import { useCalendar } from '../hooks/useCalendar'
 import { fetchWorkoutTemplates, getActivePlan } from '../api/client'
 import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
 import { CalendarView } from '../components/calendar/CalendarView'
+import { MobileCalendarDayView } from '../components/calendar/MobileCalendarDayView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { toDateString } from '../utils/formatting'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 interface CalendarPageProps {
   initialDate?: Date
@@ -17,6 +19,7 @@ interface CalendarPageProps {
 
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { garminConnected } = useGarminStatus()
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
@@ -24,6 +27,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [activePlanName, setActivePlanName] = useState<string | undefined>(undefined)
+  // Mobile day view: which day is selected in the strip
+  const [selectedDay, setSelectedDay] = useState<string>(() => toDateString(initialDate ?? new Date()))
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Panel state
@@ -78,7 +83,12 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
 
   const handlePrev = () => {
     if (view === 'week') {
-      setCurrentDate(prev => subDays(prev, 7))
+      setCurrentDate(prev => {
+        const next = subDays(prev, 7)
+        // On mobile, jump selected day to the same weekday in the new week
+        setSelectedDay(d => toDateString(subDays(new Date(d + 'T00:00:00'), 7)))
+        return next
+      })
     } else {
       setCurrentDate(prev => subMonths(prev, 1))
     }
@@ -86,7 +96,11 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
 
   const handleNext = () => {
     if (view === 'week') {
-      setCurrentDate(prev => addDays(prev, 7))
+      setCurrentDate(prev => {
+        const next = addDays(prev, 7)
+        setSelectedDay(d => toDateString(addDays(new Date(d + 'T00:00:00'), 7)))
+        return next
+      })
     } else {
       setCurrentDate(prev => addMonths(prev, 1))
     }
@@ -161,6 +175,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         borderBottom: '1px solid var(--toolbar-border)',
         background: 'var(--toolbar-bg)',
         flexShrink: 0,
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}>
         <button
           aria-label="Prev"
@@ -198,38 +213,40 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           }}
         >›</button>
 
-        {/* View toggle */}
-        <div style={{
-          display: 'flex',
-          marginLeft: '6px',
-          border: '1px solid var(--border-strong)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-        }}>
-          {(['week', 'month'] as const).map((v, i) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
-              style={{
-                padding: '5px 11px',
-                fontSize: '10px',
-                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                border: 'none',
-                borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
-                cursor: 'pointer',
-                background: view === v ? 'var(--text-primary)' : 'transparent',
-                color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
-                transition: 'background 0.1s, color 0.1s',
-              }}
-            >
-              {v.charAt(0).toUpperCase() + v.slice(1)}
-            </button>
-          ))}
-        </div>
+        {/* View toggle — desktop only */}
+        {!isMobile && (
+          <div style={{
+            display: 'flex',
+            marginLeft: '6px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+          }}>
+            {(['week', 'month'] as const).map((v, i) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
+                style={{
+                  padding: '5px 11px',
+                  fontSize: '10px',
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  border: 'none',
+                  borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
+                  cursor: 'pointer',
+                  background: view === v ? 'var(--text-primary)' : 'transparent',
+                  color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
+                  transition: 'background 0.1s, color 0.1s',
+                }}
+              >
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Sync All + Garmin status */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -303,7 +320,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       </div>
 
       {/* Calendar view */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', position: 'relative' }}>
+      <div className="mobile-page-content" style={{ flex: 1, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {loading && (
           <div style={{
             position: 'absolute',
@@ -322,18 +339,33 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             Loading...
           </div>
         )}
-        <CalendarView
-          view={view}
-          currentDate={currentDate}
-          workouts={workouts}
-          templates={templates}
-          unplannedActivities={unplannedActivities}
-          onAddWorkout={handleAddWorkout}
-          onRemove={remove}
-          onWorkoutClick={handleWorkoutClick}
-          onActivityClick={handleActivityClick}
-          activePlanName={activePlanName}
-        />
+        {isMobile ? (
+          <MobileCalendarDayView
+            weekStart={weekStart}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            workouts={workouts}
+            templates={templates}
+            unplannedActivities={unplannedActivities}
+            onAddWorkout={handleAddWorkout}
+            onRemove={remove}
+            onWorkoutClick={handleWorkoutClick}
+            onActivityClick={handleActivityClick}
+          />
+        ) : (
+          <CalendarView
+            view={view}
+            currentDate={currentDate}
+            workouts={workouts}
+            templates={templates}
+            unplannedActivities={unplannedActivities}
+            onAddWorkout={handleAddWorkout}
+            onRemove={remove}
+            onWorkoutClick={handleWorkoutClick}
+            onActivityClick={handleActivityClick}
+            activePlanName={activePlanName}
+          />
+        )}
       </div>
 
       {/* Workout picker modal */}

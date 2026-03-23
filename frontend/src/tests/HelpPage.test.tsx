@@ -88,4 +88,38 @@ describe('HelpPage', () => {
     expect(localStorage.getItem('onboarding_completed_1')).toBeNull()
     expect(mockOpenWizard).toHaveBeenCalled()
   })
+
+  it('HelpPage_onMobile_featureCardsAreStacked', () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      media: '(max-width: 767px)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })
+
+    renderPage()
+
+    const cardsContainer = screen.getByTestId('feature-cards-grid')
+    expect(cardsContainer).toBeInTheDocument()
+    expect(cardsContainer).toHaveStyle({ gridTemplateColumns: '1fr' })
+  })
+
+  it('HelpPage_onDesktop_featureCardsUseAutoFillGrid', () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      media: '(max-width: 767px)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })
+
+    renderPage()
+
+    const cardsContainer = screen.getByTestId('feature-cards-grid')
+    expect(cardsContainer).toBeInTheDocument()
+    expect(cardsContainer).toHaveStyle({ gridTemplateColumns: 'repeat(2, 1fr)' })
+  })
 })

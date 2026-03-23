@@ -351,17 +351,18 @@ async def sync_all(
     synced = sum(1 for r in results if r is not None)
     failed = len(results) - synced
 
+    # Compute date window once — used by both fetch and cleanup steps.
+    from datetime import timedelta
+
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=fetch_days)
+
     # Fetch activities (best-effort)
     activities_fetched = 0
     activities_matched = 0
     fetch_error = None
     try:
-        from datetime import timedelta
-
         from src.services.activity_fetch_service import activity_fetch_service
-
-        end_date = datetime.now(timezone.utc).date()
-        start_date = end_date - timedelta(days=fetch_days)
 
         # Reuse the adapter from the orchestrator (avoid second token decrypt)
         adapter = sync_service.adapter
@@ -378,6 +379,37 @@ async def sync_all(
     except Exception as exc:  # noqa: BLE001
         fetch_error = str(exc)
         logger.warning("Activity fetch failed (continuing): %s", exc)
+
+    # Best-effort cleanup: delete Garmin scheduled workouts for all completed workouts
+    # in the sync window that still have garmin_workout_id set.
+    # Handles both newly-paired workouts and pre-existing ones (retroactive fix).
+    try:
+        paired_with_garmin = (
+            await session.exec(
+                select(ScheduledWorkout).where(
+                    ScheduledWorkout.user_id == current_user.id,
+                    ScheduledWorkout.completed == True,  # noqa: E712
+                    ScheduledWorkout.garmin_workout_id.is_not(None),  # type: ignore[union-attr]
+                    ScheduledWorkout.date >= start_date,
+                    ScheduledWorkout.date <= end_date,
+                )
+            )
+        ).all()
+
+        for workout in paired_with_garmin:
+            garmin_id = workout.garmin_workout_id
+            try:
+                sync_service.delete_workout(garmin_id)
+                workout.garmin_workout_id = None
+                session.add(workout)
+                logger.info("Cleared paired Garmin workout %s from calendar", garmin_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, exc)
+
+        if paired_with_garmin:
+            await session.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Garmin paired-workout cleanup failed (continuing): %s", exc)
 
     return SyncAllResponse(
         synced=synced,

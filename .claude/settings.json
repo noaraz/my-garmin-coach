@@ -29,6 +29,17 @@
       "command": "bash hooks/end.sh",
       "description": "Run tests and remind to update STATUS.md at session end"
     },
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[[ \"$PWD\" == *\".claude/worktrees/\"* ]] && [[ ! -d \"$PWD/frontend/node_modules\" ]] && npm --prefix \"$PWD/frontend\" install || true",
+            "statusMessage": "Installing frontend dependencies in worktree…"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
