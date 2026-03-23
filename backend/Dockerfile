@@ -1,6 +1,8 @@
 FROM python:3.11-slim
 WORKDIR /app
 COPY pyproject.toml ./
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
 RUN pip install --no-cache-dir -e ".[dev]"
 COPY src ./src
 COPY tests ./tests

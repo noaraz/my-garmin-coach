@@ -223,6 +223,15 @@ Project slash commands in `.claude/commands/`:
 
 ## Docker + Dev Environment Gotchas (added 2026-03-17)
 
+### venv-in-Docker (updated 2026-03-23)
+Both `Dockerfile.prod` (Stage 2) and `backend/Dockerfile` use a venv at `/venv` to avoid the pip root-user warning. Always follow this pattern when adding Python Docker images:
+```dockerfile
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN pip install --no-cache-dir -e "."
+```
+`/venv` is owned by root but world-readable — `appuser` can execute from it without owning it.
+
 ### Local API testing — JWT token generation
 Generate a valid token without Google OAuth (container must be running):
 ```bash
@@ -417,6 +426,33 @@ no-op. Fix: stamp back to the previous revision, then upgrade:
 alembic stamp <previous-revision-id>
 alembic upgrade head
 ```
+
+---
+
+## Date Parsing — Local Midnight Rule (added 2026-03-23)
+
+`new Date("YYYY-MM-DD")` parses as **UTC midnight** — in non-UTC timezones this is "yesterday" in local time, breaking `isToday`/`isYesterday`/`isSameDay`. Always parse date-only strings as local midnight:
+
+```ts
+// ✅ Correct — local midnight
+const [y, m, d] = dateStr.split('-').map(Number)
+return new Date(y, m - 1, d)
+
+// ❌ Wrong — UTC midnight, fails in UTC- timezones
+new Date("2026-03-23")      // → 2026-03-22T16:00:00 in Pacific time
+```
+
+Same rule in tests: use local date format for today's date constant:
+```ts
+// ✅ Correct
+const now = new Date()
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+// ❌ Wrong
+const TODAY = new Date().toISOString().split('T')[0]  // UTC date, wrong in UTC- timezones
+```
+
+`formatDateHeader()` in `formatting.ts` is safe — it appends `'T00:00:00'` before parsing.
 
 ---
 
@@ -685,7 +721,14 @@ The `.replace(tzinfo=None)` is required because PostgreSQL `TIMESTAMP WITHOUT TI
 
 ## Context Refresh Pattern (added 2026-03-21)
 
-When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Example: `ZoneManager` must call `refreshZones()` after `handleSave`, `handleRecalcHR`, and `handleRecalcPace`. Missing any handler leaves the sidebar indicator stale until the next page load.
+When wiring `refresh()` / `refreshZones()` from a shared context into a component, call it in **all** write handlers — not just the primary one. Put it in a `finally` block so it runs even on error. Example: `ZoneManager.handleSave` calls `refreshZones()` in `finally` so the sidebar indicator always reflects current DB state, regardless of whether the save succeeded or failed.
+
+## ZoneManager UX Pattern (added 2026-03-23)
+
+- **Single Save action**: `handleSave` calls `save(profile)` → `recalcHR()` → `recalcPace()` in sequence. No standalone recalc buttons.
+- **Saving indicator**: `isSaving` boolean state passed to `ThresholdInput` — button shows "Saving…" and is `disabled` while the async chain is in flight.
+- **HR zones are display-only**: `HRZoneTable` renders BPM values as plain text; no click-to-edit. Zones update only via the Save recalc.
+- **`refreshZones()` in `finally`**: always runs after save, even on error, so the sidebar indicator stays in sync with DB state.
 
 ## PLAN.md Tracking (added 2026-03-21)
 
@@ -702,7 +745,7 @@ Root `PLAN.md` feature table emoji must be updated to ✅ when a feature is comp
 - **Sidebar Garmin row**: `<button>` below Settings NavLink. `aria-label="Garmin: Connected – go to Settings"` / `"Not connected"` variant. Hover via local `hovered` state + `onMouseEnter`/`onMouseLeave`. Constants: `SIDE_GARMIN_CONNECTED = '#22c55e'`, `SIDE_GARMIN_DISCONNECTED = '#ef4444'`, `SIDE_ZONES_WARN = '#f59e0b'`.
 - **CalendarPage auto-sync migration**: null guard (`if (garminConnected === null) return`) MUST come before `autoSyncDone` ref check to avoid the ref being consumed on the first null render before context resolves. Effect deps: `[garminConnected]`.
 - **SettingsPage**: calls `refresh()` from `useGarminStatus()` after connect and after disconnect.
-- **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` after successful save.
+- **ZoneManager**: calls `refreshZones()` from `useZonesStatus()` in a `finally` block in `handleSave` — runs on both success and error paths.
 - **Sidebar tests**: wrap render in `<GarminStatusProvider><ZonesStatusProvider>`. Both contexts need mocks via `vi.hoisted`.
 - **Calendar tests**: wrap `renderPage` in `<GarminStatusProvider>`. Add `mockGetGarminStatus` to `vi.hoisted` + existing `vi.mock('../api/client')` factory.
 

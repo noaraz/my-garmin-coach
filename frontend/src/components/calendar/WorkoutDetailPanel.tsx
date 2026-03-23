@@ -217,11 +217,26 @@ function WorkoutDetailPlanned({
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '11px',
             color: 'var(--text-muted)',
-            marginBottom: '16px',
+            marginBottom: template?.description ? '8px' : '16px',
           }}
         >
           {formatDateHeader(workout.date)}
         </div>
+
+        {/* Description */}
+        {template?.description && (
+          <div
+            style={{
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              marginBottom: '16px',
+              lineHeight: 1.4,
+            }}
+          >
+            {template.description}
+          </div>
+        )}
 
         {/* Metrics */}
         {(durationSec != null || distanceM != null) && (
@@ -481,11 +496,26 @@ function WorkoutDetailCompleted({
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '11px',
             color: 'var(--text-muted)',
-            marginBottom: '12px',
+            marginBottom: template?.description ? '8px' : '12px',
           }}
         >
           {formatDateHeader(workout.date)}
         </div>
+
+        {/* Description */}
+        {template?.description && (
+          <div
+            style={{
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              marginBottom: '12px',
+              lineHeight: 1.4,
+            }}
+          >
+            {template.description}
+          </div>
+        )}
 
         {/* Compliance badge */}
         <div

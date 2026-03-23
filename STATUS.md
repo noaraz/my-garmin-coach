@@ -15,12 +15,21 @@ Implementation plan: `docs/superpowers/plans/2026-03-23-completed-workout-descri
 | Task | Status |
 |------|--------|
 | Show description on completed WorkoutCard (remove !workout.activity guard) | ✅ |
-| Show description in WorkoutDetailCompleted panel | ✅ |
+| Show description in WorkoutDetailPanel (planned + completed) | ✅ |
 | Show description on mobile workout cards (MobileCalendarDayView) | ✅ |
 | Show description in TodayPage hero card | ✅ |
-| Remove description from panel Notes section (card only) | ✅ |
 | Change font: IBM Plex Mono → IBM Plex Sans, single line (no comma-split) | ✅ |
 | Show description in month view (remove !compact guard) | ✅ |
+
+## Zones UX — Auto-Recalculate on Save ✅
+
+### Zones Simplification
+| Task | Status |
+|------|--------|
+| Remove standalone Recalculate / Update from Threshold buttons | ✅ |
+| HRZoneTable: make BPM cells display-only (remove click-to-edit) | ✅ |
+| ZoneManager.handleSave: auto-call recalcHR + recalcPace after save | ✅ |
+| Update ZoneManager tests | ✅ |
 
 ---
 
@@ -43,6 +52,8 @@ Feature docs: `features/mobile-responsive/`
 | Fix: BottomTabBar Sign Out button in More sheet | ✅ |
 | MobileCalendarDayView: day strip + vertical workout/activity list | ✅ |
 | CalendarPage: hide week/month toggle on mobile | ✅ |
+| Display Settings section in SettingsPage (mobile only) — theme toggle | ✅ |
+| Fix: TodayPage date parsing uses local midnight (was UTC, broke in non-UTC timezones) | ✅ |
 
 ---
 
@@ -174,6 +185,12 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Remove old "Recent training included in prompt" summary block | ✅ |
 | Code review fixes: `'error'` state in catch, date window off-by-one (-13), label casing | ✅ |
 
+### Plan Coach — Phase 7: Validation Template Status Column ✅
+| Task | Status |
+|------|--------|
+| Backend: ValidateRow.template_status, validate_plan query, integration test | ✅ |
+| Frontend: ValidationTable Library column, NEW badge, 3 RTL tests | ✅ |
+
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
 |------|--------|
@@ -193,6 +210,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | **SDK upgrade**: google-generativeai → google-genai>=1.0 (genai.Client, gemini-2.0-flash-lite) | ✅ |
 | plan_step_parser: accept `+` as top-level step separator (LLM output format) | ✅ |
 | calendar_service: detect distance steps by key presence (plan-imported steps) | ✅ |
+| **Template dedup fix**: deduplicate by (name + steps JSON) instead of name-only — same name + same steps → single shared template; same name + different steps → separate templates | ✅ |
 
 ### Workout Detail Panel (previous focus) ✅
 | Task | Status |
@@ -380,6 +398,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Post-ship: useCalendar.ts stale closure fix — useRef(range) so async callbacks read latest range | ✅ |
 | Post-ship: WorkoutDetailPanel step rendering — ParsedStep + formatStep() + StepList component | ✅ |
 | Mobile responsive | ✅ |
+| Post-ship: Zones UX — single Save recalculates HR + pace zones; HR table display-only; saving indicator | ✅ |
 
 ### Auth + Deployment
 | Task | Status |
@@ -412,6 +431,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
 ## Known Issues (to fix later)
+
+- **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
 
 - **Ruff E402 in `backend/src/api/routers/calendar.py`**: `logging.getLogger(__name__)` is called on line 8, *before* all the `from sqlmodel import ...` and `from src.* import ...` statements. Ruff's E402 rule ("module-level import not at top of file") flags all 11 imports below it. Fix: move `logger = logging.getLogger(__name__)` to after the last import. This is the only file with this issue. Running `ruff check src/` or the CI lint step will show 11 E402 errors all pointing to this file. Also one `F821 Undefined name GarminActivity` in `tests/integration/test_api_calendar.py` line 571 — `GarminActivity` is used as a string annotation in a method return type but is not imported at the module level (only imported inside the method body). Fix: add `from src.db.models import GarminActivity` at the top of the test file (or use `TYPE_CHECKING` guard).
 

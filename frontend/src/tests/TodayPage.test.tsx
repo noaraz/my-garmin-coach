@@ -6,7 +6,8 @@ import { ZonesStatusProvider } from '../contexts/ZonesStatusContext'
 import { TodayPage } from '../pages/TodayPage'
 import type { WorkoutTemplate } from '../api/types'
 
-const TODAY = new Date().toISOString().split('T')[0]
+const now = new Date()
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 const mockEasyRunTemplate: WorkoutTemplate = {
   id: 10,
