@@ -166,6 +166,12 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Remove old "Recent training included in prompt" summary block | ✅ |
 | Code review fixes: `'error'` state in catch, date window off-by-one (-13), label casing | ✅ |
 
+### Plan Coach — Phase 7: Validation Template Status Column ✅
+| Task | Status |
+|------|--------|
+| Backend: ValidateRow.template_status, validate_plan query, integration test | ✅ |
+| Frontend: ValidationTable Library column, NEW badge, 3 RTL tests | ✅ |
+
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
 |------|--------|
@@ -185,6 +191,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | **SDK upgrade**: google-generativeai → google-genai>=1.0 (genai.Client, gemini-2.0-flash-lite) | ✅ |
 | plan_step_parser: accept `+` as top-level step separator (LLM output format) | ✅ |
 | calendar_service: detect distance steps by key presence (plan-imported steps) | ✅ |
+| **Template dedup fix**: deduplicate by (name + steps JSON) instead of name-only — same name + same steps → single shared template; same name + different steps → separate templates | ✅ |
 
 ### Workout Detail Panel (previous focus) ✅
 | Task | Status |

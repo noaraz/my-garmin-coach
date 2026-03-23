@@ -171,6 +171,7 @@ export interface ValidateRow {
   sport_type: string
   valid: boolean
   error: string | null
+  template_status?: 'new' | 'existing'
 }
 
 export interface WorkoutDiff {

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date as date_type, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 from sqlalchemy import delete, update
@@ -45,6 +45,7 @@ class ValidateRow(BaseModel):
     sport_type: str
     valid: bool
     error: str | None = None
+    template_status: Literal["new", "existing"] = "new"
 
 
 class WorkoutDiff(BaseModel):
@@ -82,6 +83,20 @@ class CommitResult(BaseModel):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _normalize_steps(steps_str: str | None) -> str:
+    """Normalize steps JSON for dedup key comparison.
+
+    Parses and re-serializes with sort_keys=True to ensure byte-identical
+    comparison regardless of the original serialization path.
+    """
+    if not steps_str:
+        return ""
+    try:
+        return json.dumps(json.loads(steps_str), sort_keys=True)
+    except (ValueError, TypeError):
+        return steps_str
 
 
 def _compute_diff(
@@ -244,6 +259,22 @@ async def validate_plan(
     if not all_valid:
         # Sentinel — no DB write
         return ValidateResult(plan_id=-1, rows=rows, diff=None)
+
+    # Annotate valid rows with template_status (new vs existing in library).
+    # Only runs when all rows are valid — zip(valid_rows, parsed_list) is safe.
+    if parsed_list:
+        tmpl_result = await session.exec(
+            select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
+        )
+        existing_keys: set[tuple[str, str]] = {
+            (t.name, _normalize_steps(t.steps)) for t in tmpl_result.all()
+        }
+        valid_rows = [r for r in rows if r.valid]
+        for vrow, pw in zip(valid_rows, parsed_list):
+            steps_json = json.dumps(pw.steps, sort_keys=True) if pw.steps else None
+            incoming_key = (pw.name, steps_json or "")
+            if incoming_key in existing_keys:
+                vrow.template_status = "existing"
 
     # Compute diff against active plan if one exists
     diff: DiffResult | None = None
@@ -425,7 +456,9 @@ async def commit_plan(
     templates_result = await session.exec(
         select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
     )
-    existing_templates = {t.name: t for t in templates_result.all()}
+    existing_templates: dict[tuple[str, str], WorkoutTemplate] = {
+        (t.name, _normalize_steps(t.steps)): t for t in templates_result.all()
+    }
 
     now = _now()
     new_sw_count = 0
@@ -437,10 +470,11 @@ async def commit_plan(
         except ValueError:
             continue
 
-        if pw.name in existing_templates:
-            template = existing_templates[pw.name]
+        steps_json = json.dumps(pw.steps, sort_keys=True) if pw.steps else None
+        dedup_key = (pw.name, steps_json or "")
+        if dedup_key in existing_templates:
+            template = existing_templates[dedup_key]
         else:
-            steps_json = json.dumps(pw.steps) if pw.steps else None
             template = WorkoutTemplate(
                 user_id=user_id,
                 name=pw.name,
@@ -452,7 +486,7 @@ async def commit_plan(
             )
             session.add(template)
             await session.flush()
-            existing_templates[pw.name] = template
+            existing_templates[dedup_key] = template
 
         sw = ScheduledWorkout(
             user_id=user_id,

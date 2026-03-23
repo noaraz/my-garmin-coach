@@ -221,6 +221,63 @@ class TestValidate:
         stale_plans = result.all()
         assert len(stale_plans) == 0
 
+    async def test_validate_template_status_new_and_existing(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Rows annotated 'existing' when template already in DB, 'new' otherwise."""
+        # Create an existing template by committing a plan first
+        setup = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Setup Plan",
+                "workouts": [
+                    {
+                        "date": "2027-08-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert setup.status_code == 200
+        await client.post(f"/api/v1/plans/{setup.json()['plan_id']}/commit")
+
+        # Now validate a new plan: "Easy Run" (same steps = existing) + "Tempo" (new)
+        resp = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "New Plan",
+                "workouts": [
+                    {
+                        "date": "2027-09-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                    {
+                        "date": "2027-09-03",
+                        "name": "Tempo",
+                        "steps_spec": "10m@Z1, 20m@Z3, 5m@Z1",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        rows = resp.json()["rows"]
+        assert len(rows) == 2
+
+        easy_row = next(r for r in rows if r["name"] == "Easy Run")
+        tempo_row = next(r for r in rows if r["name"] == "Tempo")
+
+        assert easy_row["template_status"] == "existing", (
+            f"Easy Run has same name+steps as existing template — expected 'existing', got {easy_row['template_status']!r}"
+        )
+        assert tempo_row["template_status"] == "new", (
+            f"Tempo is brand new — expected 'new', got {tempo_row['template_status']!r}"
+        )
+
 
 class TestCommit:
     async def test_commit_fresh_plan_creates_scheduled_workouts(
@@ -487,6 +544,185 @@ class TestCommit:
             )
         )
         assert new_result.first() is not None
+
+    async def test_commit_same_name_same_steps_deduplicates_template(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Two workouts with identical name + steps_spec share ONE template."""
+        from sqlmodel import select
+        from src.db.models import ScheduledWorkout, WorkoutTemplate
+
+        resp = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Dedup Test Plan",
+                "workouts": [
+                    {
+                        "date": "2027-05-05",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                    {
+                        "date": "2027-05-07",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        plan_id = resp.json()["plan_id"]
+
+        commit_resp = await client.post(f"/api/v1/plans/{plan_id}/commit")
+        assert commit_resp.status_code == 200
+
+        templates = (
+            await session.exec(
+                select(WorkoutTemplate).where(
+                    WorkoutTemplate.user_id == 1,
+                    WorkoutTemplate.name == "Easy Run",
+                )
+            )
+        ).all()
+        assert len(templates) == 1, f"Expected 1 template, got {len(templates)}"
+
+        sws = (
+            await session.exec(
+                select(ScheduledWorkout).where(
+                    ScheduledWorkout.training_plan_id == plan_id
+                )
+            )
+        ).all()
+        assert len(sws) == 2
+        assert sws[0].workout_template_id == sws[1].workout_template_id
+
+    async def test_commit_same_name_different_steps_creates_separate_templates(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Two workouts with same name but different steps_spec get separate templates."""
+        from sqlmodel import select
+        from src.db.models import ScheduledWorkout, WorkoutTemplate
+
+        resp = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Split Template Plan",
+                "workouts": [
+                    {
+                        "date": "2027-06-02",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                    {
+                        "date": "2027-06-04",
+                        "name": "Easy Run",
+                        "steps_spec": "5m@Z1, 50m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        plan_id = resp.json()["plan_id"]
+
+        commit_resp = await client.post(f"/api/v1/plans/{plan_id}/commit")
+        assert commit_resp.status_code == 200
+
+        templates = (
+            await session.exec(
+                select(WorkoutTemplate).where(
+                    WorkoutTemplate.user_id == 1,
+                    WorkoutTemplate.name == "Easy Run",
+                )
+            )
+        ).all()
+        assert len(templates) == 2, f"Expected 2 templates, got {len(templates)}"
+
+        sws = (
+            await session.exec(
+                select(ScheduledWorkout).where(
+                    ScheduledWorkout.training_plan_id == plan_id
+                )
+            )
+        ).all()
+        assert len(sws) == 2
+        assert sws[0].workout_template_id != sws[1].workout_template_id
+
+    async def test_commit_reuses_template_when_reimporting_same_workout(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Re-importing a plan with a new date for an existing workout reuses the template."""
+        from sqlmodel import select
+
+        from src.db.models import ScheduledWorkout, WorkoutTemplate
+
+        # Commit plan A — one "Easy Run" workout, creates template T1
+        resp_a = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Plan A",
+                "workouts": [
+                    {
+                        "date": "2027-07-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp_a.status_code == 200
+        await client.post(f"/api/v1/plans/{resp_a.json()['plan_id']}/commit")
+
+        # Re-import plan B — same workout at a new date added
+        resp_b = await client.post(
+            "/api/v1/plans/validate",
+            json={
+                "name": "Plan B",
+                "workouts": [
+                    {
+                        "date": "2027-07-01",
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                    {
+                        "date": "2027-07-03",  # new date, same workout
+                        "name": "Easy Run",
+                        "steps_spec": "10m@Z1, 30m@Z2",
+                        "sport_type": "running",
+                    },
+                ],
+            },
+        )
+        assert resp_b.status_code == 200
+        plan_b_id = resp_b.json()["plan_id"]
+        await client.post(f"/api/v1/plans/{plan_b_id}/commit")
+
+        # Still only ONE template — re-import reuses it
+        templates = (
+            await session.exec(
+                select(WorkoutTemplate).where(
+                    WorkoutTemplate.user_id == 1,
+                    WorkoutTemplate.name == "Easy Run",
+                )
+            )
+        ).all()
+        assert len(templates) == 1, f"Expected 1 template after re-import, got {len(templates)}"
+
+        # Both SWs in plan B point to the same template
+        sws = (
+            await session.exec(
+                select(ScheduledWorkout).where(
+                    ScheduledWorkout.training_plan_id == plan_b_id
+                )
+            )
+        ).all()
+        assert len(sws) == 2
+        assert sws[0].workout_template_id == sws[1].workout_template_id
 
 
 class TestGetActive:

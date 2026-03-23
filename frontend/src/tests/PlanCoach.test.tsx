@@ -135,6 +135,27 @@ describe('ValidationTable', () => {
     await renderValidationTable([validRow(), invalidRow()])
     expect(screen.getAllByRole('row')).toHaveLength(3) // header + 2 data rows
   })
+
+  it('shows NEW badge when template_status is "new"', async () => {
+    await renderValidationTable([validRow({ template_status: 'new' })])
+    expect(screen.getByText('NEW')).toBeInTheDocument()
+  })
+
+  it('shows "in library" when template_status is "existing"', async () => {
+    await renderValidationTable([validRow({ template_status: 'existing' })])
+    expect(screen.getByText('in library')).toBeInTheDocument()
+  })
+
+  it('shows no library indicator when template_status is absent', async () => {
+    await renderValidationTable([validRow()])
+    expect(screen.queryByText('NEW')).not.toBeInTheDocument()
+    expect(screen.queryByText('in library')).not.toBeInTheDocument()
+  })
+
+  it('shows no NEW badge on invalid rows even when backend defaults template_status to new', async () => {
+    await renderValidationTable([invalidRow()])
+    expect(screen.queryByText('NEW')).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------
