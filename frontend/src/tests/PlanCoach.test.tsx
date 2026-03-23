@@ -151,6 +151,11 @@ describe('ValidationTable', () => {
     expect(screen.queryByText('NEW')).not.toBeInTheDocument()
     expect(screen.queryByText('in library')).not.toBeInTheDocument()
   })
+
+  it('shows no NEW badge on invalid rows even when backend defaults template_status to new', async () => {
+    await renderValidationTable([invalidRow()])
+    expect(screen.queryByText('NEW')).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------

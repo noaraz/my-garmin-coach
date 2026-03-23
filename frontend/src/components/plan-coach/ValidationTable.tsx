@@ -91,7 +91,7 @@ export function ValidationTable({ rows }: ValidationTableProps) {
                 )}
               </td>
               <td style={{ ...td, textAlign: 'center' }}>
-                {row.template_status === 'new' && (
+                {row.valid && row.template_status === 'new' && (
                   <span style={{
                     fontSize: '10px',
                     fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
