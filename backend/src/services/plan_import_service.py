@@ -425,7 +425,9 @@ async def commit_plan(
     templates_result = await session.exec(
         select(WorkoutTemplate).where(WorkoutTemplate.user_id == user_id)
     )
-    existing_templates = {t.name: t for t in templates_result.all()}
+    existing_templates: dict[tuple[str, str], WorkoutTemplate] = {
+        (t.name, t.steps or ""): t for t in templates_result.all()
+    }
 
     now = _now()
     new_sw_count = 0
@@ -437,10 +439,11 @@ async def commit_plan(
         except ValueError:
             continue
 
-        if pw.name in existing_templates:
-            template = existing_templates[pw.name]
+        steps_json = json.dumps(pw.steps) if pw.steps else None
+        dedup_key = (pw.name, steps_json or "")
+        if dedup_key in existing_templates:
+            template = existing_templates[dedup_key]
         else:
-            steps_json = json.dumps(pw.steps) if pw.steps else None
             template = WorkoutTemplate(
                 user_id=user_id,
                 name=pw.name,
@@ -452,7 +455,7 @@ async def commit_plan(
             )
             session.add(template)
             await session.flush()
-            existing_templates[pw.name] = template
+            existing_templates[dedup_key] = template
 
         sw = ScheduledWorkout(
             user_id=user_id,
