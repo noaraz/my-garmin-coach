@@ -135,8 +135,19 @@ export function TodayPage() {
                   {todayTemplate?.name ?? 'Workout'}
                 </div>
                 {todayDurationSec != null && (
-                  <div style={{ fontFamily: 'var(--font-family-mono)', fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+                  <div style={{ fontFamily: 'var(--font-family-mono)', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
                     {formatClock(todayDurationSec)}
+                  </div>
+                )}
+                {todayTemplate?.description && (
+                  <div style={{
+                    fontFamily: 'var(--font-family-mono)',
+                    fontSize: 10,
+                    color: 'var(--text-muted)',
+                    fontStyle: 'italic',
+                    marginBottom: 10,
+                  }}>
+                    {todayTemplate.description}
                   </div>
                 )}
                 <button

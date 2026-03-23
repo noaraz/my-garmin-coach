@@ -113,4 +113,31 @@ describe('TodayPage', () => {
     renderPage()
     expect(await screen.findByLabelText(/garmin connected/i)).toBeInTheDocument()
   })
+
+  it('test_description_todayHeroCard_isVisible', async () => {
+    mockFetchCalendar.mockResolvedValue({
+      workouts: [{
+        id: 1,
+        date: TODAY,
+        workout_template_id: 10,
+        training_plan_id: null,
+        resolved_steps: null,
+        garmin_workout_id: null,
+        sync_status: 'pending',
+        completed: false,
+        notes: null,
+        created_at: TODAY,
+        updated_at: TODAY,
+        matched_activity_id: null,
+        activity: null,
+      }],
+      unplanned_activities: [],
+    })
+    mockFetchTemplates.mockResolvedValue([mockEasyRunTemplate])
+    renderPage()
+    // Wait for the description to appear
+    await waitFor(() => {
+      expect(screen.getByText('45min easy')).toBeInTheDocument()
+    })
+  })
 })
