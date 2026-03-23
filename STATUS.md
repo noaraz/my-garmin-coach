@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (zones UX — auto-recalculate on save)
+Last updated: 2026-03-23 (infra fix — venv-in-Docker eliminates pip root warning)
 
 ## Current Focus: Zones UX — Auto-Recalculate on Save ✅
 
