@@ -73,26 +73,38 @@ async def connect_garmin(
     email, password = request.email, request.password
     del request  # Discard credentials as early as possible
 
+    logger.info("Garmin connect requested for user_id=%s", current_user.id)
+
     last_exc: Exception | None = None
     for attempt in range(2):
         if attempt > 0:
             await asyncio.sleep(3)
         try:
             client = garth.Client()
-            # Use curl_cffi to impersonate Chrome TLS fingerprint — bypasses
-            # Akamai Bot Manager which blocks Python requests' known bot fingerprint.
-            # garth accesses sess.adapters internally, so we patch it in.
+            # curl_cffi impersonates Chrome 120 TLS fingerprint — bypasses Akamai Bot Manager.
+            # Attempt 1: no proxy (chrome120 alone is sufficient in most cases).
+            # Attempt 2: add Fixie proxy as fallback if Akamai updates its IP detection.
             client.sess = _ChromeTLSSession(impersonate="chrome120")
-            # Attempt 1: chrome120 TLS fingerprint only (no proxy) — sufficient in most cases.
-            # Attempt 2: add Fixie proxy as fallback in case Akamai updates IP detection.
             use_proxy = attempt > 0 and bool(settings.fixie_url)
             if use_proxy:
                 client.sess.proxies = {"https": settings.fixie_url}
-                logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 + Fixie proxy", attempt + 1)
+                logger.info(
+                    "Garmin login attempt %d/2: chrome120 TLS + Fixie proxy (429 retry)",
+                    attempt + 1,
+                )
             else:
-                logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 (no proxy)", attempt + 1)
+                logger.info(
+                    "Garmin login attempt %d/2: chrome120 TLS, no proxy",
+                    attempt + 1,
+                )
             client.login(email, password)
             token_json: str = client.dumps()
+            logger.info(
+                "Garmin login succeeded on attempt %d/2 (proxy=%s) for user_id=%s",
+                attempt + 1,
+                use_proxy,
+                current_user.id,
+            )
             break
         except (requests.exceptions.HTTPError, GarthHTTPError) as exc:
             last_exc = exc
@@ -101,36 +113,57 @@ async def connect_garmin(
             if response is None:
                 response = getattr(getattr(exc, "__cause__", None), "response", None)
             if response is not None and response.status_code == 429:
-                logger.warning("Garmin rate-limited (429), attempt %d/2", attempt + 1)
+                logger.warning(
+                    "Garmin SSO rate-limited (429) on attempt %d/2 — "
+                    "Akamai blocked this request (proxy=%s)",
+                    attempt + 1,
+                    use_proxy,
+                )
                 continue
-            logger.exception("Garmin login failed: %s", exc)
+            logger.exception(
+                "Garmin login rejected (non-429) on attempt %d/2: %s",
+                attempt + 1,
+                exc,
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Garmin authentication failed. Check your email and password.",
             ) from exc
         except requests.exceptions.ProxyError as exc:
             last_exc = exc
-            # Log without including exc to avoid leaking proxy credentials from the URL
-            logger.error("Garmin proxy connection failed (proxy unreachable or misconfigured)")
+            # Don't log exc — it contains the proxy URL with credentials
+            logger.error(
+                "Garmin proxy unreachable on attempt %d/2 — check FIXIE_URL config",
+                attempt + 1,
+            )
             raise HTTPException(
                 status_code=503,
                 detail="Garmin connection unavailable. Please try again later.",
             ) from exc
         except Exception as exc:
             last_exc = exc
-            logger.exception("Garmin login failed: %s", exc)
+            logger.exception(
+                "Garmin login unexpected error on attempt %d/2: %s",
+                attempt + 1,
+                exc,
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Garmin authentication failed. Check your email and password.",
             ) from exc
     else:
-        logger.error("Garmin login failed after retries: %s", last_exc)
+        logger.error(
+            "Garmin login failed after all retries for user_id=%s — "
+            "Akamai may have updated detection. Check test_garmin_login.py.",
+            current_user.id,
+        )
         raise HTTPException(
             status_code=503,
             detail="Garmin is temporarily rate-limiting this server. Please try again in a few minutes.",
         ) from last_exc
 
     # Encrypt and store token
+    logger.info("Storing encrypted Garmin token for user_id=%s", current_user.id)
     encrypted = encrypt_token(current_user.id, settings.garmincoach_secret_key, token_json)
 
     profile = await _get_or_create_profile(current_user, session)
@@ -139,6 +172,7 @@ async def connect_garmin(
     session.add(profile)
     await session.commit()
 
+    logger.info("Garmin connected successfully for user_id=%s", current_user.id)
     return GarminStatusResponse(connected=True)
 
 
