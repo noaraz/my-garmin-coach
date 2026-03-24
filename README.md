@@ -104,7 +104,7 @@ Production uses [Neon](https://neon.tech) (free tier) for PostgreSQL — Render 
    - `DATABASE_URL` — Neon connection string (`postgresql+asyncpg://...?ssl=require`)
    - `GOOGLE_CLIENT_ID` — from Google Cloud Console
    - `BOOTSTRAP_SECRET` — `openssl rand -hex 32`
-   - `FIXIE_URL` — from [usefixie.com](https://usefixie.com) (optional, avoids Garmin 429s)
+   - `FIXIE_URL` — from [usefixie.com](https://usefixie.com) (optional — Garmin login uses Chrome 120 TLS fingerprint to bypass Akamai bot detection; Fixie is only a fallback if Akamai updates its detection and starts blocking cloud IPs again)
 5. `autoDeploy: false` — deploys are triggered manually or via the `/release` workflow.
 
 On container start, `alembic upgrade head` runs automatically before uvicorn — it creates all tables on the first deploy and applies any new migrations on subsequent deploys.
