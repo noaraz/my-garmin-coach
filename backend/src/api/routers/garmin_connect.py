@@ -120,10 +120,13 @@ async def connect_garmin(
                     use_proxy,
                 )
                 continue
-            logger.exception(
+            # Don't log exc — garth embeds the PreparedRequest (incl. form body
+            # with plaintext credentials) in the exception chain. Log only the
+            # exception type, not the object or traceback.
+            logger.error(
                 "Garmin login rejected (non-429) on attempt %d/2: %s",
                 attempt + 1,
-                exc,
+                type(exc).__name__,
             )
             raise HTTPException(
                 status_code=400,
@@ -142,10 +145,11 @@ async def connect_garmin(
             ) from exc
         except Exception as exc:
             last_exc = exc
-            logger.exception(
+            # Don't log exc — may contain credentials in the exception chain
+            logger.error(
                 "Garmin login unexpected error on attempt %d/2: %s",
                 attempt + 1,
-                exc,
+                type(exc).__name__,
             )
             raise HTTPException(
                 status_code=400,
