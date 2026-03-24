@@ -55,7 +55,7 @@ async def get_current_user(
 - [ ] .env NOT in git
 - [ ] Database NOT publicly accessible
 - [ ] Registration is invite-only
-- [ ] FIXIE_URL set in Render (Garmin OAuth proxy — treats as secret, contains auth token)
+- [ ] `FIXIE_URL` in Render optional — only needed as fallback if Akamai blocks chrome120 TLS fingerprint (see garmin-sync/CLAUDE.md)
 
 ## Gotchas & Patterns (added 2026-03-09)
 
