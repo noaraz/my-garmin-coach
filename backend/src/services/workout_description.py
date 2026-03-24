@@ -12,9 +12,12 @@ import json
 
 
 def _fmt_dur(step: dict) -> str:
-    if step.get("duration_type") == "distance" and step.get("distance_m") is not None:
-        km = step["distance_m"] / 1000
-        return f"{int(km)}K" if km == int(km) else f"{km:.1f}K"
+    if step.get("duration_type") == "distance":
+        # Accept both builder key (distance_m) and legacy CSV parser key (duration_distance_m)
+        dist_m = step.get("distance_m") or step.get("duration_distance_m")
+        if dist_m is not None:
+            km = dist_m / 1000
+            return f"{int(km)}K" if km == int(km) else f"{km:.1f}K"
     if step.get("duration_sec") is not None:
         m = round(step["duration_sec"] / 60)
         return f"{m}m"
@@ -22,10 +25,10 @@ def _fmt_dur(step: dict) -> str:
 
 
 def _zone_label(step: dict) -> str:
-    if step.get("target_type") == "hr_zone" and step.get("zone") is not None:
-        return f"@Z{step['zone']}(HR)"
-    if step.get("target_type") == "pace_zone" and step.get("zone") is not None:
-        return f"@Z{step['zone']}"
+    zone = step.get("zone")
+    if zone is not None:
+        # HR zone gets a suffix; pace zone (or legacy CSV steps without target_type) just @ZN
+        return f"@Z{zone}(HR)" if step.get("target_type") == "hr_zone" else f"@Z{zone}"
     defaults = {"warmup": "@Z1", "interval": "@Z4", "recovery": "@Z1", "cooldown": "@Z1"}
     return defaults.get(step.get("type", ""), "")
 

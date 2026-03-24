@@ -9,6 +9,13 @@ const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0'
 const WEEK_START = new Date(now)
 WEEK_START.setDate(now.getDate() - now.getDay() + 1) // Monday of current week
 
+// Steps JSON matching the expected description "10m@Z1, 25m@Z2, 5m@Z3"
+const STEPS_JSON = JSON.stringify([
+  { type: 'warmup', duration_type: 'time', duration_sec: 600, target_type: 'pace_zone', zone: 1 },
+  { type: 'active', duration_type: 'time', duration_sec: 1500, target_type: 'pace_zone', zone: 2 },
+  { type: 'cooldown', duration_type: 'time', duration_sec: 300, target_type: 'pace_zone', zone: 3 },
+])
+
 const baseTemplate: WorkoutTemplate = {
   id: 1,
   name: 'Tempo Run',
@@ -17,7 +24,7 @@ const baseTemplate: WorkoutTemplate = {
   estimated_duration_sec: 2400,
   estimated_distance_m: null,
   tags: null,
-  steps: null,
+  steps: STEPS_JSON,
   created_at: '2026-01-01',
   updated_at: '2026-01-01',
 }
@@ -102,7 +109,7 @@ describe('MobileCalendarDayView — description display', () => {
   })
 
   it('test_description_when_null_renders_nothing', () => {
-    const templateNoDesc = { ...baseTemplate, description: null }
+    const templateNoDesc = { ...baseTemplate, steps: null, description: null }
 
     render(
       <MobileCalendarDayView

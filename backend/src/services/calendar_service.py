@@ -53,16 +53,16 @@ def _builder_steps_to_formatter(
             })
             continue
 
-        # End condition — accept both builder keys (duration_sec / duration_distance_m)
-        # and resolver keys. Plan-imported steps use duration_distance_m without
-        # setting duration_type, so detect by key presence.
+        # End condition — accept builder keys (duration_sec / distance_m) and legacy keys
+        # (duration_distance_m, duration_m) and resolver keys.
         duration_type = step.get("duration_type")
-        has_distance = step.get("duration_distance_m") or step.get("duration_m")
+        has_distance = step.get("distance_m") or step.get("duration_distance_m") or step.get("duration_m")
 
         if duration_type == "distance" or (duration_type is None and has_distance):
             end_condition = "distance"
             end_condition_value = (
-                step.get("duration_distance_m")
+                step.get("distance_m")
+                or step.get("duration_distance_m")
                 or step.get("duration_m")
                 or step.get("duration_value")
             )

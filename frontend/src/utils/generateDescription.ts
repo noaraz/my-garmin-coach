@@ -5,10 +5,14 @@ function isRepeatGroup(step: BuilderStep): step is RepeatGroup {
 }
 
 // Format duration for description one-liner
-function fmtDur(step: WorkoutStep): string {
-  if (step.duration_type === 'distance' && step.distance_m != null) {
-    const km = step.distance_m / 1000
-    return km === Math.floor(km) ? `${km}K` : `${km.toFixed(1)}K`
+function fmtDur(step: WorkoutStep & { duration_distance_m?: number }): string {
+  if (step.duration_type === 'distance') {
+    // Accept both builder key (distance_m) and legacy CSV parser key (duration_distance_m)
+    const distM = step.distance_m ?? (step as Record<string, unknown>).duration_distance_m as number | undefined
+    if (distM != null) {
+      const km = distM / 1000
+      return km === Math.floor(km) ? `${km}K` : `${km.toFixed(1)}K`
+    }
   }
   if (step.duration_sec != null) {
     const m = Math.round(step.duration_sec / 60)
@@ -19,9 +23,11 @@ function fmtDur(step: WorkoutStep): string {
 
 // Zone label for description
 function zoneLabel(step: WorkoutStep): string {
-  if (step.target_type === 'hr_zone' && step.zone != null) return `@Z${step.zone}(HR)`
-  if (step.target_type === 'pace_zone' && step.zone != null) return `@Z${step.zone}`
-  // Default zone by step type
+  if (step.zone != null) {
+    // HR zone gets a suffix; pace zone (or legacy CSV steps without target_type) just @ZN
+    return step.target_type === 'hr_zone' ? `@Z${step.zone}(HR)` : `@Z${step.zone}`
+  }
+  // Default zone by step type (builder steps without explicit zone)
   const defaults: Record<string, string> = {
     warmup: '@Z1', interval: '@Z4', recovery: '@Z1', cooldown: '@Z1'
   }
@@ -42,6 +48,19 @@ export function generateDescription(steps: BuilderStep[]): string {
     return stepDesc(step as WorkoutStep)
   })
   return parts.join(', ')
+}
+
+// Fallback for templates where description column is null — parses steps JSON
+// and generates the description on the fly. Same pattern as computeDurationFromSteps.
+export function generateDescriptionFromSteps(stepsJson: string | null | undefined): string | null {
+  if (!stepsJson) return null
+  try {
+    const steps = JSON.parse(stepsJson) as BuilderStep[]
+    if (!Array.isArray(steps) || steps.length === 0) return null
+    return generateDescription(steps)
+  } catch {
+    return null
+  }
 }
 
 // Format pace from sec/km to "mm:ss"
