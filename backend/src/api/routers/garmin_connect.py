@@ -83,10 +83,14 @@ async def connect_garmin(
             # Akamai Bot Manager which blocks Python requests' known bot fingerprint.
             # garth accesses sess.adapters internally, so we patch it in.
             client.sess = _ChromeTLSSession(impersonate="chrome120")
-            logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 TLS fingerprint", attempt + 1)
-            if settings.fixie_url:
+            # Attempt 1: chrome120 TLS fingerprint only (no proxy) — sufficient in most cases.
+            # Attempt 2: add Fixie proxy as fallback in case Akamai updates IP detection.
+            use_proxy = attempt > 0 and bool(settings.fixie_url)
+            if use_proxy:
                 client.sess.proxies = {"https": settings.fixie_url}
-                logger.info("Garmin login routing via Fixie proxy")
+                logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 + Fixie proxy", attempt + 1)
+            else:
+                logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 (no proxy)", attempt + 1)
             client.login(email, password)
             token_json: str = client.dumps()
             break
