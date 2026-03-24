@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-23 (Calendar/library: description visible in all views — month, week, mobile, library)
+Last updated: 2026-03-24 (Released v1.2.0 — workout descriptions, mobile UX, zone auto-recalc, Claude automation suite)
 
 ## Current Focus: Claude Code Automation Suite ✅
 
