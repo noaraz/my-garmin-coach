@@ -8,7 +8,7 @@ function isRepeatGroup(step: BuilderStep): step is RepeatGroup {
 function fmtDur(step: WorkoutStep & { duration_distance_m?: number }): string {
   if (step.duration_type === 'distance') {
     // Accept both builder key (distance_m) and legacy CSV parser key (duration_distance_m)
-    const distM = step.distance_m ?? (step as Record<string, unknown>).duration_distance_m as number | undefined
+    const distM = step.distance_m ?? step.duration_distance_m
     if (distM != null) {
       const km = distM / 1000
       return km === Math.floor(km) ? `${km}K` : `${km.toFixed(1)}K`
