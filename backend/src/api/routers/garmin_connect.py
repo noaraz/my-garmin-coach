@@ -5,6 +5,7 @@ import logging
 
 import garth as garth
 import requests
+from curl_cffi import requests as cffi_requests
 from garth.exc import GarthHTTPError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
@@ -63,6 +64,12 @@ async def connect_garmin(
             await asyncio.sleep(3)
         try:
             client = garth.Client()
+            # Use curl_cffi to impersonate Chrome TLS fingerprint — bypasses
+            # Akamai Bot Manager which blocks Python requests' known bot fingerprint.
+            # garth accesses sess.adapters internally, so we patch it in.
+            cffi_session = cffi_requests.Session(impersonate="chrome110")
+            cffi_session.adapters = requests.Session().adapters
+            client.sess = cffi_session
             if settings.fixie_url:
                 client.sess.proxies = {"https": settings.fixie_url}
             client.login(email, password)
