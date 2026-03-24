@@ -52,8 +52,6 @@ class WorkoutService:
 
         if "name" in data and data["name"] is not None:
             template.name = data["name"]
-        if "description" in data and data["description"] is not None:
-            template.description = data["description"]
         if "sport_type" in data and data["sport_type"] is not None:
             template.sport_type = data["sport_type"]
         if "tags" in data and data["tags"] is not None:

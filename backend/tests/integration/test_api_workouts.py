@@ -63,17 +63,17 @@ class TestWorkoutsAPI:
         await session.commit()
         await session.refresh(template)
 
-        # Act
+        # Act — description is always derived from steps, not set directly
         response = await client.put(
             f"/api/v1/workouts/{template.id}",
-            json={"name": "New Name", "description": "Updated"},
+            json={"name": "New Name", "steps": [{"type": "active", "duration_type": "time", "duration_sec": 600, "target_type": "pace_zone", "zone": 2}]},
         )
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "New Name"
-        assert data["description"] == "Updated"
+        assert data["description"] == "10m@Z2"
 
     async def test_delete(self, client: AsyncClient, session: AsyncSession) -> None:
         # Arrange
