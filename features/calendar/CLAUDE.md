@@ -56,3 +56,7 @@ Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
 - **Panel state in CalendarPage**: `selectedWorkout: ScheduledWorkoutWithActivity | null` + `selectedActivity: GarminActivity | null`. Panel open when either is non-null.
 - **Notes**: `ScheduledWorkout.notes` column already exists in DB model + schema. PATCH endpoint extended to accept `{ date?, notes? }`.
 - **Escape/backdrop close**: `useEffect` with `keydown` listener for Escape. Backdrop `onClick` for outside clicks.
+
+## Month View Week Start
+- `weekStartsOn: 0` in `date-fns` = Sunday start. `1` = Monday.
+- The day-header array in `MonthView.tsx` is hardcoded — must be reordered alongside the `weekStartsOn` change.

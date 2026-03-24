@@ -369,6 +369,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tests: Calendar.test.tsx | ✅ |
 | Implement: Calendar view | ✅ |
 | Layout: AppShell + Sidebar | ✅ |
+| Month view changed to Sun–Sat week layout | ✅ |
 
 ### Workout Builder (Frontend)
 | Task | Status |
