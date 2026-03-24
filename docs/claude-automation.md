@@ -206,8 +206,10 @@ Release workflow:
 1. Pre-flight checks
 2. Run tests
 3. Security review
-4. Version bump
-5. Tag + push (triggers GitHub Actions → GitHub Release → Render deploy)
+4. Version bump (`frontend/package.json`)
+5. Update + commit STATUS.md (marks release ✅, adds entry to Infrastructure table)
+6. Tag + push — tag lands on the STATUS.md commit
+7. GitHub Actions: tests → approval gate → GitHub Release → Render deploy
 
 ---
 
