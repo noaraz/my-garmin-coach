@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import requests
+from curl_cffi import requests as cffi_requests
 from fastapi import HTTPException
 
 from src.api.routers.garmin_connect import (
@@ -254,17 +255,6 @@ class TestConnectGarmin:
         mock_garth_client.login.side_effect = [http_429, None]
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
-        captured_sessions: list = []
-
-        def capture_sess(val: object) -> None:
-            captured_sessions.append(val)
-            # Allow the attribute to be set normally on the mock
-            mock_garth_client.__dict__["sess"] = val
-
-        mock_garth_client.__class__ = type(
-            "MockClient", (MagicMock.__class__,), {}
-        )
-
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock), \
@@ -279,8 +269,9 @@ class TestConnectGarmin:
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
 
-        # Attempt 1: no proxy set on sess1
-        assert not hasattr(sess1, "proxies") or sess1.proxies != {"https": "http://token@proxy.fixie.io:1234"}
+        # Attempt 1: no proxy set on sess1 — check the underlying dict, not attribute access
+        # (MagicMock auto-creates attributes so hasattr is always True)
+        assert "proxies" not in sess1.__dict__
         # Attempt 2 (retry after 429): proxy set on sess2
         assert sess2.proxies == {"https": "http://token@proxy.fixie.io:1234"}
 
@@ -308,16 +299,26 @@ class TestConnectGarmin:
         assert mock_garth_client.sess.proxies != {"https": ""}
 
     async def test_connect_raises_503_on_proxy_error(self) -> None:
-        # Arrange — proxy is unreachable
+        # Arrange — attempt 1 gets 429 (triggers retry), attempt 2 proxy is unreachable.
+        # This matches the realistic flow: proxy is only applied on attempt 2.
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
         mock_session = _make_session()
 
+        mock_429_response = MagicMock()
+        mock_429_response.status_code = 429
+        http_429 = requests.exceptions.HTTPError(response=mock_429_response)
+
         mock_garth_client = MagicMock()
-        mock_garth_client.login.side_effect = requests.exceptions.ProxyError("proxy down")
+        # Attempt 1: 429 to trigger the retry; attempt 2: proxy unreachable
+        mock_garth_client.login.side_effect = [
+            http_429,
+            cffi_requests.exceptions.ProxyError("proxy down"),
+        ]
 
         with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
-             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.asyncio.sleep"):
             mock_garth.Client.return_value = mock_garth_client
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 

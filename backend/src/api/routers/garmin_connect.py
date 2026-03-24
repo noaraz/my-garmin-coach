@@ -132,7 +132,7 @@ async def connect_garmin(
                 status_code=400,
                 detail="Garmin authentication failed. Check your email and password.",
             ) from exc
-        except requests.exceptions.ProxyError as exc:
+        except cffi_requests.exceptions.ProxyError as exc:
             last_exc = exc
             # Don't log exc — it contains the proxy URL with credentials
             logger.error(
