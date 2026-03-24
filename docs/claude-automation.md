@@ -156,6 +156,16 @@ Pre-existing specialist agents for parallel feature work — see `CLAUDE.md` Age
 
 Skills are invoked via the `Skill` tool or as `/skill-name` in the chat.
 
+### /garmin-429-debug
+Diagnoses and fixes Garmin SSO 429 / Akamai bot-detection errors.
+Triggers automatically when Garmin connect fails with 429, GarthHTTPError, or sso.garmin.com errors.
+Walks through: log analysis → `test_garmin_login.py` comparison → `_ChromeTLSSession` fix → Chrome version bump if needed.
+
+```
+"garmin connect is returning 429 in production"
+"getting GarthHTTPError on login"
+```
+
 ### /alembic-migration
 Scaffolds a new Alembic migration with safety checks (render_as_batch, naive datetime, SQLite compat).
 
