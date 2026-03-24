@@ -73,6 +73,7 @@ Replaces TrainingPeaks for self-coached athletes.
 pytest tests/unit/ -v                              # unit
 pytest tests/integration/ -v                       # API + DB
 pytest -v --cov=src --cov-report=term-missing      # all + coverage
+pytest tests/unit/test_foo.py -v --no-cov          # fast TDD iteration (skip coverage)
 docker compose exec backend pytest -v              # in container
 npm test -- --run                                   # frontend
 ```

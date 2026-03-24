@@ -60,3 +60,9 @@ Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
 ## Month View Week Start
 - `weekStartsOn: 0` in `date-fns` = Sunday start. `1` = Monday.
 - The day-header array in `MonthView.tsx` is hardcoded — must be reordered alongside the `weekStartsOn` change.
+
+## Reschedule & Sync (added 2026-03-24)
+
+- **Reschedule must mark sync_status=modified**: `CalendarService.reschedule()` sets `sync_status = "modified"` when `new_date != scheduled.date` and the workout was `"synced"`. Without this, `sync_all` (filters on `pending/modified/failed`) silently skips rescheduled workouts and returns `{synced:0}`. Notes-only and same-date reschedules leave status unchanged.
+- **`currentDate` invariant**: `CalendarPage.handlePrev`/`handleNext` do `±7 days from currentDate` — it must always be a Sunday week-start. Use `setCurrentDate(getWeekStart(newDate))`, never `setCurrentDate(newDate)` (arbitrary mid-week date breaks navigation anchor).
+- **Mobile reschedule navigation**: After reschedule on mobile, call `setSelectedDay(date)` AND `setCurrentDate(getWeekStart(newDate))` so the day strip shows the workout on its new date.
