@@ -1,8 +1,8 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (fix/garmin-akamai-curl-cffi — bypass Akamai Bot Manager on Garmin SSO)
+Last updated: 2026-03-24 (v1.3.0 released — Akamai bot-detection fix for Garmin SSO)
 
-## Current Focus: Garmin SSO — Akamai Fix 🔄
+## Current Focus: Garmin SSO — Akamai Fix ✅
 
 ### Garmin SSO Akamai Bot Detection
 | Task | Status |
@@ -14,7 +14,7 @@ Last updated: 2026-03-24 (fix/garmin-akamai-curl-cffi — bypass Akamai Bot Mana
 | Retry flow: attempt 1 no proxy, attempt 2 Fixie fallback on 429 | ✅ |
 | Add meaningful logs to Garmin connect flow | ✅ |
 | Update all CLAUDE.md / PLAN.md / STATUS.md docs | ✅ |
-| PR #56 open — awaiting Render preview confirmation | 🔄 |
+| PR #56 merged — v1.3.0 released | ✅ |
 
 ---
 
@@ -294,6 +294,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tag v1.0.0 + push — first public release, GitHub Release created, deployed to Render ✅ | ✅ |
 | Tag v1.0.1 + push — sidebar version sync, security fixes | ✅ |
 | Tag v1.1.0 + push — mobile responsive, plan coach improvements, Garmin pairing fix | ✅ |
+| Tag v1.2.0 + push — Neon PostgreSQL migration, performance optimizations, caching | ✅ |
+| Tag v1.3.0 + push — Akamai bot-detection bypass (curl_cffi chrome120), 429 retry flow | ✅ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
