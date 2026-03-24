@@ -39,6 +39,14 @@ const renderPage = (props: { initialDate?: Date } = {}) =>
 
 Apply this wrapper whenever any child component uses `useNavigate`, `useParams`, `useLocation`, etc.
 
+## WorkoutCard Description Display (updated 2026-03-23)
+
+- Description always shows — guards `!compact` and `!workout.activity` removed
+- Compact mode (month view): 9px font, 1.3 line-height; full mode: 10px, 1.4
+- Each comma-segment on its own line with `whiteSpace: nowrap` + `textOverflow: ellipsis`
+- **`MobileCalendarDayView` DRIFT RISK**: This component renders its own card markup inline and does NOT use `WorkoutCard`. Any description display change in `WorkoutCard` must also be applied manually to `MobileCalendarDayView.tsx`. Both files have a cross-reference comment to flag this.
+- Month view: `minHeight: 90px` removed from day cells — cells expand to content height; outer container already has `overflow: auto`
+
 ## Workout Detail Panel (2026-03-20)
 
 Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`

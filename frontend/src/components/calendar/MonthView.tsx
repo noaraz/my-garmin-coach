@@ -67,7 +67,6 @@ export function MonthView({ currentDate, workouts, templates, unplannedActivitie
               data-testid="month-day-cell"
               data-outside={isOutside ? 'true' : undefined}
               style={{
-                minHeight: '90px',
                 borderBottom: '1px solid var(--border)',
                 borderRight: '1px solid var(--border)',
                 padding: '5px',

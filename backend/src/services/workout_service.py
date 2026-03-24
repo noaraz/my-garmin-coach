@@ -9,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import ScheduledWorkout, WorkoutTemplate
 from src.repositories.workouts import workout_template_repository
+from src.services.workout_description import generate_description_from_steps
 
 
 class WorkoutService:
@@ -19,13 +20,14 @@ class WorkoutService:
         user_id: int | None = None,
     ) -> WorkoutTemplate:
         """Create a new WorkoutTemplate from the provided data dict."""
+        steps_json = json.dumps(data["steps"]) if data.get("steps") is not None else None
         template = WorkoutTemplate(
             user_id=user_id,
             name=data["name"],
-            description=data.get("description"),
+            description=generate_description_from_steps(steps_json),
             sport_type=data.get("sport_type", "running"),
             tags=json.dumps(data["tags"]) if data.get("tags") is not None else None,
-            steps=json.dumps(data["steps"]) if data.get("steps") is not None else None,
+            steps=steps_json,
         )
         return await workout_template_repository.create(session, template)
 
@@ -50,14 +52,13 @@ class WorkoutService:
 
         if "name" in data and data["name"] is not None:
             template.name = data["name"]
-        if "description" in data and data["description"] is not None:
-            template.description = data["description"]
         if "sport_type" in data and data["sport_type"] is not None:
             template.sport_type = data["sport_type"]
         if "tags" in data and data["tags"] is not None:
             template.tags = json.dumps(data["tags"])
         if "steps" in data and data["steps"] is not None:
             template.steps = json.dumps(data["steps"])
+            template.description = generate_description_from_steps(template.steps)
 
         template.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(template)

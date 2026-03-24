@@ -569,6 +569,8 @@ generateWorkoutDetails(steps: BuilderStep[], paceZones: PaceZone[]): string
 
 **WorkoutBuilder usage**: auto-fills `description` via `useEffect` from `generateDescription(steps)` on step change, unless `isDescriptionEdited` is true (user manually typed). Fetches `paceZones` on mount for the details panel.
 
+**Data integrity rule**: `description` must always be derived from `steps` — they are never independent. Whenever `steps` is written to the DB, `description` must be recomputed and saved in the same operation. The Garmin sync reads `template.description` directly, so a stale or null description sends the wrong text to the watch. Full rule in `features/workout-builder/CLAUDE.md`.
+
 ---
 
 ## Testing in Git Worktrees (added 2026-03-22)

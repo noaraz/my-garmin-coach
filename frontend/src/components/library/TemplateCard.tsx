@@ -1,5 +1,6 @@
 import type { WorkoutTemplate } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
+import { generateDescriptionFromSteps } from '../../utils/generateDescription'
 
 interface TemplateCardProps {
   template: WorkoutTemplate
@@ -31,6 +32,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
   const distanceM = template.estimated_distance_m ?? computeDistanceFromSteps(template.steps)
   const hasDuration = durationSec != null && durationSec > 0
   const hasDistance = distanceM != null && distanceM > 0
+  const description = generateDescriptionFromSteps(template.steps)
 
   return (
     <div
@@ -78,14 +80,17 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
             </span>
           )}
         </div>
-        {template.description && (
+        {description && (
           <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
-            {template.description.split(',').map((seg, i) => (
+            {description.split(',').map((seg, i) => (
               <span key={i} style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: '10px',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}>
                 {seg.trim()}
               </span>
@@ -97,7 +102,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
             {hasDuration && (
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
@@ -108,7 +113,7 @@ export function TemplateCard({ template, onEdit, onSchedule, onDelete, onDuplica
             )}
             {hasDistance && (
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',

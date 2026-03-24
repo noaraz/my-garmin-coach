@@ -68,6 +68,7 @@ def _parse_single_step(token: str) -> dict:
             "type": "active",
             "duration_type": "time",
             "duration_sec": value * 60,
+            "target_type": "pace_zone",
             "zone": zone,
         }
     elif unit == "s":
@@ -75,13 +76,15 @@ def _parse_single_step(token: str) -> dict:
             "type": "active",
             "duration_type": "time",
             "duration_sec": value,
+            "target_type": "pace_zone",
             "zone": zone,
         }
     else:  # K
         return {
             "type": "active",
             "duration_type": "distance",
-            "duration_distance_m": value * 1000,
+            "distance_m": value * 1000,
+            "target_type": "pace_zone",
             "zone": zone,
         }
 

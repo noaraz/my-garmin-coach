@@ -2,6 +2,7 @@ import type { ScheduledWorkoutWithActivity, WorkoutTemplate, GarminActivity } fr
 import { addDays } from 'date-fns'
 import { toDateString, formatPace } from '../../utils/formatting'
 import { formatClock, computeDurationFromSteps, formatKm, computeDistanceFromSteps } from '../../utils/workoutStats'
+import { generateDescriptionFromSteps } from '../../utils/generateDescription'
 
 interface MobileCalendarDayViewProps {
   weekStart: Date
@@ -134,6 +135,7 @@ export function MobileCalendarDayView({
           const name = template?.name ?? 'Workout'
           const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
           const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
+          const description = generateDescriptionFromSteps(template?.steps)
           const hasDuration = durationSec != null && durationSec > 0
           const hasDistance = distanceM != null && distanceM > 0
           const isCompleted = workout.completed
@@ -196,6 +198,25 @@ export function MobileCalendarDayView({
                       {actDuration != null && actDistance != null && ' · '}
                       {actDistance != null && formatKm(actDistance)}
                       {actPace != null && ` · ${formatPace(actPace)}`}
+                    </div>
+                  )}
+
+                  {/* Description — NOTE: WorkoutCard has equivalent rendering; keep in sync */}
+                  {description && (
+                    <div style={{ marginBottom: 6, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      {description.split(',').map((seg, i) => (
+                        <span key={i} style={{
+                          fontFamily: 'var(--font-family-mono)',
+                          fontSize: 11,
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.4,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {seg.trim()}
+                        </span>
+                      ))}
                     </div>
                   )}
 

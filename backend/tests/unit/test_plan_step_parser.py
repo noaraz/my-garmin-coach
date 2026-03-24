@@ -10,13 +10,13 @@ class TestTimeBased:
     def test_single_minute_step(self) -> None:
         steps = parse_steps_spec("10m@Z1")
         assert steps == [
-            {"type": "active", "duration_type": "time", "duration_sec": 600.0, "zone": 1}
+            {"type": "active", "duration_type": "time", "duration_sec": 600.0, "target_type": "pace_zone", "zone": 1}
         ]
 
     def test_single_second_step(self) -> None:
         steps = parse_steps_spec("90s@Z3")
         assert steps == [
-            {"type": "active", "duration_type": "time", "duration_sec": 90.0, "zone": 3}
+            {"type": "active", "duration_type": "time", "duration_sec": 90.0, "target_type": "pace_zone", "zone": 3}
         ]
 
     def test_fractional_minutes(self) -> None:
@@ -26,9 +26,9 @@ class TestTimeBased:
     def test_multiple_time_steps(self) -> None:
         steps = parse_steps_spec("10m@Z1, 45m@Z2, 5m@Z1")
         assert len(steps) == 3
-        assert steps[0] == {"type": "active", "duration_type": "time", "duration_sec": 600.0, "zone": 1}
-        assert steps[1] == {"type": "active", "duration_type": "time", "duration_sec": 2700.0, "zone": 2}
-        assert steps[2] == {"type": "active", "duration_type": "time", "duration_sec": 300.0, "zone": 1}
+        assert steps[0] == {"type": "active", "duration_type": "time", "duration_sec": 600.0, "target_type": "pace_zone", "zone": 1}
+        assert steps[1] == {"type": "active", "duration_type": "time", "duration_sec": 2700.0, "target_type": "pace_zone", "zone": 2}
+        assert steps[2] == {"type": "active", "duration_type": "time", "duration_sec": 300.0, "target_type": "pace_zone", "zone": 1}
 
     def test_all_zones_1_to_5(self) -> None:
         for zone in range(1, 6):
@@ -40,17 +40,17 @@ class TestDistanceBased:
     def test_single_km_step(self) -> None:
         steps = parse_steps_spec("2K@Z1")
         assert steps == [
-            {"type": "active", "duration_type": "distance", "duration_distance_m": 2000.0, "zone": 1}
+            {"type": "active", "duration_type": "distance", "distance_m": 2000.0, "target_type": "pace_zone", "zone": 1}
         ]
 
     def test_fractional_km(self) -> None:
         steps = parse_steps_spec("0.4K@Z5")
-        assert steps[0]["duration_distance_m"] == pytest.approx(400.0)
+        assert steps[0]["distance_m"] == pytest.approx(400.0)
 
     def test_multiple_distance_steps(self) -> None:
         steps = parse_steps_spec("2K@Z1, 5K@Z3, 1K@Z1")
         assert len(steps) == 3
-        assert steps[1]["duration_distance_m"] == pytest.approx(5000.0)
+        assert steps[1]["distance_m"] == pytest.approx(5000.0)
         assert steps[1]["zone"] == 3
 
 
@@ -70,7 +70,7 @@ class TestRepeatGroups:
         steps = parse_steps_spec("4x(0.4K@Z5 + 0.2K@Z1)")
         repeat = steps[0]
         assert repeat["repeat_count"] == 4
-        assert repeat["steps"][0]["duration_distance_m"] == pytest.approx(400.0)
+        assert repeat["steps"][0]["distance_m"] == pytest.approx(400.0)
 
     def test_mixed_time_and_distance(self) -> None:
         steps = parse_steps_spec("10m@Z1, 6x(90s@Z5 + 60s@Z1), 5m@Z1")
@@ -105,7 +105,7 @@ class TestCaseInsensitivity:
     def test_lowercase_k_accepted(self) -> None:
         # Parser is lenient: lowercase k is treated same as K
         steps = parse_steps_spec("2k@Z1")
-        assert steps[0]["duration_distance_m"] == pytest.approx(2000.0)
+        assert steps[0]["distance_m"] == pytest.approx(2000.0)
 
 
 class TestErrorCases:

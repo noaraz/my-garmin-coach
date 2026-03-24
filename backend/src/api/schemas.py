@@ -84,7 +84,6 @@ class WorkoutTemplateCreate(BaseModel):
 
 class WorkoutTemplateUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
     sport_type: Optional[str] = None
     tags: Optional[list[str]] = None
     steps: Optional[list[Any]] = None

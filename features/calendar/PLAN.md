@@ -45,6 +45,10 @@ Track progress in **STATUS.md**.
 - [x] `CalendarView` — add `activationConstraint: { distance: 8 }` to PointerSensor for reliable drag
 - [x] `WorkoutCard` — make remove button visible (grey, red on hover); replace hardcoded colors with CSS vars
 - [x] `WorkoutCard` — show `template.description` one-liner below name (stacked per comma-segment)
+- [x] `WorkoutCard` — description now shows in all contexts: compact month view, week view, and when activity is paired
+- [x] `MonthView` — remove `minHeight: 90px` so cells grow to fit description; grid already scrollable
+- [x] `MobileCalendarDayView` — add description block (component has its own card rendering, not using WorkoutCard)
+- [x] `TemplateCard` — add per-segment truncation (whiteSpace/overflow/textOverflow) so long descriptions don't overflow
 - [x] `WorkoutCard` — clock-format duration + distance summary (uses `workoutStats.ts` shared utils with steps fallback)
 - [x] Color token audit — 40+ hardcoded hex values replaced with CSS vars across all calendar components
 - [x] Dark theme lightened for readability; `--accent`, `--accent-subtle`, `--text-on-accent`, `--zone-default` tokens added
