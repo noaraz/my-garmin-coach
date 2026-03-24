@@ -70,8 +70,10 @@ async def connect_garmin(
             cffi_session = cffi_requests.Session(impersonate="chrome110")
             cffi_session.adapters = requests.Session().adapters
             client.sess = cffi_session
+            logger.info("Garmin login attempt %d/2 using curl_cffi chrome110 TLS fingerprint", attempt + 1)
             if settings.fixie_url:
                 client.sess.proxies = {"https": settings.fixie_url}
+                logger.info("Garmin login routing via Fixie proxy")
             client.login(email, password)
             token_json: str = client.dumps()
             break
