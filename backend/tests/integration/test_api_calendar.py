@@ -667,7 +667,6 @@ class TestActivityPairing:
         template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
-        await session.refresh(template)
 
         activity1 = await self._make_activity(session, "act-edge-001")
         activity2 = await self._make_activity(session, "act-edge-002")
@@ -680,7 +679,6 @@ class TestActivityPairing:
         )
         session.add(scheduled)
         await session.commit()
-        await session.refresh(scheduled)
 
         response = await client.post(
             f"/api/v1/calendar/{scheduled.id}/pair/{activity2.id}"
@@ -694,7 +692,6 @@ class TestActivityPairing:
         template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
-        await session.refresh(template)
 
         activity = await self._make_activity(session, "act-taken-001")
 
@@ -712,7 +709,6 @@ class TestActivityPairing:
         session.add(sw1)
         session.add(sw2)
         await session.commit()
-        await session.refresh(sw2)
 
         response = await client.post(
             f"/api/v1/calendar/{sw2.id}/pair/{activity.id}"
@@ -726,7 +722,6 @@ class TestActivityPairing:
         template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
-        await session.refresh(template)
 
         scheduled = ScheduledWorkout(
             date=date(2026, 3, 10),
@@ -736,7 +731,6 @@ class TestActivityPairing:
         )
         session.add(scheduled)
         await session.commit()
-        await session.refresh(scheduled)
 
         response = await client.post(f"/api/v1/calendar/{scheduled.id}/unpair")
         assert response.status_code == 400
@@ -849,7 +843,6 @@ class TestCalendarRangeUnplannedActivities:
         template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
-        await session.refresh(template)
 
         activity = GarminActivity(
             garmin_activity_id="paired-act-001",
@@ -867,7 +860,6 @@ class TestCalendarRangeUnplannedActivities:
         )
         session.add(activity)
         await session.commit()
-        await session.refresh(activity)
 
         sw = ScheduledWorkout(
             date=date(2026, 3, 10),

@@ -370,7 +370,7 @@ async def sync_all(
         fetch_result = await activity_fetch_service.fetch_and_store(
             adapter, session, current_user.id, str(start_date), str(end_date)
         )
-        activities_fetched = fetch_result.stored
+        activities_fetched = fetch_result.fetched
 
         activities_matched = await activity_fetch_service.match_activities(
             session, current_user.id, start_date, end_date

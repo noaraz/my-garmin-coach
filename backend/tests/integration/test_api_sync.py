@@ -623,7 +623,7 @@ class TestSyncAllActivityFetch:
         assert response1.status_code == 200
         assert response1.json()["activities_fetched"] == 1
 
-        # Second call with same activity — should not store again
+        # Second call with same activity — still fetches 1 from Garmin, but stores 0 (dedup)
         response2 = await client.post("/api/v1/sync/all")
         assert response2.status_code == 200
-        assert response2.json()["activities_fetched"] == 0
+        assert response2.json()["activities_fetched"] == 1

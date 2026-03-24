@@ -98,7 +98,6 @@ class TestMatchActivities:
         template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
         session.add(template)
         await session.commit()
-        await session.refresh(template)
         return template
 
     async def _make_activity_db(
@@ -120,7 +119,6 @@ class TestMatchActivities:
         )
         session.add(activity)
         await session.commit()
-        await session.refresh(activity)
         return activity
 
     async def test_match_activities_pairs_workout_with_activity_on_same_date(
@@ -141,7 +139,6 @@ class TestMatchActivities:
         )
         session.add(sw)
         await session.commit()
-        await session.refresh(sw)
 
         matched = await service.match_activities(
             session,
@@ -224,7 +221,6 @@ class TestMatchActivities:
         )
         session.add(sw)
         await session.commit()
-        await session.refresh(sw)
 
         await service.match_activities(
             session,

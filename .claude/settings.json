@@ -36,6 +36,11 @@
             "type": "command",
             "command": "[[ \"$PWD\" == *\".claude/worktrees/\"* ]] && [[ ! -d \"$PWD/frontend/node_modules\" ]] && npm --prefix \"$PWD/frontend\" install || true",
             "statusMessage": "Installing frontend dependencies in worktree…"
+          },
+          {
+            "type": "command",
+            "command": "[[ \"$PWD\" == *\".claude/worktrees/\"* ]] && MAIN_ROOT=$(cd \"$(git rev-parse --git-common-dir 2>/dev/null)/..\" 2>/dev/null && pwd) && [[ -n \"$MAIN_ROOT\" ]] && [[ -f \"${MAIN_ROOT}/.mcp.json.local\" ]] && [[ ! -f \"$PWD/.mcp.json.local\" ]] && cp \"${MAIN_ROOT}/.mcp.json.local\" \"$PWD/.mcp.json.local\" || true",
+            "statusMessage": "Copying .mcp.json.local into worktree…"
           }
         ]
       }
