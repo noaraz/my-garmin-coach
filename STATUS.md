@@ -1,6 +1,19 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (Reschedule fix — sync_status + mobile nav)
+Last updated: 2026-03-24 (cleanup: coverage gate, activity fetch tests, Playwright E2E)
+
+## Current Focus: Known Issues Cleanup
+
+### Cleanup Tasks
+| Task | Status |
+|------|--------|
+| Add coverage gate task to STATUS.md | ✅ |
+| Fix Ruff E402 in calendar.py + F821 in test_api_calendar.py | ✅ |
+| Backend coverage gate: write tests to reach 80%+, restore gate from 79 → 80 | ✅ |
+| Activity Fetch: integration tests (fetch/match counts, unplanned activities, pair/unpair edge cases) | ✅ |
+| Playwright E2E: install + configure + write 7 critical journey tests | ✅ |
+
+---
 
 ## Current Focus: Reschedule Fix ✅
 
@@ -52,7 +65,7 @@ Last updated: 2026-03-24 (Reschedule fix — sync_status + mobile nav)
 | Agents: dependency-auditor, e2e-test-writer, migration-validator, schema-sync, security-auditor | ✅ |
 | Skills: alembic-migration, api-contract-check, coverage-gate, env-var-audit, new-feature | ✅ |
 | Plugin: garmincoach plugin.yaml | ✅ |
-| CI: coverage gate lowered to 79% (restore to 80% — see Known Issues) | ✅ |
+| CI: coverage gate lowered to 79% (restore to 80% — see Cleanup Tasks) | ✅ |
 
 ---
 
@@ -274,7 +287,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Frontend: WorkoutCard compliance colors | ✅ |
 | Frontend: UnplannedActivityCard component | ✅ |
 | Frontend: auto-sync on mount, reschedule action | ✅ |
-| Integration tests | ⬜ |
+| Integration tests | ✅ |
 
 ---
 
@@ -408,7 +421,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 ### Integration + Polish
 | Task | Status |
 |------|--------|
-| Playwright E2E tests | ⬜ |
+| Playwright E2E tests | ✅ |
 | Error boundaries + loading states | ✅ |
 | Dockerfile.prod + docker-compose.prod.yml + render.yaml | ✅ |
 | Dark/light theme toggle (CSS vars + ThemeContext) | ✅ |
@@ -473,8 +486,6 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 - **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
 
 - **Ruff E402 in `backend/src/api/routers/calendar.py`**: `logging.getLogger(__name__)` is called on line 8, *before* all the `from sqlmodel import ...` and `from src.* import ...` statements. Ruff's E402 rule ("module-level import not at top of file") flags all 11 imports below it. Fix: move `logger = logging.getLogger(__name__)` to after the last import. This is the only file with this issue. Running `ruff check src/` or the CI lint step will show 11 E402 errors all pointing to this file. Also one `F821 Undefined name GarminActivity` in `tests/integration/test_api_calendar.py` line 571 — `GarminActivity` is used as a string annotation in a method return type but is not imported at the module level (only imported inside the method body). Fix: add `from src.db.models import GarminActivity` at the top of the test file (or use `TYPE_CHECKING` guard).
-
-- **Backend test coverage at 79% (gate set to 79%)**: CI coverage gate was introduced at 80% but current total is 79.22%. Threshold temporarily lowered to 79 to unblock CI. To restore to 80: write tests for uncovered service/API paths (check `pytest --cov=src --cov-report=term-missing` output for lowest-coverage modules). Once coverage exceeds 80%, bump `--cov-fail-under` back to 80 in `backend/pyproject.toml`.
 
 - **Backend dependency CVEs (pip-audit warnings)**: `pip-audit --local` currently reports several CVEs that are pre-existing and not caused by project code changes. Context for future sessions:
   - `urllib3 2.5.0` — CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 → fix: upgrade to `urllib3>=2.6.3` in pyproject.toml (or let `python-garminconnect` pull the latest transitively)

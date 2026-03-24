@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,7 +13,7 @@ from src.api.dependencies import get_session
 from src.api.routers.sync import _get_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.db.models import ScheduledWorkout
+from src.db.models import ScheduledWorkout, WorkoutTemplate
 
 
 # ---------------------------------------------------------------------------
@@ -527,3 +527,103 @@ class TestSyncStatus:
         response = await client.get("/api/v1/sync/status")
         assert response.status_code == 200
         assert response.json() == []
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/sync/all — Activity Fetch portion
+# ---------------------------------------------------------------------------
+
+
+class TestSyncAllActivityFetch:
+    """Tests for the activity fetch/match portion of POST /api/v1/sync/all."""
+
+    async def test_sync_all_returns_activities_fetched_and_matched(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all fetches and matches activities, populating counts in the response."""
+        # Arrange: adapter returns one running activity dated 7 days ago
+        recent_date = datetime.now(timezone.utc).date() - timedelta(days=7)
+        mock_sync_service.adapter.get_activities_by_date.return_value = [
+            {
+                "activityId": 111222333,
+                "activityType": {"typeKey": "running"},
+                "activityName": "Morning Run",
+                "startTimeLocal": f"{recent_date.isoformat()}T08:00:00",
+                "duration": 3600.0,
+                "distance": 10000.0,
+                "averageSpeed": 2.78,
+            }
+        ]
+        # Create a scheduled workout on the same date so match_activities pairs them
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+        await session.refresh(template)
+
+        sw = ScheduledWorkout(
+            date=recent_date,
+            workout_template_id=template.id,
+            user_id=1,
+            sync_status="synced",
+        )
+        session.add(sw)
+        await session.commit()
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert
+        assert response.status_code == 200
+        body = response.json()
+        assert body["activities_fetched"] == 1
+        assert body["activities_matched"] == 1
+        assert body["fetch_error"] is None
+
+    async def test_sync_all_fetch_error_is_returned_in_response(
+        self,
+        client: AsyncClient,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """When the Garmin adapter raises, sync_all returns fetch_error (best-effort, still 200)."""
+        mock_sync_service.adapter.get_activities_by_date.side_effect = RuntimeError(
+            "Garmin timeout"
+        )
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["activities_fetched"] == 0
+        assert body["activities_matched"] == 0
+        assert body["fetch_error"] is not None
+        assert "Garmin timeout" in body["fetch_error"]
+
+    async def test_sync_all_deduplicates_activities(
+        self,
+        client: AsyncClient,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Fetching the same Garmin activity twice only stores it once (dedup by garmin_activity_id)."""
+        raw_activity = {
+            "activityId": 999888777,
+            "activityType": {"typeKey": "running"},
+            "activityName": "Easy Run",
+            "startTimeLocal": "2026-03-10T07:00:00",
+            "duration": 1800.0,
+            "distance": 5000.0,
+            "averageSpeed": 2.78,
+        }
+        mock_sync_service.adapter.get_activities_by_date.return_value = [raw_activity]
+
+        # First call — stores the activity
+        response1 = await client.post("/api/v1/sync/all")
+        assert response1.status_code == 200
+        assert response1.json()["activities_fetched"] == 1
+
+        # Second call with same activity — should not store again
+        response2 = await client.post("/api/v1/sync/all")
+        assert response2.status_code == 200
+        assert response2.json()["activities_fetched"] == 0
