@@ -191,9 +191,21 @@ If the deploy hook isn't set up yet:
 
 ## 11. Update STATUS.md
 
-- Mark `Tag v1.0.0 + create GitHub Release` as ✅
-- Update `Last updated` line
-- Update `## Current Focus` to the next item
+Read `STATUS.md` and make these changes automatically:
+
+1. Find any line containing the release tag (e.g. `Tag vX.Y.Z`) and mark it ✅ if not already
+2. Add a new line under `## Released` (or the equivalent section) recording this release:
+   `- vX.Y.Z — YYYY-MM-DD — <one-line summary from release notes>`
+3. Update the `Last updated:` line to today's date
+4. Update `## Current Focus` to reflect what's next
+
+Then commit and push:
+
+```bash
+git add STATUS.md
+git commit -m "docs: mark <VERSION> released in STATUS.md"
+git push origin main
+```
 
 ---
 
