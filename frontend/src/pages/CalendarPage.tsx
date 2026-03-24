@@ -384,7 +384,20 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           activity={selectedActivity}
           template={selectedWorkout ? templates.find(t => t.id === selectedWorkout.workout_template_id) : undefined}
           onClose={handlePanelClose}
-          onReschedule={async (id, date) => { await reschedule(id, date); handlePanelClose() }}
+          onReschedule={async (id, date) => {
+            await reschedule(id, date)
+            if (isMobile) {
+              setSelectedDay(date)
+              const [y, m, d] = date.split('-').map(Number)
+              const newDate = new Date(y, m - 1, d)
+              const newWeekStart = getWeekStart(newDate)
+              const curWeekStart = getWeekStart(currentDate)
+              if (newWeekStart.getTime() !== curWeekStart.getTime()) {
+                setCurrentDate(newDate)
+              }
+            }
+            handlePanelClose()
+          }}
           onRemove={async (id) => { await remove(id); handlePanelClose() }}
           onUnpair={async (id) => { await unpair(id); handlePanelClose() }}
           onUpdateNotes={updateNotes}

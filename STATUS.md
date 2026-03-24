@@ -1,6 +1,19 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (v1.3.1 released — Calendar Sun-Sat week start)
+Last updated: 2026-03-24 (Reschedule fix — sync_status + mobile nav)
+
+## Current Focus: Reschedule Fix ✅
+
+### Reschedule Fix
+| Task | Status |
+|------|--------|
+| Backend: `reschedule()` sets `sync_status="modified"` when date changes (was "synced") | ✅ |
+| Frontend: mobile reschedule navigates day strip to new date | ✅ |
+| Backend tests: 5 cases covering date change, notes-only, same-date, pending, failed | ✅ |
+| Frontend tests: mobile reschedule navigation test | ✅ |
+| Security: pin urllib3>=2.6.3 (CVE-2026-21441) | ✅ |
+
+---
 
 ## Current Focus: Calendar Sun-Sat Week Start ✅
 

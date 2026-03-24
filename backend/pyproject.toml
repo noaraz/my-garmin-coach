@@ -21,6 +21,7 @@ dependencies = [
     "google-auth>=2.0",
     "google-genai>=1.0",
     "curl-cffi>=0.6",
+    "urllib3>=2.6.3",
 ]
 
 [project.optional-dependencies]
