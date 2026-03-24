@@ -24,6 +24,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/garmin", tags=["garmin"])
 
 
+class _ChromeTLSSession(cffi_requests.Session):
+    """curl_cffi session with requests.Session compatibility shims for garth.
+
+    garth accesses several requests.Session internals (adapters, hooks, etc.).
+    This class pre-populates them so garth's internals don't crash.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        _rs = requests.Session()
+        self.adapters = _rs.adapters
+        self.hooks = _rs.hooks
+
+
 async def _get_or_create_profile(user: User, session: AsyncSession) -> AthleteProfile:
     """Return existing AthleteProfile for user, or create one."""
     profile = (
@@ -67,9 +81,7 @@ async def connect_garmin(
             # Use curl_cffi to impersonate Chrome TLS fingerprint — bypasses
             # Akamai Bot Manager which blocks Python requests' known bot fingerprint.
             # garth accesses sess.adapters internally, so we patch it in.
-            cffi_session = cffi_requests.Session(impersonate="chrome110")
-            cffi_session.adapters = requests.Session().adapters
-            client.sess = cffi_session
+            client.sess = _ChromeTLSSession(impersonate="chrome110")
             logger.info("Garmin login attempt %d/2 using curl_cffi chrome110 TLS fingerprint", attempt + 1)
             if settings.fixie_url:
                 client.sess.proxies = {"https": settings.fixie_url}
