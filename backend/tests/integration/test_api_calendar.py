@@ -660,6 +660,81 @@ class TestActivityPairing:
         assert response.status_code == 200
         assert response.json()["completed"] is True
 
+    async def test_pair_activity_already_paired_returns_409(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Pairing a workout that is already paired returns 409."""
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+
+        activity1 = await self._make_activity(session, "act-edge-001")
+        activity2 = await self._make_activity(session, "act-edge-002")
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            matched_activity_id=activity1.id,
+        )
+        session.add(scheduled)
+        await session.commit()
+
+        response = await client.post(
+            f"/api/v1/calendar/{scheduled.id}/pair/{activity2.id}"
+        )
+        assert response.status_code == 409
+
+    async def test_pair_activity_already_paired_to_another_workout_returns_409(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Pairing an activity already linked to another workout returns 409."""
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+
+        activity = await self._make_activity(session, "act-taken-001")
+
+        sw1 = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            matched_activity_id=activity.id,
+        )
+        sw2 = ScheduledWorkout(
+            date=date(2026, 3, 11),
+            workout_template_id=template.id,
+            user_id=1,
+        )
+        session.add(sw1)
+        session.add(sw2)
+        await session.commit()
+
+        response = await client.post(
+            f"/api/v1/calendar/{sw2.id}/pair/{activity.id}"
+        )
+        assert response.status_code == 409
+
+    async def test_unpair_when_not_paired_returns_400(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Unpairing a workout that has no matched activity returns 400."""
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+
+        scheduled = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            matched_activity_id=None,
+        )
+        session.add(scheduled)
+        await session.commit()
+
+        response = await client.post(f"/api/v1/calendar/{scheduled.id}/unpair")
+        assert response.status_code == 400
+
     async def test_unpair_activity_preserves_completed_status(
         self, client: AsyncClient, session: AsyncSession
     ) -> None:
@@ -715,3 +790,88 @@ class TestActivityPairing:
         assert data["matched_activity_id"] is None
         assert data["activity"] is None
         assert data["completed"] is True  # Should NOT be reset to False
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/calendar — unplanned activities
+# ---------------------------------------------------------------------------
+
+
+class TestCalendarRangeUnplannedActivities:
+    """Tests for the unplanned_activities field in GET /api/v1/calendar."""
+
+    async def test_get_calendar_range_includes_unplanned_activities(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """GET calendar returns unpaired activities in unplanned_activities."""
+        from datetime import datetime
+
+        from src.db.models import GarminActivity
+
+        activity = GarminActivity(
+            garmin_activity_id="unplanned-001",
+            user_id=1,
+            activity_type="running",
+            name="Unplanned Run",
+            start_time=datetime(2026, 3, 10, 8, 0, 0),  # noqa: DTZ001
+            date=date(2026, 3, 10),
+            duration_sec=1800.0,
+            distance_m=5000.0,
+            avg_hr=None,
+            max_hr=None,
+            avg_pace_sec_per_km=None,
+            calories=None,
+        )
+        session.add(activity)
+        await session.commit()
+
+        response = await client.get("/api/v1/calendar?start=2026-03-08&end=2026-03-12")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["unplanned_activities"]) == 1
+        assert data["unplanned_activities"][0]["garmin_activity_id"] == "unplanned-001"
+
+    async def test_get_calendar_range_excludes_paired_activities(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """GET calendar excludes activities already paired to a workout from unplanned_activities."""
+        from datetime import datetime
+
+        from src.db.models import GarminActivity
+
+        template = WorkoutTemplate(name="Run", sport_type="running", user_id=1)
+        session.add(template)
+        await session.commit()
+
+        activity = GarminActivity(
+            garmin_activity_id="paired-act-001",
+            user_id=1,
+            activity_type="running",
+            name="Paired Run",
+            start_time=datetime(2026, 3, 10, 8, 0, 0),  # noqa: DTZ001
+            date=date(2026, 3, 10),
+            duration_sec=3600.0,
+            distance_m=10000.0,
+            avg_hr=None,
+            max_hr=None,
+            avg_pace_sec_per_km=None,
+            calories=None,
+        )
+        session.add(activity)
+        await session.commit()
+
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            workout_template_id=template.id,
+            user_id=1,
+            matched_activity_id=activity.id,
+        )
+        session.add(sw)
+        await session.commit()
+
+        response = await client.get("/api/v1/calendar?start=2026-03-08&end=2026-03-12")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["unplanned_activities"] == []

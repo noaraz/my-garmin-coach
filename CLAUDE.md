@@ -718,7 +718,7 @@ Neon free tier = 100 CU-hours/month. Every DB round-trip costs compute time. Fol
 - **Parallel independent queries.** Use `asyncio.gather()` for independent DB reads in the same request. Example: fetching HR zones + pace zones concurrently instead of sequentially. See `features/garmin-sync/CLAUDE.md` for the pattern used in `_get_zone_maps`.
 - **Never hold a session open during external API calls.** Garmin API calls take 1-2s each. Committing DB writes before starting external calls frees the connection pool. For zone-change sync, the entire Garmin sync is now a `BackgroundTask` — see `features/garmin-sync/CLAUDE.md` for the `background_sync` pattern.
 - **Never commit partial state before an external API call.** If the API fails, the committed rows become orphaned garbage. Pattern: load all needed DB data → call external API → commit everything in one transaction. Example: `send_chat_message` loads history, calls Gemini, then persists both user + assistant messages in a single commit.
-- **`session.refresh()` after commit is a wasted round-trip.** The in-memory object already reflects the committed state. Remove it.
+- **`session.refresh()` after commit is a wasted round-trip.** The in-memory object already reflects the committed state. Remove it. Exception: post-act refreshes in integration tests where the row was mutated by a service/router call externally — then `session.refresh()` is the correct way to read back the updated state. The integration test conftest sets `expire_on_commit=False`, so object `.id` is always populated after `session.commit()` without refresh.
 - **Cache-aware writes.** Any service that writes to a cached entity must call `cache.invalidate()` after commit. Cached entities: User, AthleteProfile, HRZone, PaceZone. Cache module: `backend/src/core/cache.py`.
 - **Cache as dicts, not ORM objects.** SQLAlchemy ORM objects are bound to a session — caching them causes `DetachedInstanceError` on the next request. Serialize to a plain dict before `cache.set()`, reconstruct with `Model(**dict)` on hit. See `auth/dependencies.py` (User) and `services/profile_service.py` (AthleteProfile).
 - **Don't cache on write paths.** After creating/updating, call `cache.invalidate()` — don't `cache.set()`. Let the next read populate. Bulk deletes (e.g. `reset_admins`) must call `cache.clear()` after commit.
@@ -845,6 +845,8 @@ test_type: Optional[str] = None   # "lthr" | "threshold_pace" | "max_hr"
 
 ### Playwright E2E Tests
 Full browser tests for the critical user journey: login → set zones → build workout → schedule it → sync to Garmin.
+
+**`webServer` config required**: `playwright.config.ts` must include a `webServer` block (`command: 'npm run dev'`, `url: 'http://localhost:5173'`, `reuseExistingServer: !process.env.CI`). Without it, `npx playwright test` fails with `ERR_CONNECTION_REFUSED` unless the dev server is already running manually.
 
 ---
 
