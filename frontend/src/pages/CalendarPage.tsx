@@ -393,7 +393,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               const newWeekStart = getWeekStart(newDate)
               const curWeekStart = getWeekStart(currentDate)
               if (newWeekStart.getTime() !== curWeekStart.getTime()) {
-                setCurrentDate(newDate)
+                setCurrentDate(newWeekStart)
               }
             }
             handlePanelClose()
