@@ -118,11 +118,12 @@ Track progress in **STATUS.md**.
 
 All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 
-### Fixie Proxy (production)
+### Akamai Bot Detection (updated 2026-03-24)
 - [x] Add `fixie_url` to Settings (`FIXIE_URL` env var, empty = disabled)
 - [x] Configure proxy on `garth.Client.sess.proxies` before login
 - [x] Add `FIXIE_URL` to `docker-compose.prod.yml`
-- Garmin rate-limits OAuth from Render's shared datacenter IPs (429). Fixie free tier (500 req/mo) provides a dedicated static IP for the login call only.
+- [x] Replace `requests` session with `_ChromeTLSSession(impersonate="chrome120")` — bypasses Akamai TLS fingerprint detection without any proxy
+- Garmin SSO uses Akamai Bot Manager (blocks datacenter IPs + Python requests TLS fingerprint). curl_cffi chrome120 alone is sufficient. Fixie wired as optional 429-retry fallback only.
 
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
