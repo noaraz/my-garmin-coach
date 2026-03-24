@@ -5,6 +5,7 @@ import logging
 
 import garth as garth
 import requests
+from garth.exc import GarthHTTPError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -67,9 +68,13 @@ async def connect_garmin(
             client.login(email, password)
             token_json: str = client.dumps()
             break
-        except requests.exceptions.HTTPError as exc:
+        except (requests.exceptions.HTTPError, GarthHTTPError) as exc:
             last_exc = exc
-            if exc.response is not None and exc.response.status_code == 429:
+            # GarthHTTPError wraps requests.HTTPError — get response from either
+            response = getattr(exc, "response", None)
+            if response is None:
+                response = getattr(getattr(exc, "__cause__", None), "response", None)
+            if response is not None and response.status_code == 429:
                 logger.warning("Garmin rate-limited (429), attempt %d/2", attempt + 1)
                 continue
             logger.exception("Garmin login failed: %s", exc)
