@@ -485,8 +485,6 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 
 - **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
 
-- **Ruff E402 in `backend/src/api/routers/calendar.py`**: `logging.getLogger(__name__)` is called on line 8, *before* all the `from sqlmodel import ...` and `from src.* import ...` statements. Ruff's E402 rule ("module-level import not at top of file") flags all 11 imports below it. Fix: move `logger = logging.getLogger(__name__)` to after the last import. This is the only file with this issue. Running `ruff check src/` or the CI lint step will show 11 E402 errors all pointing to this file. Also one `F821 Undefined name GarminActivity` in `tests/integration/test_api_calendar.py` line 571 — `GarminActivity` is used as a string annotation in a method return type but is not imported at the module level (only imported inside the method body). Fix: add `from src.db.models import GarminActivity` at the top of the test file (or use `TYPE_CHECKING` guard).
-
 - **Backend dependency CVEs (pip-audit warnings)**: `pip-audit --local` currently reports several CVEs that are pre-existing and not caused by project code changes. Context for future sessions:
   - `urllib3 2.5.0` — CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 → fix: upgrade to `urllib3>=2.6.3` in pyproject.toml (or let `python-garminconnect` pull the latest transitively)
   - `pyasn1 0.6.2` — CVE-2026-30922 → fix: upgrade to `pyasn1>=0.6.3`

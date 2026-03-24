@@ -41,9 +41,14 @@
 - **`start_time` must come from Garmin's `startTimeLocal`** — never use `datetime.now()`. Parse with `datetime.fromisoformat(activity["startTimeLocal"])`, strip tzinfo for DB storage
 - **`session.add(workout)` required after matching** — async SQLAlchemy doesn't always track in-place attribute changes on existing ORM objects. Without explicit `session.add()`, `workout.completed = True` and `workout.matched_activity_id = ...` may not persist
 
+## `activities_fetched` Semantics (added 2026-03-24)
+
+`SyncAllResponse.activities_fetched` = `fetch_result.fetched` (total returned by Garmin API), NOT `fetch_result.stored` (new rows written to DB). This lets the UI show "Garmin returned N activities" regardless of how many were already stored. The dedup test for the sync router must reflect this: on a second call with the same activity, `activities_fetched == 1` (still fetched from Garmin) while `stored == 0` (dedup prevented insertion).
+
 ## Testing
 - Mock `garminconnect.Garmin.get_activities_by_date` in unit tests
-- Integration tests use in-memory SQLite by default
+- Integration tests use in-memory SQLite by default — see `tests/integration/test_activity_fetch_service_integration.py`
+- `expire_on_commit=False` in the integration test conftest — `session.refresh()` after `commit()` in test setup is a wasted round-trip; object `.id` is already populated in-memory
 - Frontend: `mockResolvedValue` (not `Once`) due to StrictMode double-fire
 
 ## Workout Detail Panel (cross-reference)
