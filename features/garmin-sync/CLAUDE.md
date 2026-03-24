@@ -88,21 +88,17 @@ Not an issue on Neon PostgreSQL. Gaps of ≥1s between requests avoid it locally
 **`_get_garmin_adapter` is DI-bypassable** — it's a plain async function; call directly with
 `current_user=user, session=session` from background tasks or scripts outside FastAPI context.
 
-## Fixie Proxy for Garmin OAuth (production only)
+## Akamai / curl_cffi (updated 2026-03-24)
 
-Garmin rate-limits OAuth from datacenter IPs (429). In production, `garth.Client.login()` routes
-through a Fixie static IP proxy:
+Garmin SSO uses Akamai Bot Manager — blocks datacenter IPs AND Python `requests` TLS fingerprint.
+**Fix**: `_ChromeTLSSession(impersonate="chrome120")` in `garmin_connect.py`. No proxy needed — chrome120 bypasses Akamai alone. chrome110 does not.
 
-```python
-client = garth.Client()
-if settings.fixie_url:
-    client.sess.proxies = {"https": settings.fixie_url}
-client.login(email, password)
-```
+**Retry flow**: attempt 1 = chrome120 no proxy; attempt 2 (on 429) = chrome120 + Fixie proxy.
 
-- `FIXIE_URL` env var: set in Render, empty in dev (no proxy)
-- Only affects login — sync uses stored tokens (no proxy needed)
-- TLS end-to-end: credentials are encrypted in transit, Fixie only sees hostnames
+- `curl_cffi.requests.Session` lacks `adapters` and `hooks` that garth needs — subclass pre-populates both. Never replace `client.sess` with a bare curl_cffi session.
+- `FIXIE_URL` wired as optional fallback — only consumed on 429 retry, saves proxy quota.
+- Only login is affected — sync uses stored OAuth tokens, never touches SSO.
+- **Re-diagnose with `test_garmin_login.py`** (repo root) if 429s return — Akamai periodically updates fingerprint detection.
 
 ## Bidirectional Sync
 
