@@ -52,6 +52,7 @@ Replaces TrainingPeaks for self-coached athletes.
 - One behavior per test, Arrange-Act-Assert
 - `@pytest.mark.parametrize` for variations
 - Coverage: 95% pure core, 80% services/API
+- **Class-based async tests**: `asyncio_mode = "auto"` covers `class TestFoo: async def test_...` — no `@pytest.mark.asyncio` needed. After removing decorators, also remove `import pytest` (ruff F401 will flag it as unused).
 
 ### Git
 - Conventional commits: `test:`, `feat:`, `fix:`, `refactor:`
