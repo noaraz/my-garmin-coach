@@ -14,7 +14,7 @@ const renderPage = (props: { initialDate?: Date } = {}) =>
     </MemoryRouter>
   )
 
-const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates, mockGetGarminStatus, mockGetActivePlan, mockNavigate } = vi.hoisted(() => {
+const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates, mockGetGarminStatus, mockGetActivePlan, mockNavigate, mockReschedule, mockUseIsMobile } = vi.hoisted(() => {
   const defaultTemplates = [
     { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
     { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
@@ -27,6 +27,8 @@ const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates, mockGetGar
     mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: false }),
     mockGetActivePlan: vi.fn().mockResolvedValue(null),
     mockNavigate: vi.fn(),
+    mockReschedule: vi.fn(),
+    mockUseIsMobile: vi.fn().mockReturnValue(false),
   }
 })
 
@@ -43,7 +45,10 @@ vi.mock('../hooks/useCalendar', () => ({
     loading: false,
     error: null,
     schedule: mockSchedule,
+    reschedule: mockReschedule,
     remove: vi.fn(),
+    unpair: vi.fn(),
+    updateNotes: vi.fn(),
     syncAllWorkouts: mockSyncAll,
     loadRange: mockLoadRange,
   }),
@@ -64,6 +69,10 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../hooks/useIsMobile', () => ({
+  useIsMobile: () => mockUseIsMobile(),
+}))
+
 beforeEach(() => {
   mockSchedule.mockReset()
   mockSyncAll.mockReset()
@@ -78,6 +87,10 @@ beforeEach(() => {
   mockGetActivePlan.mockReset()
   mockGetActivePlan.mockResolvedValue(null)
   mockNavigate.mockReset()
+  mockReschedule.mockReset()
+  mockReschedule.mockResolvedValue(undefined)
+  mockUseIsMobile.mockReset()
+  mockUseIsMobile.mockReturnValue(false)
 })
 
 describe('test_week_view_7_days', () => {
@@ -265,5 +278,26 @@ describe('test_garmin_toolbar_button', () => {
     const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
     await user.click(btn)
     expect(mockNavigate).toHaveBeenCalledWith('/settings')
+  })
+})
+
+describe('test_mobile_reschedule_navigates_to_new_date', () => {
+  it('mobile: after reschedule, day strip selects the new date', async () => {
+    // Arrange — mobile view, week March 8–14 (Sun-Sat), selectedDay starts on March 9 (Mon)
+    mockUseIsMobile.mockReturnValue(true)
+    mockReschedule.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderPage({ initialDate: new Date(2026, 2, 9) }) // local midnight
+
+    // The mobile strip shows days for the week; workout 1 is on 2026-03-09
+    const card = await screen.findByTestId('mobile-workout-card-1')
+    await user.click(card)
+
+    // Panel opens — find the date input inside the detail panel
+    const dateInput = await screen.findByDisplayValue('2026-03-09')
+    fireEvent.change(dateInput, { target: { value: '2026-03-12' } })
+
+    // Wait for async reschedule + state update
+    await screen.findByRole('button', { name: 'Select 2026-03-12', pressed: true })
   })
 })

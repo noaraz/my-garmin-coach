@@ -184,8 +184,10 @@ class CalendarService:
         if scheduled is None or scheduled.user_id != user_id:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
 
-        if new_date is not None:
+        if new_date is not None and new_date != scheduled.date:
             scheduled.date = new_date
+            if scheduled.sync_status == "synced":
+                scheduled.sync_status = "modified"
         if notes is not None:
             scheduled.notes = notes
         scheduled.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
