@@ -1,6 +1,22 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (Released v1.2.0 — workout descriptions, mobile UX, zone auto-recalc, Claude automation suite)
+Last updated: 2026-03-24 (fix/garmin-akamai-curl-cffi — bypass Akamai Bot Manager on Garmin SSO)
+
+## Current Focus: Garmin SSO — Akamai Fix 🔄
+
+### Garmin SSO Akamai Bot Detection
+| Task | Status |
+|------|--------|
+| Diagnose 429 on Garmin login — Akamai blocks Python requests TLS fingerprint | ✅ |
+| Confirm Fixie proxy routes correctly (CONNECT logs in Fixie dashboard) | ✅ |
+| Compare login approaches via test_garmin_login.py | ✅ |
+| Implement `_ChromeTLSSession(impersonate="chrome120")` — no proxy needed | ✅ |
+| Retry flow: attempt 1 no proxy, attempt 2 Fixie fallback on 429 | ✅ |
+| Add meaningful logs to Garmin connect flow | ✅ |
+| Update all CLAUDE.md / PLAN.md / STATUS.md docs | ✅ |
+| PR #56 open — awaiting Render preview confirmation | 🔄 |
+
+---
 
 ## Current Focus: Claude Code Automation Suite ✅
 

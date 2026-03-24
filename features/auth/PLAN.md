@@ -127,7 +127,7 @@ encrypted = cipher.encrypt(token_json.encode())
 | `GARMINCOACH_SECRET_KEY` | Garmin token encryption master key |
 | `BOOTSTRAP_SECRET` | Admin bootstrap endpoint token |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `FIXIE_URL` | Fixie proxy URL for Garmin OAuth (production only, avoids 429 rate limits) |
+| `FIXIE_URL` | Fixie proxy URL — optional fallback only; curl_cffi chrome120 TLS fingerprint handles Akamai without it |
 
 ---
 

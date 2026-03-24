@@ -52,7 +52,7 @@ Release process in **RELEASING.md** — versioning, GitHub tags, Render deploy w
 └────────────────────┬────────────────────────────────┘
                      │ python-garminconnect (via garth)
                      │ ← → bidirectional sync
-                     │ Fixie proxy (OAuth only)
+                     │ curl_cffi chrome120 TLS fingerprint (OAuth only)
                      ▼
               Garmin Connect → Garmin Watch
 ```
@@ -69,7 +69,7 @@ Release process in **RELEASING.md** — versioning, GitHub tags, Render deploy w
 | Auth       | Google OAuth + python-jose (JWT) + Fernet (token encryption) |
 | Testing    | pytest + Vitest + React Testing Library      |
 | Infra      | Docker Compose (dev + prod) → Render (free)  |
-| Proxy      | Fixie (static IP for Garmin OAuth in prod)   |
+| Proxy      | curl_cffi chrome120 TLS (Garmin OAuth); Fixie optional fallback |
 | Cache      | In-memory TTL cache (User, Profile, Zones)   |
 
 ---
@@ -93,7 +93,7 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | — | DB Migrations (Alembic) | `features/infrastructure/` | auth | ✅ |
 | — | Google OAuth | `features/auth/` | auth | ✅ |
 | — | Neon PostgreSQL | `features/infrastructure/` | — | ✅ |
-| — | Fixie Proxy | `features/infrastructure/` | — | ✅ |
+| — | Fixie Proxy → curl_cffi chrome120 | `features/infrastructure/` | — | ✅ |
 | — | Neon Query Optimization | — | neon-postgresql | ✅ |
 | 9 | Activity Fetch | `features/garmin-activity-fetch/` | garmin-sync, calendar | ✅ |
 | 10 | Workout Detail Panel | `features/calendar/` | calendar, garmin-activity-fetch | ✅ |
