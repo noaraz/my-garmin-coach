@@ -100,6 +100,18 @@ describe('test_month_view_correct_days', () => {
   })
 })
 
+describe('test_month_view_header_sun_sat', () => {
+  it('month view → first header is Sun, last is Sat', async () => {
+    const user = userEvent.setup()
+    renderPage({ initialDate: new Date(2026, 2, 1) }) // local midnight, avoids UTC shift
+    const monthBtn = screen.getByRole('button', { name: /month/i })
+    await user.click(monthBtn)
+    const headers = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
+    expect(headers[0]).toHaveTextContent('Sun')
+    expect(headers[6]).toHaveTextContent('Sat')
+  })
+})
+
 describe('test_workouts_on_dates', () => {
   it('3 workouts → 3 cards', () => {
     renderPage({ initialDate: new Date('2026-03-09') })

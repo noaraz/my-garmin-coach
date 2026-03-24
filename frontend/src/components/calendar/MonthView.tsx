@@ -19,8 +19,8 @@ interface MonthViewProps {
 export function MonthView({ currentDate, workouts, templates, unplannedActivities, onAddWorkout, onRemove, onWorkoutClick, onActivityClick, activePlanName }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
   const getTemplate = (workout: ScheduledWorkoutWithActivity) =>
@@ -36,7 +36,7 @@ export function MonthView({ currentDate, workouts, templates, unplannedActivitie
     <div data-testid="month-grid" style={{ flex: 1, overflow: 'auto', background: 'var(--bg-main)' }}>
       {/* Weekday headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} style={{
             padding: '8px 4px',
             fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
