@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ScheduledWorkoutWithActivity, WorkoutTemplate, SyncStatus, GarminActivity } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
+import { generateDescriptionFromSteps } from '../../utils/generateDescription'
 import { computeCompliance } from '../../utils/compliance'
 
 interface WorkoutCardProps {
@@ -60,6 +61,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
   const hasDuration = durationSec != null && durationSec > 0
   const hasDistance = distanceM != null && distanceM > 0
+  const description = generateDescriptionFromSteps(template?.steps)
 
   const complianceColor = getComplianceStripeColor(template, workout.activity, durationSec, distanceM)
   const stripeColor = complianceColor ?? zoneStripeColor(template?.sport_type)
@@ -138,7 +140,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
           }}>
             {hasDuration && (
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: compact ? '9px' : '13px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
@@ -149,7 +151,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
             )}
             {hasDistance && (
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: compact ? '9px' : '12px',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
@@ -170,7 +172,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
             marginTop: '3px',
           }}>
             <span style={{
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: 'var(--font-family-mono)',
               fontSize: '10px',
               fontWeight: 600,
               color: complianceColor ?? 'var(--text-muted)',
@@ -179,7 +181,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
               {formatClock(workout.activity.duration_sec)}
             </span>
             <span style={{
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: 'var(--font-family-mono)',
               fontSize: '10px',
               color: 'var(--text-muted)',
               lineHeight: 1,
@@ -188,7 +190,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
             </span>
             {workout.activity.avg_hr != null && (
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: '10px',
                 color: 'var(--text-muted)',
                 lineHeight: 1,
@@ -199,13 +201,13 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
           </div>
         )}
 
-        {/* Description — one row per comma-segment, always shown when template has description */}
+        {/* Description — one row per comma-segment; falls back to steps-computed description */}
         {/* NOTE: MobileCalendarDayView renders its own card — keep description display in sync */}
-        {template?.description && (
+        {description && (
           <div style={{ marginTop: compact ? '2px' : '5px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
-            {template.description.split(',').map((seg, i) => (
+            {description.split(',').map((seg, i) => (
               <span key={i} style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: 'var(--font-family-mono)',
                 fontSize: compact ? '9px' : '10px',
                 color: 'var(--text-secondary)',
                 lineHeight: compact ? 1.3 : 1.4,
