@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (v1.3.0 released — Akamai bot-detection fix for Garmin SSO)
+Last updated: 2026-03-24 (v1.3.1 released — Calendar Sun-Sat week start)
+
+## Current Focus: Calendar Sun-Sat Week Start ✅
+
+### Calendar Month View Sun-Sat
+| Task | Status |
+|------|--------|
+| Change month view week start from Monday to Sunday | ✅ |
+| Update calendar tests for Sun-Sat layout | ✅ |
+| PR #58 merged — v1.3.1 released | ✅ |
+
+---
 
 ## Current Focus: Garmin SSO — Akamai Fix ✅
 
