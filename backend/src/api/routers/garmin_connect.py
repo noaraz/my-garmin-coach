@@ -27,8 +27,9 @@ router = APIRouter(prefix="/api/v1/garmin", tags=["garmin"])
 class _ChromeTLSSession(cffi_requests.Session):
     """curl_cffi session with requests.Session compatibility shims for garth.
 
-    garth accesses several requests.Session internals (adapters, hooks, etc.).
-    This class pre-populates them so garth's internals don't crash.
+    Garmin SSO uses Akamai Bot Manager which blocks Python requests' TLS fingerprint.
+    Chrome 120 impersonation bypasses it — no proxy needed (confirmed via test_garmin_login.py).
+    garth accesses requests.Session internals (adapters, hooks) so we pre-populate them.
     """
 
     def __init__(self, *args: object, **kwargs: object) -> None:
@@ -81,8 +82,8 @@ async def connect_garmin(
             # Use curl_cffi to impersonate Chrome TLS fingerprint — bypasses
             # Akamai Bot Manager which blocks Python requests' known bot fingerprint.
             # garth accesses sess.adapters internally, so we patch it in.
-            client.sess = _ChromeTLSSession(impersonate="chrome110")
-            logger.info("Garmin login attempt %d/2 using curl_cffi chrome110 TLS fingerprint", attempt + 1)
+            client.sess = _ChromeTLSSession(impersonate="chrome120")
+            logger.info("Garmin login attempt %d/2 using curl_cffi chrome120 TLS fingerprint", attempt + 1)
             if settings.fixie_url:
                 client.sess.proxies = {"https": settings.fixie_url}
                 logger.info("Garmin login routing via Fixie proxy")
