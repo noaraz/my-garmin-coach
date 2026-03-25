@@ -651,22 +651,28 @@ Garmin's own calendar shows BOTH the scheduled planned workout AND the completed
 
 ---
 
-## Garmin SSO — Akamai Bot Detection (updated 2026-03-24)
+## Garmin SSO & API — Akamai Bot Detection (updated 2026-03-25)
 
-Garmin's `sso.garmin.com` uses **Akamai Bot Manager** which blocks two things independently:
+Garmin uses **Akamai Bot Manager** which blocks two things independently:
 - **Datacenter IPs** — Render's shared IPs get 429 (Fixie proxy was original workaround)
 - **Python `requests` TLS fingerprint** — Akamai fingerprints the TLS handshake regardless of IP
 
-**Current fix**: `_ChromeTLSSession(impersonate="chrome120")` in `garmin_connect.py` — subclass of `curl_cffi.requests.Session`. **No proxy needed** — chrome120 alone bypasses Akamai. chrome110 does not (blocked).
+Akamai blocks BOTH SSO login (`sso.garmin.com`) AND OAuth token exchange (`connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0`). The token exchange happens automatically on every API call (sync, activity fetch, workout push) via garth.
 
-**Retry flow**:
+**Current fix**: `ChromeTLSSession(impersonate="chrome120")` in `backend/src/garmin/client_factory.py` — single source of truth for all Garmin client creation. **No proxy needed** — chrome120 alone bypasses Akamai. chrome110 does not (blocked).
+
+**Factory functions** (both inject `ChromeTLSSession`):
+- `create_login_client(proxy_url=None)` → `garth.Client` — used by `garmin_connect.py` for SSO login
+- `create_api_client(token_json)` → `GarminAdapter` — used by `sync.py` for all API calls
+
+**Retry flow** (login only):
 1. Attempt 1: chrome120 TLS, no proxy
 2. Attempt 2 (on 429): chrome120 TLS + Fixie proxy — fallback if Akamai updates IP detection
 
-**`_ChromeTLSSession` shim** — `curl_cffi.requests.Session` is not a drop-in for `requests.Session`. garth accesses `sess.adapters` and `sess.hooks` internally. The subclass pre-populates both. Never patch attributes one-by-one (fragile — more attributes may break on garth version changes).
+**`ChromeTLSSession` shim** — `curl_cffi.requests.Session` is not a drop-in for `requests.Session`. garth accesses `sess.adapters` and `sess.hooks` internally. The subclass pre-populates both. Never patch attributes one-by-one (fragile — more attributes may break on garth version changes).
 
 ```python
-class _ChromeTLSSession(cffi_requests.Session):
+class ChromeTLSSession(cffi_requests.Session):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _rs = requests.Session()
@@ -676,7 +682,6 @@ class _ChromeTLSSession(cffi_requests.Session):
 
 - `curl-cffi>=0.6` in `backend/pyproject.toml`
 - `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on 429 retry
-- Only login is affected — sync uses stored OAuth tokens, never touches SSO
 - **Re-test with `test_garmin_login.py`** (repo root) if 429s return — runs 4 approaches side-by-side to isolate IP vs TLS issues when Akamai updates detection
 
 ---

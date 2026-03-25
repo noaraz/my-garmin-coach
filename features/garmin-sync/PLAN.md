@@ -125,6 +125,12 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] Replace `requests` session with `_ChromeTLSSession(impersonate="chrome120")` — bypasses Akamai TLS fingerprint detection without any proxy
 - Garmin SSO uses Akamai Bot Manager (blocks datacenter IPs + Python requests TLS fingerprint). curl_cffi chrome120 alone is sufficient. Fixie wired as optional 429-retry fallback only.
 
+### Chrome TLS Facade — API 429 Fix (2026-03-25)
+- [x] Extract `ChromeTLSSession` to `backend/src/garmin/client_factory.py`
+- [x] `create_login_client()` for SSO login (replaces inline `_ChromeTLSSession` in `garmin_connect.py`)
+- [x] `create_api_client(token_json)` for API calls (replaces bare `garminconnect.Garmin()` in `sync.py`)
+- [x] TDD tests in `tests/unit/test_garmin_client_factory.py`
+
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
 - [x] Zone/profile endpoints (`PUT /zones/hr`, `POST /zones/hr/recalculate`, `POST /zones/pace/recalculate`, `PUT /profile`) use `background_tasks.add_task(background_sync, ...)` — response returns in <100ms

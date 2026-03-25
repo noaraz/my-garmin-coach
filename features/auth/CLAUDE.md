@@ -38,7 +38,7 @@ async def get_current_user(
 1. User clicks "Connect Garmin" in Settings
 2. Frontend shows email/password form (over HTTPS)
 3. POST /api/garmin/connect { email, password }
-4. Backend: garth.login(email, password)
+4. Backend: create_login_client() → client.login(email, password)  [client_factory.py]
 5. Backend: encrypt tokens with user's Fernet key
 6. Backend: store encrypted tokens in DB
 7. Backend: discard email + password from memory
@@ -55,7 +55,7 @@ async def get_current_user(
 - [ ] .env NOT in git
 - [ ] Database NOT publicly accessible
 - [ ] Registration is invite-only
-- [ ] `FIXIE_URL` in Render optional — only needed as fallback if Akamai blocks chrome120 TLS fingerprint (see garmin-sync/CLAUDE.md)
+- [ ] `FIXIE_URL` in Render optional — only needed as fallback if Akamai blocks chrome120 TLS fingerprint (see `backend/src/garmin/client_factory.py` + garmin-sync/CLAUDE.md)
 
 ## Gotchas & Patterns (added 2026-03-09)
 

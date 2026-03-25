@@ -95,9 +95,9 @@ class TestConnectGarmin:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
@@ -120,9 +120,9 @@ class TestConnectGarmin:
         mock_garth_client = MagicMock()
         mock_garth_client.login.side_effect = Exception("Bad credentials")
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.return_value = mock_garth_client
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act / Assert
@@ -155,10 +155,10 @@ class TestConnectGarmin:
         mock_garth_client_ok = MagicMock()
         mock_garth_client_ok.dumps.return_value = '{"oauth_token": "tok"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep:
-            mock_garth.Client.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
+            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
@@ -184,10 +184,10 @@ class TestConnectGarmin:
         mock_garth_client = MagicMock()
         mock_garth_client.login.side_effect = http_429
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep"):
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.return_value = mock_garth_client
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             with pytest.raises(HTTPException) as exc_info:
@@ -215,9 +215,9 @@ class TestConnectGarmin:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "garmin_tok"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
@@ -234,7 +234,6 @@ class TestConnectGarmin:
         # Token should not be stored as plaintext
         assert "garmin_tok" not in profile.garmin_oauth_token_encrypted
 
-
     async def test_connect_sets_proxy_on_retry_when_fixie_url_configured(self) -> None:
         # New retry flow: attempt 1 = no proxy, attempt 2 (on 429) = proxy.
         # Simulate 429 on first attempt to trigger the proxy fallback.
@@ -250,30 +249,25 @@ class TestConnectGarmin:
         mock_429_response.status_code = 429
         http_429 = requests.exceptions.HTTPError(response=mock_429_response)
 
-        mock_garth_client = MagicMock()
-        # First call raises 429; second call succeeds
-        mock_garth_client.login.side_effect = [http_429, None]
-        mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
+        mock_garth_client_fail = MagicMock()
+        mock_garth_client_fail.login.side_effect = http_429
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        mock_garth_client_ok = MagicMock()
+        mock_garth_client_ok.dumps.return_value = '{"oauth_token": "tok"}'
+
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
-             patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock), \
-             patch("src.api.routers.garmin_connect._ChromeTLSSession") as mock_tls_cls:
-            # Return a fresh MagicMock each call so we can check proxies per attempt
-            sess1 = MagicMock()
-            sess2 = MagicMock()
-            mock_tls_cls.side_effect = [sess1, sess2]
-            mock_garth.Client.return_value = mock_garth_client
+             patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock):
+            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
 
-        # Attempt 1: no proxy set on sess1 — check the underlying dict, not attribute access
-        # (MagicMock auto-creates attributes so hasattr is always True)
-        assert "proxies" not in sess1.__dict__
-        # Attempt 2 (retry after 429): proxy set on sess2
-        assert sess2.proxies == {"https": "http://token@proxy.fixie.io:1234"}
+        # Verify create_login_client was called with proxy_url on retry
+        assert mock_factory.call_count == 2
+        assert mock_factory.call_args_list[0] == ((), {"proxy_url": None})
+        assert mock_factory.call_args_list[1] == ((), {"proxy_url": "http://token@proxy.fixie.io:1234"})
 
     async def test_connect_does_not_set_proxy_when_fixie_url_empty(self) -> None:
         # Arrange
@@ -287,16 +281,16 @@ class TestConnectGarmin:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.fixie_url = ""
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
 
-        # Assert proxies were never assigned
-        assert mock_garth_client.sess.proxies != {"https": ""}
+        # Assert create_login_client was called with no proxy
+        mock_factory.assert_called_once_with(proxy_url=None)
 
     async def test_connect_raises_503_on_proxy_error(self) -> None:
         # Arrange — attempt 1 gets 429 (triggers retry), attempt 2 proxy is unreachable.
@@ -309,17 +303,16 @@ class TestConnectGarmin:
         mock_429_response.status_code = 429
         http_429 = requests.exceptions.HTTPError(response=mock_429_response)
 
-        mock_garth_client = MagicMock()
-        # Attempt 1: 429 to trigger the retry; attempt 2: proxy unreachable
-        mock_garth_client.login.side_effect = [
-            http_429,
-            cffi_requests.exceptions.ProxyError("proxy down"),
-        ]
+        mock_garth_client_fail = MagicMock()
+        mock_garth_client_fail.login.side_effect = http_429
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth, \
+        mock_garth_client_proxy_fail = MagicMock()
+        mock_garth_client_proxy_fail.login.side_effect = cffi_requests.exceptions.ProxyError("proxy down")
+
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep"):
-            mock_garth.Client.return_value = mock_garth_client
+            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_proxy_fail]
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 
             with pytest.raises(HTTPException) as exc_info:

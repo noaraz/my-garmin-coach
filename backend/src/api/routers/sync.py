@@ -6,7 +6,6 @@ import logging
 from datetime import date, datetime, timezone
 from typing import Any
 
-import garminconnect
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import select
@@ -18,6 +17,7 @@ from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
 from src.garmin.adapter import GarminAdapter
+from src.garmin.client_factory import create_api_client
 from src.garmin.encryption import decrypt_token
 from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
@@ -72,11 +72,7 @@ async def _get_garmin_adapter(
         profile.garmin_oauth_token_encrypted,
     )
 
-    # Restore the garth session from the stored token and inject into garminconnect
-    garmin_client = garminconnect.Garmin()
-    garmin_client.garth.loads(token_json)
-
-    return GarminAdapter(garmin_client)
+    return create_api_client(token_json)
 
 
 async def _get_garmin_sync_service(
