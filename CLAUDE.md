@@ -680,7 +680,9 @@ class ChromeTLSSession(cffi_requests.Session):
         self.hooks = _rs.hooks
 ```
 
-- `curl-cffi>=0.6` in `backend/pyproject.toml`
+**Token exchange gotcha (fixed 2026-03-25)**: Setting `client.garth.sess = ChromeTLSSession(...)` only covers regular API calls (`client.request()`). When the OAuth2 token expires, garth calls `refresh_oauth2()` → `sso.exchange()` which creates a `GarminOAuth1Session(OAuth1Session → requests.Session)` — this bypasses `ChromeTLSSession` entirely and uses Python's native TLS fingerprint, which Akamai blocks with 429. **Fix**: `create_api_client()` monkey-patches `refresh_oauth2` on the garth Client to use `_chrome_tls_exchange()` — signs with `requests_oauthlib.OAuth1` (for the OAuth1 Authorization header) then sends through a fresh `ChromeTLSSession` (for chrome120 TLS).
+
+- `curl-cffi>=0.6` and `requests-oauthlib` in `backend/pyproject.toml`
 - `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on 429 retry
 - **Re-test with `test_garmin_login.py`** (repo root) if 429s return — runs 4 approaches side-by-side to isolate IP vs TLS issues when Akamai updates detection
 

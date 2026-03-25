@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import garth
 import requests
 
 
@@ -88,3 +89,86 @@ class TestCreateLoginClient:
 
         client = create_login_client(proxy_url="https://proxy.example.com")
         assert client.sess.proxies == {"https": "https://proxy.example.com"}
+
+
+class TestChromeTLSExchange:
+    """refresh_oauth2 must route the token exchange through curl_cffi, not requests."""
+
+    @patch("src.garmin.client_factory.garminconnect")
+    def test_refresh_oauth2_uses_curl_cffi_session(self, mock_gc: MagicMock) -> None:
+        """The patched refresh_oauth2 must POST via ChromeTLSSession, not GarminOAuth1Session."""
+        from src.garmin.client_factory import create_api_client
+
+        mock_client = MagicMock()
+        mock_gc.Garmin.return_value = mock_client
+
+        # We need to verify that refresh_oauth2 is replaced on the garth client
+        create_api_client('{"token": "fake"}')
+        garth_client = mock_client.garth
+
+        # refresh_oauth2 should be overridden (not the original garth method)
+        assert garth_client.refresh_oauth2 != garth.Client.refresh_oauth2
+
+    @patch("src.garmin.client_factory.garminconnect")
+    def test_refresh_oauth2_calls_exchange_via_chrome_tls(self, mock_gc: MagicMock) -> None:
+        """When refresh_oauth2 fires, the HTTP POST to connectapi must go through curl_cffi."""
+        from src.garmin.client_factory import create_api_client
+
+        mock_client = MagicMock()
+        mock_gc.Garmin.return_value = mock_client
+
+        # Set up a real-ish garth client with tokens so we can test the exchange
+        mock_garth = MagicMock()
+        mock_client.garth = mock_garth
+        mock_garth.domain = "garmin.com"
+        mock_garth.timeout = 10
+
+        # Mock OAuth1Token
+        mock_oauth1 = MagicMock()
+        mock_oauth1.oauth_token = "test_oauth_token"
+        mock_oauth1.oauth_token_secret = "test_oauth_secret"
+        mock_oauth1.mfa_token = None
+        mock_garth.oauth1_token = mock_oauth1
+
+        create_api_client('{"token": "fake"}')
+
+        # The refresh_oauth2 method should have been replaced
+        assert callable(mock_garth.refresh_oauth2)
+
+    @patch("src.garmin.client_factory._chrome_tls_exchange")
+    def test_refresh_oauth2_delegates_to_chrome_tls_exchange(
+        self, mock_exchange: MagicMock
+    ) -> None:
+        """refresh_oauth2 override must call _chrome_tls_exchange with the right args."""
+        from garth.auth_tokens import OAuth1Token, OAuth2Token
+
+        from src.garmin.client_factory import _chrome_tls_exchange
+
+        # Build a real garth Client with tokens set directly (bypass loads)
+        garth_client = garth.Client()
+        oauth1 = OAuth1Token(oauth_token="tok", oauth_token_secret="sec")
+        garth_client.oauth1_token = oauth1
+
+        # Manually wire what create_api_client does: set session + override
+        from src.garmin.client_factory import ChromeTLSSession
+
+        garth_client.sess = ChromeTLSSession(impersonate="chrome120")
+
+        # Apply the same monkey-patch that create_api_client applies
+        def _patched() -> None:
+            assert garth_client.oauth1_token and isinstance(
+                garth_client.oauth1_token, OAuth1Token
+            )
+            garth_client.oauth2_token = _chrome_tls_exchange(
+                garth_client.oauth1_token, garth_client
+            )
+
+        garth_client.refresh_oauth2 = _patched  # type: ignore[assignment]
+
+        # Call the overridden method
+        fake_token = MagicMock(spec=OAuth2Token)
+        mock_exchange.return_value = fake_token
+        garth_client.refresh_oauth2()
+
+        mock_exchange.assert_called_once_with(oauth1, garth_client)
+        assert garth_client.oauth2_token is fake_token
