@@ -16,7 +16,7 @@ from src.auth.models import User
 from src.auth.schemas import GarminConnectRequest, GarminStatusResponse
 from src.core.config import get_settings
 from src.db.models import AthleteProfile
-from src.garmin.client_factory import create_login_client
+from src.garmin.client_factory import CHROME_VERSION, create_login_client
 from src.garmin.encryption import encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -71,13 +71,15 @@ async def connect_garmin(
             )
             if use_proxy:
                 logger.info(
-                    "Garmin login attempt %d/2: chrome120 TLS + Fixie proxy (429 retry)",
+                    "Garmin login attempt %d/2: %s TLS + Fixie proxy (429 retry)",
                     attempt + 1,
+                    CHROME_VERSION,
                 )
             else:
                 logger.info(
-                    "Garmin login attempt %d/2: chrome120 TLS, no proxy",
+                    "Garmin login attempt %d/2: %s TLS, no proxy",
                     attempt + 1,
+                    CHROME_VERSION,
                 )
             client.login(email, password)
             token_json: str = client.dumps()
