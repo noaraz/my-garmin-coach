@@ -25,8 +25,8 @@ class TestGarminConnect:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok123"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth:
-            mock_garth.Client.return_value = mock_garth_client
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory:
+            mock_factory.return_value = mock_garth_client
 
             # Act
             resp = await client.post(
@@ -46,8 +46,8 @@ class TestGarminConnect:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok123"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth:
-            mock_garth.Client.return_value = mock_garth_client
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory:
+            mock_factory.return_value = mock_garth_client
 
             # Act
             resp = await client.post(
@@ -81,8 +81,8 @@ class TestGarminConnect:
         mock_garth_client = MagicMock()
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth:
-            mock_garth.Client.return_value = mock_garth_client
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory:
+            mock_factory.return_value = mock_garth_client
 
             # Act
             resp = await client.post(
@@ -109,8 +109,8 @@ class TestGarminConnect:
         mock_garth_client = MagicMock()
         mock_garth_client.login.side_effect = Exception("Bad credentials")
 
-        with patch("src.api.routers.garmin_connect.garth") as mock_garth:
-            mock_garth.Client.return_value = mock_garth_client
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory:
+            mock_factory.return_value = mock_garth_client
 
             # Act
             resp = await client.post(
