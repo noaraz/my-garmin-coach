@@ -60,7 +60,8 @@ jobs:
           # CVE-2024-23342: ecdsa timing attack — no fix version exists.
           # ecdsa is a transitive dep of python-jose but we use the
           # python-jose[cryptography] backend so ecdsa is never invoked.
-          pip-audit --ignore-vuln CVE-2024-23342
+          # CVE-2026-4539: pygments — transitive dep, no fix version available yet.
+          pip-audit --local --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539
 
       - name: Frontend dependency audit
         working-directory: frontend
