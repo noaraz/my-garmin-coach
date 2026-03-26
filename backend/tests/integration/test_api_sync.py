@@ -28,6 +28,8 @@ def mock_sync_service_fixture() -> MagicMock:
     svc.push_workout = AsyncMock(return_value="garmin-abc-123")
     svc.sync_workout = AsyncMock(return_value="garmin-abc-123")
     svc.schedule_workout.return_value = None
+    # adapter.get_workouts returns empty by default — tests that need dedup override this
+    svc.adapter.get_workouts.return_value = []
     return svc
 
 
@@ -179,13 +181,18 @@ class TestSyncSingle:
         body = response.json()
         assert body["garmin_workout_id"] == "new-garmin-id"
 
-    async def test_sync_single_resync_continues_when_delete_fails(
+    async def test_sync_single_resync_skips_push_when_delete_fails(
         self,
         client: AsyncClient,
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """Re-sync still creates the new workout even if deleting the old one fails."""
+        """Re-sync skips push and marks failed when deleting the old workout fails.
+
+        This prevents orphaned duplicates on Garmin: if we can't delete the old
+        workout, pushing a new one would leave two copies on Garmin with no way
+        to clean up the old one.
+        """
         # Arrange
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="stale-id"
@@ -196,11 +203,35 @@ class TestSyncSingle:
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
 
-        # Assert — sync still succeeds despite delete failure
+        # Assert — push skipped, status failed, old garmin_workout_id retained
         assert response.status_code == 200
         body = response.json()
+        assert body["sync_status"] == "failed"
+        assert body["garmin_workout_id"] == "stale-id"
+        mock_sync_service.sync_workout.assert_not_called()
+
+    async def test_sync_single_resync_clears_id_only_on_successful_delete(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """garmin_workout_id is only cleared after a successful Garmin delete."""
+        # Arrange
+        sw = await _make_scheduled_workout(
+            session, sync_status="modified", garmin_workout_id="old-garmin-id"
+        )
+        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+
+        # Act
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        # Assert — old deleted, new pushed, ID updated
+        assert response.status_code == 200
+        body = response.json()
+        assert body["garmin_workout_id"] == "new-garmin-id"
         assert body["sync_status"] == "synced"
-        assert body["garmin_workout_id"] == "fresh-garmin-id"
+        mock_sync_service.delete_workout.assert_called_once_with("old-garmin-id")
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +498,107 @@ class TestSyncAll:
         assert sw1.garmin_workout_id == "garmin-fail"
         # sw2 succeeded → ID cleared
         assert sw2.garmin_workout_id is None
+
+    async def test_sync_all_links_existing_garmin_workout_before_push(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all deduplicates: if a Garmin workout matches by name, delete it before push."""
+        # Arrange — pending workout with no garmin_workout_id, but Garmin has a matching one
+        template = WorkoutTemplate(name="Easy Run", user_id=1, sport_type="running")
+        session.add(template)
+        await session.flush()
+        sw = ScheduledWorkout(
+            date=date(2026, 3, 10),
+            sync_status="pending",
+            garmin_workout_id=None,
+            user_id=1,
+            workout_template_id=template.id,
+        )
+        session.add(sw)
+        await session.commit()
+
+        mock_sync_service.adapter.get_workouts.return_value = [
+            {"workoutId": "orphan-gw-123", "workoutName": "Easy Run"},
+        ]
+        mock_sync_service.sync_workout.return_value = "new-gw-456"
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert — the orphaned Garmin workout was deleted before pushing
+        assert response.status_code == 200
+        mock_sync_service.delete_workout.assert_any_call("orphan-gw-123")
+        body = response.json()
+        assert body["synced"] == 1
+
+    async def test_sync_all_cleans_up_orphaned_garmin_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all deletes Garmin workouts that are orphaned but match our template names."""
+        # Arrange — no pending workouts, but an orphaned Garmin workout exists
+        template = WorkoutTemplate(name="Tempo Run", user_id=1, sport_type="running")
+        session.add(template)
+        await session.commit()
+
+        mock_sync_service.adapter.get_workouts.return_value = [
+            {"workoutId": "orphan-99", "workoutName": "Tempo Run"},
+        ]
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert — orphan deleted
+        assert response.status_code == 200
+        mock_sync_service.delete_workout.assert_any_call("orphan-99")
+
+    async def test_sync_all_does_not_delete_user_created_garmin_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all orphan cleanup ignores Garmin workouts whose names don't match our templates."""
+        # Arrange — Garmin has a workout with a name we don't own
+        template = WorkoutTemplate(name="Easy Run", user_id=1, sport_type="running")
+        session.add(template)
+        await session.commit()
+
+        mock_sync_service.adapter.get_workouts.return_value = [
+            {"workoutId": "user-custom-99", "workoutName": "My Weekend Fun Run"},
+        ]
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert — user's workout NOT deleted
+        assert response.status_code == 200
+        mock_sync_service.delete_workout.assert_not_called()
+
+    async def test_sync_all_handles_get_workouts_failure_gracefully(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """sync_all still succeeds if adapter.get_workouts() raises."""
+        # Arrange
+        await _make_scheduled_workout(session, sync_status="pending")
+        mock_sync_service.adapter.get_workouts.side_effect = RuntimeError("Garmin API down")
+        mock_sync_service.sync_workout.return_value = "gw-ok"
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert — sync proceeds without dedup
+        assert response.status_code == 200
+        body = response.json()
+        assert body["synced"] == 1
 
 
 # ---------------------------------------------------------------------------

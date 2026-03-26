@@ -38,3 +38,11 @@ class GarminAdapter:
     def get_activities_by_date(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """Fetch activities from Garmin within a date range."""
         return self._client.get_activities_by_date(start_date, end_date)
+
+    def get_workouts(self) -> list[dict[str, Any]]:
+        """Fetch all planned workouts from Garmin Connect.
+
+        Returns a list of Garmin workout dicts, each containing at minimum
+        ``workoutId`` and ``workoutName``.
+        """
+        return self._client.get_workouts()

@@ -242,6 +242,7 @@ async def _sync_and_persist(
     hr_zone_map: dict[int, tuple[float, float]] | None = None,
     pace_zone_map: dict[int, tuple[float, float]] | None = None,
     templates: dict[int, WorkoutTemplate] | None = None,
+    garmin_workouts: list[dict[str, Any]] | None = None,
 ) -> str | None:
     """Sync one workout against Garmin and update its status fields in-place.
 
@@ -252,6 +253,11 @@ async def _sync_and_persist(
     If the workout was already synced (garmin_workout_id is set), the old
     Garmin workout is deleted first so re-syncing produces a clean update
     rather than a duplicate.
+
+    When *garmin_workouts* is provided and the workout has no garmin_workout_id,
+    a name-based dedup check is performed first.  If a matching Garmin workout
+    is found, its ID is linked so the subsequent delete+push cycle replaces it
+    instead of creating a duplicate.
 
     Returns:
         Garmin workout ID on success, None on failure.
@@ -264,13 +270,19 @@ async def _sync_and_persist(
             logger.info(
                 "Deleted old Garmin workout %s before re-sync", workout.garmin_workout_id
             )
+            workout.garmin_workout_id = None
         except Exception as exc:  # noqa: BLE001
+            # Keep garmin_workout_id so we can retry deletion on next sync.
+            # Pushing a new workout now would orphan the old one on Garmin
+            # with no way to clean it up — skip push entirely.
             logger.warning(
-                "Could not delete old Garmin workout %s (continuing): %s",
+                "Could not delete old Garmin workout %s — skipping re-push to avoid duplicate: %s",
                 workout.garmin_workout_id,
                 exc,
             )
-        workout.garmin_workout_id = None
+            workout.sync_status = "failed"
+            session.add(workout)
+            return None
 
     # Load the template (from pre-loaded dict if available, else single fetch)
     template: WorkoutTemplate | None = None
@@ -282,6 +294,34 @@ async def _sync_and_persist(
 
     workout_name = template.name if template else ""
     workout_description = (template.description or "") if template else ""
+
+    # Dedup: if we don't have a garmin_workout_id but a matching workout exists
+    # on Garmin, link it so the delete+push cycle replaces it cleanly.
+    if not workout.garmin_workout_id and garmin_workouts and workout_name:
+        from src.garmin.dedup import find_matching_garmin_workout
+
+        match_id = find_matching_garmin_workout(workout_name, garmin_workouts)
+        if match_id:
+            logger.info(
+                "Dedup: linked workout '%s' to existing Garmin workout %s",
+                workout_name,
+                match_id,
+            )
+            workout.garmin_workout_id = match_id
+            # Now the delete-before-push block above already ran and found no ID,
+            # so we must delete this matched workout before pushing the new one.
+            try:
+                sync_service.delete_workout(match_id)
+                workout.garmin_workout_id = None
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Could not delete matched Garmin workout %s — skipping push: %s",
+                    match_id,
+                    exc,
+                )
+                workout.sync_status = "failed"
+                session.add(workout)
+                return None
 
     resolved_steps: list = (
         json.loads(workout.resolved_steps) if workout.resolved_steps else []
@@ -339,8 +379,18 @@ async def sync_all(
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)
+
+    # Fetch existing Garmin workouts once for dedup across all pending pushes.
+    garmin_workouts: list[dict[str, Any]] | None = None
+    try:
+        garmin_workouts = sync_service.adapter.get_workouts()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
+
     results = [
-        await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
+        await _sync_and_persist(
+            session, sync_service, w, hr_zone_map, pace_zone_map, templates, garmin_workouts
+        )
         for w in workouts
     ]
     await session.commit()
@@ -406,6 +456,33 @@ async def sync_all(
             await session.commit()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Garmin paired-workout cleanup failed (continuing): %s", exc)
+
+    # Best-effort orphan cleanup: delete Garmin workouts that match our
+    # template names but are not tracked by any ScheduledWorkout in our DB.
+    # These are leftovers from failed deletes or lost garmin_workout_id links.
+    if garmin_workouts is not None:
+        try:
+            from src.garmin.dedup import find_orphaned_garmin_workouts
+
+            all_sws = await scheduled_workout_repository.get_all(session, current_user.id)
+            known_ids = {sw.garmin_workout_id for sw in all_sws if sw.garmin_workout_id}
+
+            template_names = {t.name for t in templates.values()} if templates else set()
+            # Also include templates not in the preloaded set (preload only covers pending workouts)
+            all_templates_result = await session.exec(
+                select(WorkoutTemplate.name).where(WorkoutTemplate.user_id == current_user.id)
+            )
+            template_names.update(all_templates_result.all())
+
+            orphan_ids = find_orphaned_garmin_workouts(garmin_workouts, known_ids, template_names)
+            for orphan_id in orphan_ids:
+                try:
+                    sync_service.delete_workout(orphan_id)
+                    logger.info("Deleted orphaned Garmin workout %s", orphan_id)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Orphan cleanup failed (continuing): %s", exc)
 
     return SyncAllResponse(
         synced=synced,
