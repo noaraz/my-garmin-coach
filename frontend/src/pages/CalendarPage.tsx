@@ -8,6 +8,7 @@ import { CalendarView } from '../components/calendar/CalendarView'
 import { MobileCalendarDayView } from '../components/calendar/MobileCalendarDayView'
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
+import { RemoveWorkoutModal } from '../components/calendar/RemoveWorkoutModal'
 import { toDateString } from '../utils/formatting'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -148,6 +149,27 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const handleActivityClick = (activity: GarminActivity) => {
     setSelectedActivity(activity)
     setSelectedWorkout(null)
+  }
+
+  // Removal confirmation state
+  const [pendingRemoveWorkout, setPendingRemoveWorkout] = useState<ScheduledWorkoutWithActivity | null>(null)
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  const handleRequestRemove = (id: number) => {
+    const workout = workouts.find(w => w.id === id)
+    if (workout) setPendingRemoveWorkout(workout)
+  }
+
+  const handleConfirmRemove = async () => {
+    if (!pendingRemoveWorkout) return
+    setIsRemoving(true)
+    try {
+      await remove(pendingRemoveWorkout.id)
+      if (selectedWorkout?.id === pendingRemoveWorkout.id) handlePanelClose()
+    } finally {
+      setIsRemoving(false)
+      setPendingRemoveWorkout(null)
+    }
   }
 
   const handlePanelClose = () => {
@@ -348,7 +370,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             templates={templates}
             unplannedActivities={unplannedActivities}
             onAddWorkout={handleAddWorkout}
-            onRemove={remove}
+            onRemove={handleRequestRemove}
             onWorkoutClick={handleWorkoutClick}
             onActivityClick={handleActivityClick}
           />
@@ -360,7 +382,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             templates={templates}
             unplannedActivities={unplannedActivities}
             onAddWorkout={handleAddWorkout}
-            onRemove={remove}
+            onRemove={handleRequestRemove}
             onWorkoutClick={handleWorkoutClick}
             onActivityClick={handleActivityClick}
             activePlanName={activePlanName}
@@ -398,10 +420,22 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             }
             handlePanelClose()
           }}
-          onRemove={async (id) => { await remove(id); handlePanelClose() }}
+          onRemove={handleRequestRemove}
           onUnpair={async (id) => { await unpair(id); handlePanelClose() }}
           onUpdateNotes={updateNotes}
           onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
+        />
+      )}
+
+      {/* Removal confirmation modal */}
+      {pendingRemoveWorkout && (
+        <RemoveWorkoutModal
+          workoutName={templates.find(t => t.id === pendingRemoveWorkout.workout_template_id)?.name ?? 'Workout'}
+          workoutDate={pendingRemoveWorkout.date}
+          isSyncedToGarmin={pendingRemoveWorkout.garmin_workout_id != null}
+          onConfirm={handleConfirmRemove}
+          onCancel={() => setPendingRemoveWorkout(null)}
+          isRemoving={isRemoving}
         />
       )}
     </div>

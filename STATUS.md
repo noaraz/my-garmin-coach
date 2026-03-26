@@ -2,6 +2,33 @@
 
 Last updated: 2026-03-26 (v1.3.2 release — Garmin sync reliability + security hardening)
 
+## Current Focus: Workout Removal Confirmation ✅
+
+### Workout Removal Confirmation
+| Task | Status |
+|------|--------|
+| Update docs (STATUS.md, features/calendar/PLAN.md, features/calendar/CLAUDE.md) | ✅ |
+| Write RemoveWorkoutModal tests (TDD RED) | ✅ |
+| Create RemoveWorkoutModal component (GREEN) | ✅ |
+| Wire CalendarPage confirmation state | ✅ |
+| Simplify WorkoutDetailPanel (remove window.confirm) | ✅ |
+| Update Calendar + WorkoutDetailPanel tests | ✅ |
+| Run all tests + TypeScript build | ✅ |
+| Final docs update + commit + push | ✅ |
+
+## Backlog
+
+| Task | Priority | Notes |
+|------|----------|-------|
+| Test Run → Zone Update | Medium | Tag a completed workout as zone test, auto-update thresholds from Garmin activity data |
+| Playwright E2E Tests | Medium | Full browser tests: login → zones → build → schedule → sync |
+| Rate Limiting on Auth Routes | Medium | `slowapi` on login/register — required before public access |
+| Refresh Token Rotation | Low | Single-use rotation, `RefreshToken` DB table |
+| ESLint v9 → v10 upgrade | Low | 5 moderate `brace-expansion` CVEs (dev-only). Breaking change, may need lint config updates. After upgrade, restore `--audit-level=moderate` in `.github/workflows/ci.yml` |
+| Activity Feed / History | Low | Show completed Garmin activities beyond scheduled workouts |
+
+---
+
 ## Current Focus: v1.3.2 Release ✅
 
 ### v1.3.2 Release
