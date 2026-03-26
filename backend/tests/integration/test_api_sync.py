@@ -756,8 +756,7 @@ class TestSyncAllActivityFetch:
         body = response.json()
         assert body["activities_fetched"] == 0
         assert body["activities_matched"] == 0
-        assert body["fetch_error"] is not None
-        assert "Garmin timeout" in body["fetch_error"]
+        assert body["fetch_error"] == "Activity fetch failed — please retry"
 
     async def test_sync_all_deduplicates_activities(
         self,

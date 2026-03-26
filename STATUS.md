@@ -525,6 +525,10 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 - **`google_auth` two sequential commits**: `auth/service.py` `google_auth()` has two `session.commit()` calls (line ~155: create user, line ~161: mark invite used). Should be batched into one commit for atomicity and to reduce DB round-trips. Requires restructuring the FK dependency (user must exist before invite references it). Related CLAUDE.md rule: "Batch commits. Call session.add() multiple times, then a single session.commit()."
 - **`reset_admins` has no rate limiting**: `POST /api/v1/auth/reset-admins` is a destructive endpoint (factory reset) with no rate limiting. An attacker who brute-forces the setup token can wipe all users. Needs `slowapi` or equivalent before public deployment. Flagged as Critical in PR #19 review. See CLAUDE.md "Nice to Have — Rate Limiting on Auth Routes."
 
+- **Rate limiting on bootstrap + reset-admins** (security, moderate effort): `POST /api/v1/auth/bootstrap` and `POST /api/v1/auth/reset-admins` have no rate limiter — only a static setup token. Requires adding `slowapi` package, a `Limiter` instance in `app.py`, and `@limiter.limit("10/minute")` on both endpoints. Low exploitability today (invite-only app, endpoints require `BOOTSTRAP_SECRET`), but required before any public deployment. See "Nice to Have — Rate Limiting on Auth Routes" in CLAUDE.md.
+
+- **Refresh token revocation missing** (security, complex): Stolen refresh tokens stay valid for their full 7-day TTL even after logout or Garmin disconnect. Fix requires a `RefreshToken` DB table (id, user_id, token_hash, expires_at, revoked), an Alembic migration, and updating `/auth/refresh` to invalidate the old token and issue a new one. See "Nice to Have — Refresh Token Rotation" in CLAUDE.md.
+
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path
 - Docker binary at `/Applications/Docker.app/Contents/Resources/bin/docker` (not in default PATH — add to ~/.zshrc)

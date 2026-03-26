@@ -6,7 +6,7 @@ import logging
 from datetime import date, datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -375,7 +375,7 @@ async def _sync_and_persist(
 
 @router.post("/all", response_model=SyncAllResponse)
 async def sync_all(
-    fetch_days: int = 30,
+    fetch_days: int = Query(30, ge=1, le=365),
     session: AsyncSession = Depends(get_session),
     sync_service: SyncOrchestrator = Depends(_get_garmin_sync_service),
     current_user: User = Depends(get_current_user),
@@ -435,7 +435,7 @@ async def sync_all(
         )
         await session.commit()
     except Exception as exc:  # noqa: BLE001
-        fetch_error = str(exc)
+        fetch_error = "Activity fetch failed — please retry"
         logger.warning("Activity fetch failed (continuing): %s", exc)
 
     # Best-effort cleanup: delete Garmin scheduled workouts for all completed workouts

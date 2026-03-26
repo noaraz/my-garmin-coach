@@ -67,6 +67,8 @@ class Settings(BaseSettings):
                 raise ValueError("GARMINCOACH_SECRET_KEY must be set in production")
             if self.bootstrap_secret in _DEV_SECRETS:
                 raise ValueError("BOOTSTRAP_SECRET must be set in production")
+            if not self.google_client_id:
+                raise ValueError("GOOGLE_CLIENT_ID must be set in production")
         return self
 
 
