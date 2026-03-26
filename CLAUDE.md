@@ -898,7 +898,7 @@ Currently the refresh token is long-lived and static. Implement single-use rotat
 ---
 
 ### ESLint Major Upgrade (v9 → v10)
-`npm audit` reports 5 moderate `brace-expansion` CVEs in eslint v9 dependency tree. Fix requires `npm audit fix --force` which upgrades to eslint v10 (breaking change). Dev-only dependency — not in production bundle. May require lint config updates.
+`npm audit` reports 5 moderate `brace-expansion` CVEs in eslint v9 dependency tree. Fix requires `npm audit fix --force` which upgrades to eslint v10 (breaking change). Dev-only dependency — not in production bundle. May require lint config updates. After upgrade, restore `--audit-level=moderate` in `.github/workflows/ci.yml` (currently set to `high` to avoid false CI failures).
 
 ---
 

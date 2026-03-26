@@ -24,7 +24,7 @@ Last updated: 2026-03-26 (v1.3.2 release — Garmin sync reliability + security 
 | Playwright E2E Tests | Medium | Full browser tests: login → zones → build → schedule → sync |
 | Rate Limiting on Auth Routes | Medium | `slowapi` on login/register — required before public access |
 | Refresh Token Rotation | Low | Single-use rotation, `RefreshToken` DB table |
-| ESLint v9 → v10 upgrade | Low | 5 moderate `brace-expansion` CVEs (dev-only). Breaking change, may need lint config updates |
+| ESLint v9 → v10 upgrade | Low | 5 moderate `brace-expansion` CVEs (dev-only). Breaking change, may need lint config updates. After upgrade, restore `--audit-level=moderate` in `.github/workflows/ci.yml` |
 | Activity Feed / History | Low | Show completed Garmin activities beyond scheduled workouts |
 
 ---
