@@ -1,6 +1,20 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-26 (Fix Garmin duplication on reschedule + dedup on import)
+Last updated: 2026-03-26 (v1.3.2 release — Garmin sync reliability + security hardening)
+
+## Current Focus: v1.3.2 Release ✅
+
+### v1.3.2 Release
+| Task | Status |
+|------|--------|
+| Fix Garmin workout duplication on reschedule | ✅ |
+| Chrome TLS facade for all Garmin API calls + Akamai exchange fix | ✅ |
+| Coverage gate 80%, activity fetch integration tests, Playwright E2E suite | ✅ |
+| Fix reschedule sets sync_status=modified + mobile day strip navigation | ✅ |
+| Security: sanitize fetch_error, bound fetch_days, enforce GOOGLE_CLIENT_ID in prod | ✅ |
+| Tag v1.3.2 + push | ✅ |
+
+---
 
 ## Current Focus: Garmin Sync Dedup ✅
 
@@ -363,6 +377,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tag v1.1.0 + push — mobile responsive, plan coach improvements, Garmin pairing fix | ✅ |
 | Tag v1.2.0 + push — Neon PostgreSQL migration, performance optimizations, caching | ✅ |
 | Tag v1.3.0 + push — Akamai bot-detection bypass (curl_cffi chrome120), 429 retry flow | ✅ |
+| Tag v1.3.1 + push — Sun-Sat week start, /release automation, reschedule sync fix | ✅ |
+| Tag v1.3.2 + push — Garmin sync dedup, Chrome TLS facade, E2E tests, security hardening | ✅ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
