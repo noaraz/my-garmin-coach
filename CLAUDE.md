@@ -637,7 +637,7 @@ async def _make_activity(self, session: AsyncSession) -> Any:
 
 ## Garmin Workout Dedup (added 2026-03-25)
 
-- **Orphan prevention**: `_sync_and_persist` skips push and marks `sync_status="failed"` when the old Garmin workout delete fails. `garmin_workout_id` is preserved for retry — never cleared on failure.
+- **Orphan prevention**: `_sync_and_persist` skips push and marks `sync_status="failed"` when the old Garmin workout delete fails. `garmin_workout_id` is preserved for retry — never cleared on failure. **Exception**: 404 means the workout is already gone — clears the stale ID and proceeds with push (avoids infinite retry loop).
 - **Dedup module**: `backend/src/garmin/dedup.py` — `find_matching_garmin_workout(name, garmin_workouts)` matches by name (case-insensitive). `find_orphaned_garmin_workouts()` finds untracked Garmin workouts safe to delete.
 - **sync_all dedup**: Fetches `sync_service.get_workouts()` once per sync. Before pushing a workout with no `garmin_workout_id`, checks for name match. If found, deletes match first. Also runs orphan cleanup sweep (only deletes Garmin workouts matching our template names).
 - **commit_plan dedup**: When creating new SWs during plan commit, pre-links `garmin_workout_id` from matching Garmin workouts and sets `sync_status="modified"`. Prevents duplication when re-importing a plan.

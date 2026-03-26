@@ -134,7 +134,7 @@ Response includes `activities_fetched`, `activities_matched`, `fetch_error` fiel
 **Fix — three layers:**
 
 ### Layer 1: Orphan prevention (`_sync_and_persist`)
-If delete fails, skip the push and mark `sync_status="failed"`. The `garmin_workout_id` is preserved so the next sync can retry. This prevents creating a new Garmin workout when the old one couldn't be removed.
+If delete fails, skip the push and mark `sync_status="failed"`. The `garmin_workout_id` is preserved so the next sync can retry. This prevents creating a new Garmin workout when the old one couldn't be removed. **Exception**: 404 means the Garmin workout is already gone — clears the stale ID and proceeds with push (avoids infinite retry loop on stale IDs).
 
 ### Layer 2: Name-based dedup (`garmin/dedup.py`)
 Pure functions for matching local workouts against Garmin by name (case-insensitive):
