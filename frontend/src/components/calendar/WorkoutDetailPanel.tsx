@@ -180,9 +180,7 @@ function WorkoutDetailPlanned({
   }
 
   const handleRemove = () => {
-    if (window.confirm('Remove this workout from your calendar?')) {
-      onRemove(workout.id)
-    }
+    onRemove(workout.id)
   }
 
   const handleEdit = () => {

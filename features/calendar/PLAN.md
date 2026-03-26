@@ -131,6 +131,16 @@ Track progress in **STATUS.md**.
 
 ---
 
+### Workout Removal Confirmation
+- [ ] Write `RemoveWorkoutModal` tests → RED
+- [ ] Create `RemoveWorkoutModal` component → GREEN
+- [ ] Wire `CalendarPage` confirmation state (`pendingRemoveWorkout`, `handleRequestRemove`, `handleConfirmRemove`)
+- [ ] Remove `window.confirm` from `WorkoutDetailPanel.handleRemove`
+- [ ] Update `Calendar.test.tsx` + `WorkoutDetailPanel.test.tsx`
+- [ ] Verify all 3 removal paths use modal: WorkoutCard X, MobileCalendarDayView remove, WorkoutDetailPanel Remove
+
+---
+
 ## Design
 
 Use the **`frontend-design`** skill (`.claude/skills/frontend-design/`) when implementing React components. Invoke via the Skill tool to get distinctive, production-grade UI that avoids generic AI aesthetics.

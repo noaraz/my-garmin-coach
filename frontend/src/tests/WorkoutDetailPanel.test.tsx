@@ -267,8 +267,7 @@ describe('WorkoutDetailPlanned', () => {
     expect(mockOnNavigateToBuilder).toHaveBeenCalledWith(10)
   })
 
-  it('calls onRemove with confirmation when Remove clicked', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  it('calls onRemove when Remove clicked', () => {
     render(
       <WorkoutDetailPanel
         workout={mockWorkout}
@@ -283,9 +282,7 @@ describe('WorkoutDetailPlanned', () => {
     )
     const removeButton = screen.getByText('Remove')
     fireEvent.click(removeButton)
-    expect(confirmSpy).toHaveBeenCalled()
     expect(mockOnRemove).toHaveBeenCalledWith(1)
-    confirmSpy.mockRestore()
   })
 
   it('shows notes textarea with existing notes value', () => {
