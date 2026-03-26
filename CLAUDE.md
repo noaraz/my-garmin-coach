@@ -651,22 +651,34 @@ Garmin's own calendar shows BOTH the scheduled planned workout AND the completed
 
 ---
 
-## Garmin SSO — Akamai Bot Detection (updated 2026-03-24)
+## Garmin SSO & API — Akamai Bot Detection (updated 2026-03-25)
 
-Garmin's `sso.garmin.com` uses **Akamai Bot Manager** which blocks two things independently:
-- **Datacenter IPs** — Render's shared IPs get 429 (Fixie proxy was original workaround)
-- **Python `requests` TLS fingerprint** — Akamai fingerprints the TLS handshake regardless of IP
+Garmin uses **Akamai Bot Manager**. Different subdomains have **different Akamai configs**:
 
-**Current fix**: `_ChromeTLSSession(impersonate="chrome120")` in `garmin_connect.py` — subclass of `curl_cffi.requests.Session`. **No proxy needed** — chrome120 alone bypasses Akamai. chrome110 does not (blocked).
+| Subdomain | curl_cffi (chrome TLS) | Standard Python TLS |
+|-----------|----------------------|---------------------|
+| `sso.garmin.com` (SSO login) | ✅ Allowed | ❌ Blocked |
+| `connectapi.garmin.com` (API calls) | ✅ Allowed | ❌ Blocked |
+| `connectapi.garmin.com` (OAuth exchange) | ❌ **Blocked** | ✅ Allowed |
 
-**Retry flow**:
-1. Attempt 1: chrome120 TLS, no proxy
-2. Attempt 2 (on 429): chrome120 TLS + Fixie proxy — fallback if Akamai updates IP detection
+**Current fix**: `ChromeTLSSession(impersonate="chrome124")` in `backend/src/garmin/client_factory.py` — single source of truth for all Garmin client creation. `CHROME_VERSION` constant controls the version.
 
-**`_ChromeTLSSession` shim** — `curl_cffi.requests.Session` is not a drop-in for `requests.Session`. garth accesses `sess.adapters` and `sess.hooks` internally. The subclass pre-populates both. Never patch attributes one-by-one (fragile — more attributes may break on garth version changes).
+**Factory functions** (both inject `ChromeTLSSession`):
+- `create_login_client(proxy_url=None)` → `garth.Client` — used by `garmin_connect.py` for SSO login
+- `create_api_client(token_json)` → `GarminAdapter` — used by `sync.py` for all API calls
+
+**Token exchange — DO NOT override `refresh_oauth2`**: garth's native `sso.exchange()` creates a `GarminOAuth1Session(parent=ChromeTLSSession)` which uses standard Python TLS for the exchange. Akamai **allows** standard Python TLS on the exchange endpoint but **blocks** curl_cffi. The login flow proves this — the exchange during login uses standard Python TLS and works from Render without Fixie.
+
+**Anti-pattern**: monkey-patching `refresh_oauth2` to route the exchange through `ChromeTLSSession`/curl_cffi causes 429. This was attempted and reverted (PR #61).
+
+**Retry flow** (login only):
+1. Attempt 1: chrome124 TLS, no proxy
+2. Attempt 2 (on 429): chrome124 TLS + Fixie proxy — fallback if Akamai updates IP detection
+
+**`ChromeTLSSession` shim** — `curl_cffi.requests.Session` is not a drop-in for `requests.Session`. garth accesses `sess.adapters` and `sess.hooks` internally. The subclass pre-populates both. Never patch attributes one-by-one (fragile — more attributes may break on garth version changes).
 
 ```python
-class _ChromeTLSSession(cffi_requests.Session):
+class ChromeTLSSession(cffi_requests.Session):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _rs = requests.Session()
@@ -674,10 +686,19 @@ class _ChromeTLSSession(cffi_requests.Session):
         self.hooks = _rs.hooks
 ```
 
+**Debugging 429s**: Always check which library raises the error first (`curl_cffi/requests/models.py` vs `requests/models.py`). If curl_cffi raises it, the fix is to NOT use curl_cffi for that endpoint. See `.claude/skills/garmin-429-debug/SKILL.md` for the full diagnostic flow.
+
 - `curl-cffi>=0.6` in `backend/pyproject.toml`
-- `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on 429 retry
-- Only login is affected — sync uses stored OAuth tokens, never touches SSO
+- `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on login 429 retry
 - **Re-test with `test_garmin_login.py`** (repo root) if 429s return — runs 4 approaches side-by-side to isolate IP vs TLS issues when Akamai updates detection
+- **`CHROME_VERSION` bumps**: When changing the constant in `client_factory.py`, grep all docs for the old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`. Update every stale reference.
+
+---
+
+## CI Troubleshooting (added 2026-03-26)
+
+- **CI not triggering on a PR**: GitHub Actions `pull_request` fires on `opened`, `synchronize`, `reopened`. If no run appears, push a new commit to trigger `synchronize` — close/reopen is unreliable. Check Actions minutes at github.com/settings/billing if runs silently skip.
+- **New pip-audit CVE**: Add `--ignore-vuln CVE-XXXX-YYYY` to `.github/workflows/ci.yml` with a comment explaining the vuln. Only ignore when no fix version exists.
 
 ---
 

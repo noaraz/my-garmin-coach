@@ -1,8 +1,22 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-24 (cleanup: coverage gate, activity fetch tests, Playwright E2E)
+Last updated: 2026-03-26 (Garmin 429 fix — Chrome TLS facade)
 
-## Current Focus: Known Issues Cleanup
+## Current Focus: Garmin 429 Fix — Chrome TLS Facade 🟡
+
+### Garmin API 429 Fix
+| Task | Status |
+|------|--------|
+| Phase 0: Update docs (STATUS.md, CLAUDE.md, PLAN.md, feature docs, skill) | ✅ |
+| Extract ChromeTLSSession to shared client_factory.py (TDD) | ✅ |
+| Refactor garmin_connect.py to use create_login_client() | ✅ |
+| Refactor sync.py to use create_api_client() | ✅ |
+| Update feature CLAUDE.md — correct "Only login is affected" | ✅ |
+| Run revise-claude-md on all touched CLAUDE.md files | ✅ |
+
+---
+
+## Known Issues Cleanup ✅
 
 ### Cleanup Tasks
 | Task | Status |

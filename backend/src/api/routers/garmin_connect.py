@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 
-import garth as garth
 import requests
 from curl_cffi import requests as cffi_requests
 from garth.exc import GarthHTTPError
@@ -17,26 +16,12 @@ from src.auth.models import User
 from src.auth.schemas import GarminConnectRequest, GarminStatusResponse
 from src.core.config import get_settings
 from src.db.models import AthleteProfile
+from src.garmin.client_factory import CHROME_VERSION, create_login_client
 from src.garmin.encryption import encrypt_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/garmin", tags=["garmin"])
-
-
-class _ChromeTLSSession(cffi_requests.Session):
-    """curl_cffi session with requests.Session compatibility shims for garth.
-
-    Garmin SSO uses Akamai Bot Manager which blocks Python requests' TLS fingerprint.
-    Chrome 120 impersonation bypasses it — no proxy needed (confirmed via test_garmin_login.py).
-    garth accesses requests.Session internals (adapters, hooks) so we pre-populate them.
-    """
-
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)
-        _rs = requests.Session()
-        self.adapters = _rs.adapters
-        self.hooks = _rs.hooks
 
 
 async def _get_or_create_profile(user: User, session: AsyncSession) -> AthleteProfile:
@@ -80,22 +65,21 @@ async def connect_garmin(
         if attempt > 0:
             await asyncio.sleep(3)
         try:
-            client = garth.Client()
-            # curl_cffi impersonates Chrome 120 TLS fingerprint — bypasses Akamai Bot Manager.
-            # Attempt 1: no proxy (chrome120 alone is sufficient in most cases).
-            # Attempt 2: add Fixie proxy as fallback if Akamai updates its IP detection.
-            client.sess = _ChromeTLSSession(impersonate="chrome120")
             use_proxy = attempt > 0 and bool(settings.fixie_url)
+            client = create_login_client(
+                proxy_url=settings.fixie_url if use_proxy else None
+            )
             if use_proxy:
-                client.sess.proxies = {"https": settings.fixie_url}
                 logger.info(
-                    "Garmin login attempt %d/2: chrome120 TLS + Fixie proxy (429 retry)",
+                    "Garmin login attempt %d/2: %s TLS + Fixie proxy (429 retry)",
                     attempt + 1,
+                    CHROME_VERSION,
                 )
             else:
                 logger.info(
-                    "Garmin login attempt %d/2: chrome120 TLS, no proxy",
+                    "Garmin login attempt %d/2: %s TLS, no proxy",
                     attempt + 1,
+                    CHROME_VERSION,
                 )
             client.login(email, password)
             token_json: str = client.dumps()

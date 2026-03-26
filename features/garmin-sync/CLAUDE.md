@@ -88,16 +88,28 @@ Not an issue on Neon PostgreSQL. Gaps of ≥1s between requests avoid it locally
 **`_get_garmin_adapter` is DI-bypassable** — it's a plain async function; call directly with
 `current_user=user, session=session` from background tasks or scripts outside FastAPI context.
 
-## Akamai / curl_cffi (updated 2026-03-24)
+## Akamai / curl_cffi (updated 2026-03-25)
 
-Garmin SSO uses Akamai Bot Manager — blocks datacenter IPs AND Python `requests` TLS fingerprint.
-**Fix**: `_ChromeTLSSession(impersonate="chrome120")` in `garmin_connect.py`. No proxy needed — chrome120 bypasses Akamai alone. chrome110 does not.
+Garmin uses Akamai Bot Manager with **different configs per subdomain**:
 
-**Retry flow**: attempt 1 = chrome120 no proxy; attempt 2 (on 429) = chrome120 + Fixie proxy.
+| Subdomain | curl_cffi (chrome TLS) | Standard Python TLS |
+|-----------|----------------------|---------------------|
+| `sso.garmin.com` (SSO login) | ✅ Allowed | ❌ Blocked |
+| `connectapi.garmin.com` (API calls) | ✅ Allowed | ❌ Blocked |
+| `connectapi.garmin.com` (OAuth exchange) | ❌ **Blocked** | ✅ Allowed |
+
+**Fix**: `ChromeTLSSession(impersonate="chrome124")` in `backend/src/garmin/client_factory.py` — single source of truth for all Garmin client creation. `CHROME_VERSION` constant controls the version.
+
+**Factory functions** (both inject `ChromeTLSSession`):
+- `create_login_client(proxy_url=None)` → `garth.Client` — SSO login in `garmin_connect.py`
+- `create_api_client(token_json)` → `GarminAdapter` — all API calls in `sync.py` via `_get_garmin_adapter()`
+
+**Token exchange — DO NOT override `refresh_oauth2`**: garth's native `sso.exchange()` creates a `GarminOAuth1Session(parent=ChromeTLSSession)` which uses standard Python TLS. Akamai allows this on the exchange endpoint but blocks curl_cffi. Monkey-patching `refresh_oauth2` to route through curl_cffi causes 429.
+
+**Retry flow** (login only): attempt 1 = chrome124 no proxy; attempt 2 (on 429) = chrome124 + Fixie proxy.
 
 - `curl_cffi.requests.Session` lacks `adapters` and `hooks` that garth needs — subclass pre-populates both. Never replace `client.sess` with a bare curl_cffi session.
 - `FIXIE_URL` wired as optional fallback — only consumed on 429 retry, saves proxy quota.
-- Only login is affected — sync uses stored OAuth tokens, never touches SSO.
 - **Re-diagnose with `test_garmin_login.py`** (repo root) if 429s return — Akamai periodically updates fingerprint detection.
 
 ## Bidirectional Sync
