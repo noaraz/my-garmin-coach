@@ -452,6 +452,20 @@ async def commit_plan(
         )
 
     # -----------------------------------------------------------------------
+    # Garmin dedup: fetch existing Garmin workouts to pre-link new SWs
+    # -----------------------------------------------------------------------
+    garmin_workout_by_name: dict[str, str] = {}  # lowercase name → garmin_workout_id
+    if garmin is not None:
+        try:
+            raw_garmin_workouts: list[dict[str, Any]] = garmin.get_workouts()
+            for gw in raw_garmin_workouts:
+                gw_name = gw.get("workoutName", "")
+                if isinstance(gw_name, str) and gw_name:
+                    garmin_workout_by_name.setdefault(gw_name.lower(), str(gw["workoutId"]))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not fetch Garmin workouts for dedup: %s", exc)
+
+    # -----------------------------------------------------------------------
     # Batch-load/create templates; batch-add new SWs
     # -----------------------------------------------------------------------
     templates_result = await session.exec(
@@ -489,13 +503,17 @@ async def commit_plan(
             await session.flush()
             existing_templates[dedup_key] = template
 
+        # Pre-link to existing Garmin workout if name matches (prevents
+        # duplicate on next sync — the delete+push cycle will replace it).
+        matched_garmin_id = garmin_workout_by_name.get(pw.name.lower())
         sw = ScheduledWorkout(
             user_id=user_id,
             date=workout_date,
             workout_template_id=template.id,
             training_plan_id=plan_id,
             notes=pw.description or None,
-            sync_status="pending",
+            sync_status="modified" if matched_garmin_id else "pending",
+            garmin_workout_id=matched_garmin_id,
             created_at=now,
             updated_at=now,
         )

@@ -81,6 +81,10 @@ class GarminSyncService:
         """Permanently remove a workout from Garmin Connect."""
         self._client.delete_workout(garmin_workout_id)
 
+    def get_workouts(self) -> list[dict[str, Any]]:
+        """Fetch all planned workouts from Garmin Connect."""
+        return self._client.get_workouts()
+
     # ------------------------------------------------------------------
     # Bulk operations
     # ------------------------------------------------------------------

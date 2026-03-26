@@ -119,11 +119,38 @@ Garmin uses Akamai Bot Manager with **different configs per subdomain**:
 2. Fetch activities FROM Garmin (new — see `features/garmin-activity-fetch/`)
 
 The `GarminAdapter` in `backend/src/garmin/adapter.py` is shared between push and fetch.
-It provides `add_workout`, `schedule_workout`, `update_workout`, `delete_workout` (push)
-and `get_activities_by_date` (fetch).
+It provides `add_workout`, `schedule_workout`, `update_workout`, `delete_workout` (push),
+`get_activities_by_date` (fetch), and `get_workouts` (dedup).
 
 Activity fetch is best-effort — if it fails, the push results are still returned.
 Response includes `activities_fetched`, `activities_matched`, `fetch_error` fields.
+
+## Garmin Workout Dedup (added 2026-03-25)
+
+**Problem**: Workouts can be duplicated on Garmin when:
+1. `_sync_and_persist` fails to delete an old Garmin workout but clears `garmin_workout_id` anyway — orphaning the old one
+2. `commit_plan` re-creates SWs (losing `garmin_workout_id`) and Garmin cleanup fails or `garmin` is `None`
+
+**Fix — three layers:**
+
+### Layer 1: Orphan prevention (`_sync_and_persist`)
+If delete fails, skip the push and mark `sync_status="failed"`. The `garmin_workout_id` is preserved so the next sync can retry. This prevents creating a new Garmin workout when the old one couldn't be removed. **Exception**: 404 means the Garmin workout is already gone — clears the stale ID and proceeds with push (avoids infinite retry loop on stale IDs).
+
+### Layer 2: Name-based dedup (`garmin/dedup.py`)
+Pure functions for matching local workouts against Garmin by name (case-insensitive):
+- `find_matching_garmin_workout(name, garmin_workouts)` → garmin_workout_id or None
+- `find_orphaned_garmin_workouts(garmin_workouts, known_ids, template_names)` → list of orphan IDs safe to delete
+
+### Layer 3: Dedup wiring
+- **`sync_all`**: Fetches `sync_service.get_workouts()` once, passes to `_sync_and_persist`. Before pushing a workout with no `garmin_workout_id`, checks for name match. If found, deletes the match first, then pushes. Also runs orphan cleanup sweep at the end.
+- **`commit_plan`**: When creating new SWs, checks `garmin_workout_by_name` index (via `garmin.get_workouts()`). If a match is found, pre-links `garmin_workout_id` and sets `sync_status="modified"` (so next sync does delete+push with correct ID).
+
+### Safety: user-created Garmin workouts
+Orphan cleanup only deletes Garmin workouts whose name matches a `WorkoutTemplate.name` in our DB. User-created Garmin workouts (different names) are never deleted.
+
+## SyncOrchestrator Layering
+
+All Garmin API calls from routers/services must go through `SyncOrchestrator` methods, not `sync_service.adapter.*`. When adding a new Garmin API method, add it to all three layers: `GarminAdapter` → `GarminSyncService` → `SyncOrchestrator`.
 
 ## Gotchas
 

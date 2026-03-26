@@ -1060,3 +1060,117 @@ class TestSendChatMessage:
         resp = await client.get("/api/v1/plans/chat/history")
         assert resp.status_code == 200
         assert len(resp.json()) == 4  # 2 user + 2 assistant
+
+
+# ---------------------------------------------------------------------------
+# Garmin dedup on commit_plan
+# ---------------------------------------------------------------------------
+
+
+class TestCommitPlanGarminDedup:
+    """Tests for Garmin workout dedup during plan commit."""
+
+    async def test_commit_plan_pre_links_garmin_workout_by_name(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """New SWs are pre-linked to existing Garmin workouts by name."""
+        from unittest.mock import MagicMock
+
+        from sqlmodel import select
+
+        from src.services.plan_import_service import commit_plan, validate_plan
+
+        # Validate a plan
+        result = await validate_plan(
+            session,
+            user_id=1,
+            workouts=[_workout(_D1, name="Easy Run"), _workout(_D2, name="Tempo Run")],
+            plan_name="Dedup Plan",
+        )
+
+        # Create a mock garmin with existing workouts on Garmin
+        mock_garmin = MagicMock()
+        mock_garmin.get_workouts.return_value = [
+            {"workoutId": "gw-easy", "workoutName": "Easy Run"},
+            {"workoutId": "gw-tempo", "workoutName": "Tempo Run"},
+        ]
+
+        # Commit with garmin dedup
+        await commit_plan(session, user_id=1, plan_id=result.plan_id, garmin=mock_garmin)
+
+        # Check: new SWs should have garmin_workout_id pre-linked
+        sws_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == result.plan_id
+            )
+        )
+        sws = sws_result.all()
+        assert len(sws) == 2
+
+        garmin_ids = {sw.garmin_workout_id for sw in sws}
+        assert "gw-easy" in garmin_ids
+        assert "gw-tempo" in garmin_ids
+
+        # All pre-linked SWs should be "modified" (not "pending")
+        assert all(sw.sync_status == "modified" for sw in sws)
+
+    async def test_commit_plan_skips_dedup_when_garmin_is_none(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """When garmin is None, SWs are created with pending status and no garmin_workout_id."""
+        from sqlmodel import select
+
+        from src.services.plan_import_service import commit_plan, validate_plan
+
+        result = await validate_plan(
+            session,
+            user_id=1,
+            workouts=[_workout(_D1, name="Easy Run")],
+            plan_name="No Garmin Plan",
+        )
+
+        await commit_plan(session, user_id=1, plan_id=result.plan_id, garmin=None)
+
+        sws_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == result.plan_id
+            )
+        )
+        sws = sws_result.all()
+        assert len(sws) == 1
+        assert sws[0].garmin_workout_id is None
+        assert sws[0].sync_status == "pending"
+
+    async def test_commit_plan_handles_get_workouts_failure(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """Commit still succeeds if garmin.adapter.get_workouts() raises."""
+        from unittest.mock import MagicMock
+
+        from sqlmodel import select
+
+        from src.services.plan_import_service import commit_plan, validate_plan
+
+        result = await validate_plan(
+            session,
+            user_id=1,
+            workouts=[_workout(_D1, name="Easy Run")],
+            plan_name="Garmin Failure Plan",
+        )
+
+        mock_garmin = MagicMock()
+        mock_garmin.get_workouts.side_effect = RuntimeError("API down")
+
+        # Should not raise
+        await commit_plan(session, user_id=1, plan_id=result.plan_id, garmin=mock_garmin)
+
+        sws_result = await session.exec(
+            select(ScheduledWorkout).where(
+                ScheduledWorkout.training_plan_id == result.plan_id
+            )
+        )
+        sws = sws_result.all()
+        assert len(sws) == 1
+        # Falls back to pending with no garmin_workout_id
+        assert sws[0].garmin_workout_id is None
+        assert sws[0].sync_status == "pending"

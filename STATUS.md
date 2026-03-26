@@ -1,8 +1,24 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-26 (Garmin 429 fix — Chrome TLS facade)
+Last updated: 2026-03-26 (Fix Garmin duplication on reschedule + dedup on import)
 
-## Current Focus: Garmin 429 Fix — Chrome TLS Facade 🟡
+## Current Focus: Garmin Sync Dedup ✅
+
+### Garmin Duplication Fix + Dedup
+| Task | Status |
+|------|--------|
+| Fix orphan bug in `_sync_and_persist` — skip push when delete fails, retain garmin_workout_id | ✅ |
+| Add `get_workouts()` to GarminAdapter + GarminSyncService + SyncOrchestrator | ✅ |
+| Build dedup matching service (`garmin/dedup.py`) — name-based matching | ✅ |
+| Wire dedup into `sync_all` — link existing Garmin workouts before push | ✅ |
+| Add orphan cleanup sweep in `sync_all` — delete untracked Garmin workouts matching our templates | ✅ |
+| Wire dedup into `commit_plan` — pre-link new SWs to existing Garmin workouts | ✅ |
+| Tests: 14 new tests (unit + integration), all 481 passing, 82% coverage | ✅ |
+
+---
+
+
+## Current Focus: Garmin 429 Fix — Chrome TLS Facade ✅
 
 ### Garmin API 429 Fix
 | Task | Status |
