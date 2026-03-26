@@ -272,17 +272,24 @@ async def _sync_and_persist(
             )
             workout.garmin_workout_id = None
         except Exception as exc:  # noqa: BLE001
-            # Keep garmin_workout_id so we can retry deletion on next sync.
-            # Pushing a new workout now would orphan the old one on Garmin
-            # with no way to clean it up — skip push entirely.
-            logger.warning(
-                "Could not delete old Garmin workout %s — skipping re-push to avoid duplicate: %s",
-                workout.garmin_workout_id,
-                exc,
-            )
-            workout.sync_status = "failed"
-            session.add(workout)
-            return None
+            if "404" in str(exc):
+                # Workout already gone from Garmin — clear stale ID and proceed with push.
+                logger.info(
+                    "Old Garmin workout %s already deleted (404) — clearing ID and re-pushing",
+                    workout.garmin_workout_id,
+                )
+                workout.garmin_workout_id = None
+            else:
+                # Real error (network, auth, rate limit) — keep ID so we can retry next sync.
+                # Pushing a new workout now would orphan the old one on Garmin.
+                logger.warning(
+                    "Could not delete old Garmin workout %s — skipping re-push to avoid duplicate: %s",
+                    workout.garmin_workout_id,
+                    exc,
+                )
+                workout.sync_status = "failed"
+                session.add(workout)
+                return None
 
     # Load the template (from pre-loaded dict if available, else single fetch)
     template: WorkoutTemplate | None = None
@@ -314,12 +321,17 @@ async def _sync_and_persist(
                 sync_service.delete_workout(match_id)
                 workout.garmin_workout_id = None
             except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Could not delete matched Garmin workout %s — skipping push: %s",
-                    match_id,
-                    exc,
-                )
-                workout.sync_status = "failed"
+                if "404" in str(exc):
+                    # Already gone — proceed with push
+                    logger.info("Matched Garmin workout %s already deleted (404)", match_id)
+                    workout.garmin_workout_id = None
+                else:
+                    logger.warning(
+                        "Could not delete matched Garmin workout %s — skipping push: %s",
+                        match_id,
+                        exc,
+                    )
+                    workout.sync_status = "failed"
                 session.add(workout)
                 return None
 

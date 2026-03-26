@@ -197,7 +197,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
-        mock_sync_service.delete_workout.side_effect = Exception("Garmin delete failed")
+        mock_sync_service.delete_workout.side_effect = Exception("500 Server Error")
         mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
 
         # Act
@@ -209,6 +209,32 @@ class TestSyncSingle:
         assert body["sync_status"] == "failed"
         assert body["garmin_workout_id"] == "stale-id"
         mock_sync_service.sync_workout.assert_not_called()
+
+    async def test_sync_single_resync_proceeds_when_delete_returns_404(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """404 on delete means the workout is already gone — clear ID and push."""
+        # Arrange
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.delete_workout.side_effect = Exception(
+            "404 Client Error: Not Found"
+        )
+        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+
+        # Act
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        # Assert — push proceeds, new ID assigned
+        assert response.status_code == 200
+        body = response.json()
+        assert body["garmin_workout_id"] == "fresh-garmin-id"
+        assert body["sync_status"] == "synced"
+        mock_sync_service.sync_workout.assert_called_once()
 
     async def test_sync_single_resync_clears_id_only_on_successful_delete(
         self,
