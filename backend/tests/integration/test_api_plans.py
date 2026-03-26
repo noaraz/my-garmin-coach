@@ -1090,7 +1090,7 @@ class TestCommitPlanGarminDedup:
 
         # Create a mock garmin with existing workouts on Garmin
         mock_garmin = MagicMock()
-        mock_garmin.adapter.get_workouts.return_value = [
+        mock_garmin.get_workouts.return_value = [
             {"workoutId": "gw-easy", "workoutName": "Easy Run"},
             {"workoutId": "gw-tempo", "workoutName": "Tempo Run"},
         ]
@@ -1159,7 +1159,7 @@ class TestCommitPlanGarminDedup:
         )
 
         mock_garmin = MagicMock()
-        mock_garmin.adapter.get_workouts.side_effect = RuntimeError("API down")
+        mock_garmin.get_workouts.side_effect = RuntimeError("API down")
 
         # Should not raise
         await commit_plan(session, user_id=1, plan_id=result.plan_id, garmin=mock_garmin)

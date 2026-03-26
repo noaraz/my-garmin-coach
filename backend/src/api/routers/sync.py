@@ -383,7 +383,7 @@ async def sync_all(
     # Fetch existing Garmin workouts once for dedup across all pending pushes.
     garmin_workouts: list[dict[str, Any]] | None = None
     try:
-        garmin_workouts = sync_service.adapter.get_workouts()
+        garmin_workouts = sync_service.get_workouts()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
 

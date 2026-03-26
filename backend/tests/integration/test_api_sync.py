@@ -28,8 +28,8 @@ def mock_sync_service_fixture() -> MagicMock:
     svc.push_workout = AsyncMock(return_value="garmin-abc-123")
     svc.sync_workout = AsyncMock(return_value="garmin-abc-123")
     svc.schedule_workout.return_value = None
-    # adapter.get_workouts returns empty by default — tests that need dedup override this
-    svc.adapter.get_workouts.return_value = []
+    # get_workouts returns empty by default — tests that need dedup override this
+    svc.get_workouts.return_value = []
     return svc
 
 
@@ -520,7 +520,7 @@ class TestSyncAll:
         session.add(sw)
         await session.commit()
 
-        mock_sync_service.adapter.get_workouts.return_value = [
+        mock_sync_service.get_workouts.return_value = [
             {"workoutId": "orphan-gw-123", "workoutName": "Easy Run"},
         ]
         mock_sync_service.sync_workout.return_value = "new-gw-456"
@@ -546,7 +546,7 @@ class TestSyncAll:
         session.add(template)
         await session.commit()
 
-        mock_sync_service.adapter.get_workouts.return_value = [
+        mock_sync_service.get_workouts.return_value = [
             {"workoutId": "orphan-99", "workoutName": "Tempo Run"},
         ]
 
@@ -569,7 +569,7 @@ class TestSyncAll:
         session.add(template)
         await session.commit()
 
-        mock_sync_service.adapter.get_workouts.return_value = [
+        mock_sync_service.get_workouts.return_value = [
             {"workoutId": "user-custom-99", "workoutName": "My Weekend Fun Run"},
         ]
 
@@ -586,10 +586,10 @@ class TestSyncAll:
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """sync_all still succeeds if adapter.get_workouts() raises."""
+        """sync_all still succeeds if get_workouts() raises."""
         # Arrange
         await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.adapter.get_workouts.side_effect = RuntimeError("Garmin API down")
+        mock_sync_service.get_workouts.side_effect = RuntimeError("Garmin API down")
         mock_sync_service.sync_workout.return_value = "gw-ok"
 
         # Act

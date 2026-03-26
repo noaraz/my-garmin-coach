@@ -59,6 +59,10 @@ class SyncOrchestrator:
         self._sync_service.schedule_workout(garmin_id, date)
         return garmin_id
 
+    def get_workouts(self) -> list[dict[str, Any]]:
+        """Fetch all planned workouts from Garmin Connect."""
+        return self._sync_service.get_workouts()
+
     def delete_workout(self, garmin_workout_id: str) -> None:
         """Permanently remove a workout from Garmin Connect."""
         self._sync_service.delete_workout(garmin_workout_id)

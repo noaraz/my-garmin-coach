@@ -457,7 +457,7 @@ async def commit_plan(
     garmin_workout_by_name: dict[str, str] = {}  # lowercase name → garmin_workout_id
     if garmin is not None:
         try:
-            raw_garmin_workouts: list[dict] = garmin.adapter.get_workouts()
+            raw_garmin_workouts: list[dict[str, Any]] = garmin.get_workouts()
             for gw in raw_garmin_workouts:
                 gw_name = gw.get("workoutName", "")
                 if isinstance(gw_name, str) and gw_name:

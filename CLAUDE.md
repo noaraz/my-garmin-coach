@@ -639,8 +639,9 @@ async def _make_activity(self, session: AsyncSession) -> Any:
 
 - **Orphan prevention**: `_sync_and_persist` skips push and marks `sync_status="failed"` when the old Garmin workout delete fails. `garmin_workout_id` is preserved for retry — never cleared on failure.
 - **Dedup module**: `backend/src/garmin/dedup.py` — `find_matching_garmin_workout(name, garmin_workouts)` matches by name (case-insensitive). `find_orphaned_garmin_workouts()` finds untracked Garmin workouts safe to delete.
-- **sync_all dedup**: Fetches `adapter.get_workouts()` once per sync. Before pushing a workout with no `garmin_workout_id`, checks for name match. If found, deletes match first. Also runs orphan cleanup sweep (only deletes Garmin workouts matching our template names).
+- **sync_all dedup**: Fetches `sync_service.get_workouts()` once per sync. Before pushing a workout with no `garmin_workout_id`, checks for name match. If found, deletes match first. Also runs orphan cleanup sweep (only deletes Garmin workouts matching our template names).
 - **commit_plan dedup**: When creating new SWs during plan commit, pre-links `garmin_workout_id` from matching Garmin workouts and sets `sync_status="modified"`. Prevents duplication when re-importing a plan.
+- **SyncOrchestrator is the public API**: Never call `sync_service.adapter.method()` directly. Expose new Garmin API methods on `SyncOrchestrator` (delegates to `GarminSyncService` → `GarminAdapter`). Pattern: `sync_service.get_workouts()`, `sync_service.delete_workout()`. The `.adapter` property exists for backward compat but new code should not use it.
 - **Safety**: Only Garmin workouts whose name matches a `WorkoutTemplate.name` in our DB are ever deleted. User-created Garmin workouts are never touched.
 
 ---
