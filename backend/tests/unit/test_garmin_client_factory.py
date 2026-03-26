@@ -12,14 +12,14 @@ from src.garmin.client_factory import CHROME_VERSION
 class TestChromeTLSSession:
     """ChromeTLSSession must have requests.Session compatibility attributes."""
 
-    def test_has_adapters_attribute(self) -> None:
+    def test_adapters_when_created_returns_dict(self) -> None:
         from src.garmin.client_factory import ChromeTLSSession
 
         session = ChromeTLSSession(impersonate=CHROME_VERSION)
         assert hasattr(session, "adapters")
         assert isinstance(session.adapters, dict)
 
-    def test_has_hooks_attribute(self) -> None:
+    def test_hooks_when_created_matches_requests_session(self) -> None:
         from src.garmin.client_factory import ChromeTLSSession
 
         session = ChromeTLSSession(impersonate=CHROME_VERSION)
@@ -32,7 +32,7 @@ class TestCreateApiClient:
     """create_api_client must return a GarminAdapter with Chrome TLS session."""
 
     @patch("src.garmin.client_factory.garminconnect")
-    def test_returns_garmin_adapter(self, mock_gc: MagicMock) -> None:
+    def test_create_api_client_when_called_returns_garmin_adapter(self, mock_gc: MagicMock) -> None:
         from src.garmin.adapter import GarminAdapter
         from src.garmin.client_factory import create_api_client
 
@@ -43,7 +43,7 @@ class TestCreateApiClient:
         assert isinstance(adapter, GarminAdapter)
 
     @patch("src.garmin.client_factory.garminconnect")
-    def test_loads_token_json(self, mock_gc: MagicMock) -> None:
+    def test_create_api_client_when_called_loads_token_json(self, mock_gc: MagicMock) -> None:
         from src.garmin.client_factory import create_api_client
 
         mock_client = MagicMock()
@@ -53,7 +53,7 @@ class TestCreateApiClient:
         mock_client.garth.loads.assert_called_once_with('{"token": "test123"}')
 
     @patch("src.garmin.client_factory.garminconnect")
-    def test_injects_chrome_tls_session(self, mock_gc: MagicMock) -> None:
+    def test_create_api_client_when_called_injects_chrome_tls_session(self, mock_gc: MagicMock) -> None:
         from src.garmin.client_factory import ChromeTLSSession, create_api_client
 
         mock_client = MagicMock()
@@ -63,7 +63,7 @@ class TestCreateApiClient:
         assert isinstance(mock_client.garth.sess, ChromeTLSSession)
 
     @patch("src.garmin.client_factory.garminconnect")
-    def test_does_not_override_refresh_oauth2(self, mock_gc: MagicMock) -> None:
+    def test_refresh_oauth2_when_client_created_not_overridden(self, mock_gc: MagicMock) -> None:
         """Native garth refresh_oauth2 must NOT be overridden.
 
         garth's sso.exchange() via GarminOAuth1Session(parent=ChromeTLSSession)
@@ -85,25 +85,25 @@ class TestCreateApiClient:
 class TestCreateLoginClient:
     """create_login_client must return a garth.Client with Chrome TLS session."""
 
-    def test_returns_garth_client(self) -> None:
+    def test_create_login_client_when_called_returns_garth_client(self) -> None:
         from src.garmin.client_factory import create_login_client
 
         client = create_login_client()
         assert isinstance(client, garth.Client)
 
-    def test_has_chrome_tls_session(self) -> None:
+    def test_create_login_client_when_called_has_chrome_tls_session(self) -> None:
         from src.garmin.client_factory import ChromeTLSSession, create_login_client
 
         client = create_login_client()
         assert isinstance(client.sess, ChromeTLSSession)
 
-    def test_no_proxy_by_default(self) -> None:
+    def test_create_login_client_when_no_proxy_has_empty_proxies(self) -> None:
         from src.garmin.client_factory import create_login_client
 
         client = create_login_client()
         assert not getattr(client.sess, "proxies", None)
 
-    def test_sets_proxy_when_provided(self) -> None:
+    def test_create_login_client_when_proxy_provided_sets_proxies(self) -> None:
         from src.garmin.client_factory import create_login_client
 
         client = create_login_client(proxy_url="https://proxy.example.com")
