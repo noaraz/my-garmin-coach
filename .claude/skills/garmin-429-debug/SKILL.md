@@ -222,3 +222,4 @@ If no CONNECT logs, `FIXIE_URL` env var is wrong or not set in Render.
 - [ ] Render logs show `Garmin login attempt 1/2: chrome124 TLS, no proxy`
 - [ ] `FIXIE_URL` set in Render (optional fallback for SSO login only)
 - [ ] Check stack trace library (Step 0) before assuming curl_cffi is the fix
+- [ ] After bumping `CHROME_VERSION`, grep docs for old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`

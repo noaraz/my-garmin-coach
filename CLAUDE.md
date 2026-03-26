@@ -691,6 +691,14 @@ class ChromeTLSSession(cffi_requests.Session):
 - `curl-cffi>=0.6` in `backend/pyproject.toml`
 - `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on login 429 retry
 - **Re-test with `test_garmin_login.py`** (repo root) if 429s return — runs 4 approaches side-by-side to isolate IP vs TLS issues when Akamai updates detection
+- **`CHROME_VERSION` bumps**: When changing the constant in `client_factory.py`, grep all docs for the old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`. Update every stale reference.
+
+---
+
+## CI Troubleshooting (added 2026-03-26)
+
+- **CI not triggering on a PR**: GitHub Actions `pull_request` fires on `opened`, `synchronize`, `reopened`. If no run appears, push a new commit to trigger `synchronize` — close/reopen is unreliable. Check Actions minutes at github.com/settings/billing if runs silently skip.
+- **New pip-audit CVE**: Add `--ignore-vuln CVE-XXXX-YYYY` to `.github/workflows/ci.yml` with a comment explaining the vuln. Only ignore when no fix version exists.
 
 ---
 
