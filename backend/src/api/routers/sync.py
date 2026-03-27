@@ -96,89 +96,12 @@ async def _get_garmin_sync_service(
     )
 
 
-def _date_in_schedule_response(response: Any, target_date: str) -> bool:
-    """Return True if *target_date* (YYYY-MM-DD) appears in a Garmin schedule response.
-
-    Garmin may return a list of entries or a single dict — handle both.
-    """
-    if isinstance(response, list):
-        return any(str(item.get("date", "")) == target_date for item in response)
-    if isinstance(response, dict):
-        return str(response.get("date", "")) == target_date
-    return False
-
-
-async def _reconcile_calendar(
-    session: AsyncSession,
-    sync_service: "SyncOrchestrator",
-    user_id: int,
-) -> int:
-    """Guarantee every future synced workout is on the Garmin calendar (GET-first).
-
-    For each future non-completed synced workout with a garmin_workout_id:
-      1. GET /workout-service/schedule/{garmin_workout_id} — scheduled entries for that template
-      2. If our date is in the response → still on calendar, skip (0 extra calls)
-      3. If our date is missing → reschedule (1 POST), update garmin_schedule_id
-      4. If 404 → template is gone from Garmin → mark 'modified' for full re-push
-
-    Covers both new workouts (with garmin_schedule_id) and legacy rows (without).
-    Returns the count of workouts re-scheduled (not counting full re-pushes).
-    """
-    synced_workouts = await scheduled_workout_repository.get_by_status(
-        session, ("synced",), user_id
-    )
-    today = datetime.now(timezone.utc).date()
-    candidates = [
-        sw
-        for sw in synced_workouts
-        if sw.garmin_workout_id and not sw.completed and sw.date >= today
-    ]
-    if not candidates:
-        return 0
-
-    reconciled = 0
-    needs_commit = False
-    for sw in candidates:
-        try:
-            response = sync_service.get_scheduled_workout_by_id(sw.garmin_workout_id)
-            if _date_in_schedule_response(response, str(sw.date)):
-                # Still on calendar — nothing to do
-                continue
-            # Date missing from calendar — re-schedule using existing template
-            new_schedule_id = sync_service.reschedule_workout(sw.garmin_workout_id, str(sw.date))
-            sw.garmin_schedule_id = new_schedule_id
-            session.add(sw)
-            reconciled += 1
-            needs_commit = True
-            logger.info(
-                "Reconciliation: re-scheduled workout %s on %s (was missing from calendar)",
-                sw.id, sw.date,
-            )
-        except Exception as exc:  # noqa: BLE001
-            exc_str = str(exc)
-            if "404" in exc_str or "403" in exc_str:
-                # 404 = template has no scheduled entries (or template gone)
-                # 403 = template inaccessible (auth hiccup or no longer owned)
-                # In both cases, queue full re-push to restore the calendar entry.
-                logger.info(
-                    "Reconciliation: workout %s not accessible (%s) — queuing full re-push",
-                    sw.id, exc_str.split("HTTP Error")[-1].strip() or exc_str,
-                )
-                sw.garmin_workout_id = None
-                sw.garmin_schedule_id = None
-                sw.sync_status = "modified"
-                session.add(sw)
-                needs_commit = True
-            else:
-                logger.warning(
-                    "Reconciliation: could not check schedule for workout %s: %s", sw.id, exc
-                )
-
-    if needs_commit:
-        await session.commit()
-    if reconciled:
-        logger.info("Calendar reconciliation: re-scheduled %d workout(s)", reconciled)
-    return reconciled
+# NOTE: Calendar reconciliation via GET /workout-service/schedule/{id} is not feasible.
+# The garminconnect library's get_scheduled_workout_by_id() expects a schedule ENTRY ID,
+# but Garmin returns 404 for GET on schedule entry IDs (write-only endpoint) and 403 for
+# GET using template IDs. There is no accessible Garmin API endpoint to check whether a
+# specific workout template is still on the calendar without pushing a new schedule entry.
+# garmin_schedule_id is retained in the DB for future use if the API becomes available.
 
 
 async def _persist_refreshed_token(
@@ -505,16 +428,12 @@ async def sync_all(
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
 
-    # Fetch Garmin workouts first — used for both dedup and reconciliation.
+    # Fetch Garmin workouts first — used for dedup.
     garmin_workouts: list[dict[str, Any]] | None = None
     try:
         garmin_workouts = sync_service.get_workouts()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
-
-    # Reconcile calendar: for every future synced workout with a stored schedule ID,
-    # delete its Garmin calendar entry and re-push so the calendar always matches our DB.
-    reconciled = await _reconcile_calendar(session, sync_service, current_user.id)
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)
@@ -627,7 +546,6 @@ async def sync_all(
     return SyncAllResponse(
         synced=synced,
         failed=failed,
-        reconciled=reconciled,
         activities_fetched=activities_fetched,
         activities_matched=activities_matched,
         fetch_error=fetch_error,
