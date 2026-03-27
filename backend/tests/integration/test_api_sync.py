@@ -632,30 +632,61 @@ class TestSyncAll:
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """Workouts with a garmin_workout_id not in Garmin's list are reset to 'modified' and re-pushed."""
-        # Arrange: a future 'synced' workout whose ID is no longer on Garmin
-        stale_id = "stale-garmin-999"
+        """GET schedule returns no entry for our date → re-schedule (1 POST), reconciled=1."""
         future_date = date.today() + timedelta(days=30)
         sw = await _make_scheduled_workout(
-            session, sync_status="synced", garmin_workout_id=stale_id, workout_date=future_date
+            session, sync_status="synced", garmin_workout_id="tmpl-999", workout_date=future_date
         )
-        # Garmin returns a different workout — stale_id is absent
-        mock_sync_service.get_workouts.return_value = [
-            {"workoutId": "other-garmin-111", "workoutName": "Other"}
-        ]
-        mock_sync_service.sync_workout = AsyncMock(return_value=("new-garmin-123", "sched-new-123"))
+        sw.garmin_schedule_id = "sched-old-999"
+        session.add(sw)
+        await session.commit()
+
+        # GET returns entries but NOT for our date → date missing from calendar
+        mock_sync_service.get_scheduled_workout_by_id.return_value = []
+        mock_sync_service.reschedule_workout.return_value = "sched-new-999"
 
         # Act
         response = await client.post("/api/v1/sync/all")
 
-        # Assert: sync_all re-pushed the stale workout
+        # Assert: calendar entry re-scheduled, sync_status unchanged, new schedule ID stored
         assert response.status_code == 200
-        assert response.json()["synced"] == 1
+        body = response.json()
+        assert body["reconciled"] == 1
+        assert body["synced"] == 0  # no full re-push needed
 
-        # DB: sync_status updated by _sync_and_persist after re-push
         await session.refresh(sw)
         assert sw.sync_status == "synced"
-        assert sw.garmin_workout_id == "new-garmin-123"
+        assert sw.garmin_schedule_id == "sched-new-999"
+
+    async def test_sync_all_skips_reconciliation_when_workout_already_on_calendar(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """GET schedule returns our date → already on calendar → skip (reconciled=0, 0 POST calls)."""
+        future_date = date.today() + timedelta(days=30)
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="tmpl-777", workout_date=future_date
+        )
+        sw.garmin_schedule_id = "sched-777"
+        session.add(sw)
+        await session.commit()
+
+        # GET returns the date → workout is already on the calendar
+        mock_sync_service.get_scheduled_workout_by_id.return_value = [{"date": str(future_date)}]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["reconciled"] == 0
+        assert body["synced"] == 0
+        mock_sync_service.reschedule_workout.assert_not_called()
+
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_schedule_id == "sched-777"  # unchanged
 
     async def test_sync_all_does_not_reset_synced_workout_when_id_exists_on_garmin(
         self,
@@ -686,7 +717,7 @@ class TestSyncAll:
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """If get_workouts() raises, reconciliation is skipped and sync continues."""
+        """get_workouts() failure (used for dedup) does not affect sync_all returning 200."""
         await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
@@ -697,34 +728,67 @@ class TestSyncAll:
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # nothing re-pushed
 
-    async def test_sync_all_does_not_reset_synced_workout_with_schedule_id_when_template_present(
+    async def test_sync_all_marks_template_gone_as_modified_when_get_returns_404(
         self,
         client: AsyncClient,
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """Workout with garmin_schedule_id is not reset when its template still exists in Garmin."""
-        future_date = date.today() + timedelta(days=10)
+        """GET schedule returns 404 → template gone from Garmin → mark modified → full re-push."""
+        future_date = date.today() + timedelta(days=15)
         sw = await _make_scheduled_workout(
             session,
             sync_status="synced",
-            garmin_workout_id="tmpl-111",
+            garmin_workout_id="tmpl-deleted",
             workout_date=future_date,
         )
-        sw.garmin_schedule_id = "sched-111"
+        sw.garmin_schedule_id = "sched-old"
         session.add(sw)
         await session.commit()
 
-        mock_sync_service.get_workouts.return_value = [
-            {"workoutId": "tmpl-111", "workoutName": "Easy Run"}
-        ]
+        mock_sync_service.get_scheduled_workout_by_id.side_effect = Exception("404 Not Found")
+        mock_sync_service.sync_workout = AsyncMock(return_value=("tmpl-new", "sched-new"))
 
         response = await client.post("/api/v1/sync/all")
 
         assert response.status_code == 200
-        assert response.json()["synced"] == 0
+        body = response.json()
+        assert body["synced"] == 1  # full re-push succeeded
+        assert body["reconciled"] == 0  # no reschedule, went straight to re-push
         await session.refresh(sw)
         assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "tmpl-new"
+
+    async def test_sync_all_falls_back_to_full_repush_when_reschedule_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """GET returns date-missing, reschedule raises 404 → marked modified → full re-push."""
+        future_date = date.today() + timedelta(days=10)
+        sw = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="tmpl-gone",
+            workout_date=future_date,
+        )
+        sw.garmin_schedule_id = "sched-old"
+        session.add(sw)
+        await session.commit()
+
+        mock_sync_service.get_scheduled_workout_by_id.return_value = []  # date not found
+        mock_sync_service.reschedule_workout.side_effect = Exception("404 Not Found")
+        mock_sync_service.sync_workout = AsyncMock(return_value=("tmpl-new", "sched-new"))
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["synced"] == 1  # full re-push succeeded
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "tmpl-new"
 
 
 # ---------------------------------------------------------------------------

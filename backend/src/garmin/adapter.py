@@ -30,14 +30,14 @@ class GarminAdapter:
         resp = self._client.garth.post("connectapi", url, json={"date": workout_date}, api=True)
         return resp.json() if hasattr(resp, "json") else {}
 
-    def get_scheduled_workout_by_id(self, schedule_id: str) -> dict[str, Any]:
-        """Fetch a Garmin calendar entry by its schedule ID.
+    def get_scheduled_workout_by_id(self, workout_id: str) -> Any:
+        """Fetch scheduled calendar entries for a workout template.
 
-        Raises an exception (typically HTTPError with 404) when the entry no
-        longer exists — used by reconciliation to detect removed calendar entries.
+        Uses GET /workout-service/schedule/{workoutId} with the **template ID**
+        (same URL as the POST schedule endpoint, different HTTP method).
+        Raises on 404 when the template has no scheduled calendar entries.
         """
-        url = f"{self._client.garmin_workouts_schedule_url}/{schedule_id}"
-        return self._client.connectapi(url)
+        return self._client.get_scheduled_workout_by_id(workout_id)
 
     def update_workout(self, workout_id: str, formatted_workout: dict[str, Any]) -> None:
         """Update an existing Garmin workout in-place."""

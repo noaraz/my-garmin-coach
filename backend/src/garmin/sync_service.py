@@ -95,12 +95,12 @@ class GarminSyncService:
         """Fetch all planned workouts from Garmin Connect."""
         return self._client.get_workouts()
 
-    def get_scheduled_workout_by_id(self, schedule_id: str) -> dict[str, Any]:
-        """Fetch a Garmin calendar entry by its schedule ID.
+    def get_scheduled_workout_by_id(self, workout_id: str) -> Any:
+        """Fetch scheduled calendar entries for a workout template (template ID, not schedule entry ID).
 
-        Raises on 404 when the entry no longer exists.
+        Raises on 404 — used by reconciliation to detect missing calendar entries.
         """
-        return self._client.get_scheduled_workout_by_id(schedule_id)
+        return self._client.get_scheduled_workout_by_id(workout_id)
 
     # ------------------------------------------------------------------
     # Bulk operations
