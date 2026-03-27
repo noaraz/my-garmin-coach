@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from garth.exc import GarthHTTPError
+
 from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
@@ -102,6 +104,15 @@ async def _get_garmin_sync_service(
 # GET using template IDs. There is no accessible Garmin API endpoint to check whether a
 # specific workout template is still on the calendar without pushing a new schedule entry.
 # garmin_schedule_id is retained in the DB for future use if the API becomes available.
+
+
+def _is_garmin_404(exc: Exception) -> bool:
+    """Return True when exc is a Garmin 404 (resource not found on Connect)."""
+    return (
+        isinstance(exc, GarthHTTPError)
+        and exc.error.response is not None
+        and exc.error.response.status_code == 404
+    )
 
 
 async def _persist_refreshed_token(
@@ -215,7 +226,6 @@ class SyncSingleResponse(BaseModel):
 class SyncAllResponse(BaseModel):
     synced: int
     failed: int
-    reconciled: int = 0
     activities_fetched: int = 0
     activities_matched: int = 0
     fetch_error: str | None = None
@@ -309,7 +319,7 @@ async def _sync_and_persist(
             )
             workout.garmin_workout_id = None
         except Exception as exc:  # noqa: BLE001
-            if "404" in str(exc):
+            if _is_garmin_404(exc):
                 # Workout already gone from Garmin — clear stale ID and proceed with push.
                 logger.info(
                     "Old Garmin workout %s already deleted (404) — clearing ID and re-pushing",
@@ -358,7 +368,7 @@ async def _sync_and_persist(
                 sync_service.delete_workout(match_id)
                 workout.garmin_workout_id = None
             except Exception as exc:  # noqa: BLE001
-                if "404" in str(exc):
+                if _is_garmin_404(exc):
                     # Already gone — proceed with push
                     logger.info("Matched Garmin workout %s already deleted (404)", match_id)
                     workout.garmin_workout_id = None
@@ -501,7 +511,12 @@ async def sync_all(
                 session.add(workout)
                 logger.info("Cleared paired Garmin workout %s from calendar", garmin_id)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, exc)
+                if _is_garmin_404(exc):
+                    # Already gone from Garmin — still clear our ID so we don't retry
+                    workout.garmin_workout_id = None
+                    session.add(workout)
+                else:
+                    logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, exc)
 
         if paired_with_garmin:
             await session.commit()
@@ -533,7 +548,7 @@ async def sync_all(
                 except Exception as exc:  # noqa: BLE001
                     # 404 is expected when the ID was already deleted during this sync
                     # (reconciliation marks workouts modified → re-push deletes old template).
-                    if "404" not in str(exc):
+                    if not _is_garmin_404(exc):
                         logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, exc)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Orphan cleanup failed (continuing): %s", exc)

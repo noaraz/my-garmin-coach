@@ -8,12 +8,23 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from garth.exc import GarthHTTPError
+from requests import HTTPError as RequestsHTTPError
+from requests.models import Response
+
 from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.api.routers.sync import _get_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+
+
+def _garmin_404() -> GarthHTTPError:
+    """Build a GarthHTTPError with status 404 for use in mock side_effects."""
+    resp = Response()
+    resp.status_code = 404
+    return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
 
 
 # ---------------------------------------------------------------------------
@@ -221,9 +232,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
-        mock_sync_service.delete_workout.side_effect = Exception(
-            "404 Client Error: Not Found"
-        )
+        mock_sync_service.delete_workout.side_effect = _garmin_404()
         mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
