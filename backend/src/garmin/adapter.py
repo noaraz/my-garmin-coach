@@ -46,3 +46,11 @@ class GarminAdapter:
         ``workoutId`` and ``workoutName``.
         """
         return self._client.get_workouts()
+
+    def dump_token(self) -> str:
+        """Return the current garth token state as JSON.
+
+        garth may refresh the OAuth2 token in-memory during API calls.
+        Call this after sync to capture any refreshed token for DB persistence.
+        """
+        return self._client.garth.dumps()
