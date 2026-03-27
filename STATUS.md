@@ -1,6 +1,20 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-27 (Garmin token persist + sync-from-panel)
+Last updated: 2026-03-27 (v1.4.0 release)
+
+## Current Focus: v1.4.0 Release
+
+### v1.4.0 Release
+| Task | Status |
+|------|--------|
+| Workout removal confirmation dialog | ✅ |
+| Today button on calendar toolbar | ✅ |
+| Fix: persist Garmin OAuth2 token across restarts | ✅ |
+| Fix: reconcile stale Garmin workout IDs on sync | ✅ |
+| Bump frontend/package.json to 1.4.0 | ✅ |
+| Tag v1.4.0 + push | ⬜ |
+
+---
 
 ## Current Focus: Garmin Token Persist + Sync From Panel ✅
 
@@ -439,6 +453,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Tag v1.3.0 + push — Akamai bot-detection bypass (curl_cffi chrome120), 429 retry flow | ✅ |
 | Tag v1.3.1 + push — Sun-Sat week start, /release automation, reschedule sync fix | ✅ |
 | Tag v1.3.2 + push — Garmin sync dedup, Chrome TLS facade, E2E tests, security hardening | ✅ |
+| Tag v1.4.0 + push — workout confirmation dialog, Today button, Garmin token persist, sync-from-panel | ⬜ |
 | Migrate production DB to Neon PostgreSQL (fix Render ephemeral storage loss) | ✅ |
 | Add asyncpg + psycopg2-binary drivers + fix alembic URL stripping for PostgreSQL | ✅ |
 | Unit tests: alembic URL normalization for both SQLite and PostgreSQL | ✅ |
