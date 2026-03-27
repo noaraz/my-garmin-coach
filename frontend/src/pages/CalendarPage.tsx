@@ -107,6 +107,18 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     }
   }
 
+  const handleToday = () => {
+    const now = new Date()
+    setCurrentDate(now)
+    if (isMobile) {
+      setSelectedDay(toDateString(now))
+    }
+  }
+
+  const isCurrentPeriod = view === 'week'
+    ? getWeekStart(currentDate).getTime() === getWeekStart(new Date()).getTime()
+    : currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()
+
   const handleAddWorkout = (date: string) => {
     setPickerDate(date)
   }
@@ -199,6 +211,26 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         flexShrink: 0,
         flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}>
+        <button
+          aria-label="Go to today"
+          onClick={handleToday}
+          disabled={isCurrentPeriod}
+          style={{
+            height: '27px',
+            padding: '0 10px',
+            borderRadius: '4px',
+            border: '1px solid var(--border-strong)',
+            background: 'transparent',
+            cursor: isCurrentPeriod ? 'default' : 'pointer',
+            color: 'var(--text-secondary)',
+            fontFamily: "'IBM Plex Sans Condensed', sans-serif",
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+            opacity: isCurrentPeriod ? 0.4 : 1,
+          }}
+        >Today</button>
+
         <button
           aria-label="Prev"
           onClick={handlePrev}

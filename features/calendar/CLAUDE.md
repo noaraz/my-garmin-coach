@@ -68,6 +68,13 @@ Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
 - **Garmin warning**: Modal conditionally shows "will also be removed from Garmin" when `garmin_workout_id` is set on the workout.
 - **Panel auto-close**: `handleConfirmRemove` closes `WorkoutDetailPanel` if the removed workout is currently selected.
 
+## Today Button (added 2026-03-27)
+
+- **Placement**: Before the `‹` prev arrow — Google Calendar convention: `[Today] ‹ date ›`
+- **Handler**: `handleToday()` — sets `currentDate` to `new Date()`, resets `selectedDay` on mobile
+- **Disabled state**: `isCurrentPeriod` derived boolean — compares week start (week view) or month/year (month view) to today. Button gets `opacity: 0.4` and `disabled` when already showing current period.
+- **Style**: Same height (27px) and border as arrow buttons. `IBM Plex Sans Condensed`, 11px, fontWeight 600.
+
 ## Month View Week Start
 - `weekStartsOn: 0` in `date-fns` = Sunday start. `1` = Monday.
 - The day-header array in `MonthView.tsx` is hardcoded — must be reordered alongside the `weekStartsOn` change.
