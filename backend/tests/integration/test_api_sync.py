@@ -697,13 +697,13 @@ class TestSyncAll:
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # nothing re-pushed
 
-    async def test_sync_all_reconciles_via_schedule_id_when_calendar_entry_removed(
+    async def test_sync_all_does_not_reset_synced_workout_with_schedule_id_when_template_present(
         self,
         client: AsyncClient,
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """Workout with garmin_schedule_id is reset when get_scheduled_workout_by_id raises 404."""
+        """Workout with garmin_schedule_id is not reset when its template still exists in Garmin."""
         future_date = date.today() + timedelta(days=10)
         sw = await _make_scheduled_workout(
             session,
@@ -711,50 +711,13 @@ class TestSyncAll:
             garmin_workout_id="tmpl-111",
             workout_date=future_date,
         )
-        # Set schedule ID directly (simulates a row synced after this change)
         sw.garmin_schedule_id = "sched-111"
         session.add(sw)
         await session.commit()
 
-        # Template still in library — old reconciliation would miss this
         mock_sync_service.get_workouts.return_value = [
             {"workoutId": "tmpl-111", "workoutName": "Easy Run"}
         ]
-        # Calendar entry is gone
-        mock_sync_service.get_scheduled_workout_by_id.side_effect = Exception("404 Not Found")
-        mock_sync_service.sync_workout = AsyncMock(return_value=("tmpl-new", "sched-new"))
-
-        response = await client.post("/api/v1/sync/all")
-
-        assert response.status_code == 200
-        assert response.json()["synced"] == 1
-        await session.refresh(sw)
-        assert sw.sync_status == "synced"
-        assert sw.garmin_workout_id == "tmpl-new"
-
-    async def test_sync_all_does_not_reset_when_schedule_entry_still_exists(
-        self,
-        client: AsyncClient,
-        session: AsyncSession,
-        mock_sync_service: MagicMock,
-    ) -> None:
-        """Workout with valid garmin_schedule_id is NOT reset when calendar entry still exists."""
-        future_date = date.today() + timedelta(days=10)
-        sw = await _make_scheduled_workout(
-            session,
-            sync_status="synced",
-            garmin_workout_id="tmpl-222",
-            workout_date=future_date,
-        )
-        sw.garmin_schedule_id = "sched-222"
-        session.add(sw)
-        await session.commit()
-
-        mock_sync_service.get_workouts.return_value = [
-            {"workoutId": "tmpl-222", "workoutName": "Tempo"}
-        ]
-        # Calendar entry still present
-        mock_sync_service.get_scheduled_workout_by_id.return_value = {"workoutScheduleId": "sched-222"}
 
         response = await client.post("/api/v1/sync/all")
 
