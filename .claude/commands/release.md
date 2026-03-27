@@ -21,6 +21,16 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --oneline
 
 Present the commit list to the user. If there are uncommitted changes, stop and ask the user to commit or stash them first.
 
+Then verify the Neon production DB is at a known alembic revision (catches stale stamps before deploy):
+
+```bash
+# Load DATABASE_URL from .env.prod and check alembic state
+# Must output: <revision-id> (head)
+source .env.prod && DATABASE_URL=$DATABASE_URL backend/.venv/bin/alembic -c backend/alembic.ini current
+```
+
+If this fails with "Can't locate revision", follow the fix in CLAUDE.md → "When alembic_version has an unknown revision". **Do not tag until this is resolved.**
+
 ---
 
 ## 2. Run Full Test Suite

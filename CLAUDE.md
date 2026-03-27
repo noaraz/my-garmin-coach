@@ -432,9 +432,40 @@ If alembic says `(head)` but the schema is wrong, the migration ran without batc
 no-op. Fix: stamp back to the previous revision, then upgrade:
 
 ```bash
-alembic stamp <previous-revision-id>
+# Find the real previous revision first — never use a placeholder
+ls backend/alembic/versions/   # look at down_revision in the head migration file
+alembic stamp <actual-revision-id-from-the-file>
 alembic upgrade head
 ```
+
+### When alembic_version has an unknown revision (deploy fails with "Can't locate revision")
+
+The Neon DB's `alembic_version` table has a stale/placeholder ID that doesn't exist in the codebase.
+`alembic stamp` itself fails in this state. Fix: update the table directly, then redeploy.
+
+```python
+import psycopg2
+# Use the sync URL (postgresql://..., not postgresql+asyncpg://...)
+conn = psycopg2.connect("postgresql://...?sslmode=require")
+cur = conn.cursor()
+cur.execute("SELECT version_num FROM alembic_version;")
+print("Current:", cur.fetchall())  # verify what's there
+cur.execute("UPDATE alembic_version SET version_num = 'f1a2b3c4d567';")  # use real head
+conn.commit()
+conn.close()
+```
+
+Get the real head revision: `grep "^Revision ID" backend/alembic/versions/*.py | sort`
+
+**Pre-release check**: always run `alembic current` against Neon before tagging to catch this early:
+```bash
+DATABASE_URL="postgresql+asyncpg://..." alembic current
+# Must show: <revision-id> (head)
+```
+
+**Never stamp with a made-up hex string.** The v1.4.0 release was blocked because `a1b2c3d4e5f6`
+was stamped into Neon during a debugging session. Always verify the revision ID exists in
+`backend/alembic/versions/` before running `alembic stamp`.
 
 ---
 
