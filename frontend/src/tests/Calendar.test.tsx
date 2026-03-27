@@ -358,3 +358,46 @@ describe('test_mobile_reschedule_navigates_to_new_date', () => {
     await screen.findByRole('button', { name: 'Select 2026-03-12', pressed: true })
   })
 })
+
+describe('test_mobile_date_label_cross_month_week', () => {
+  // Week starts Sunday (weekStartsOn: 0)
+  // new Date(2026, 2, 30) → Sun Mar 29 – Sat Apr 4 (spans two months)
+  // new Date(2026, 2, 22) → Sun Mar 22 – Sat Mar 28 (same month)
+
+  it('cross-month week → end date includes month name', () => {
+    mockUseIsMobile.mockReturnValue(true)
+    renderPage({ initialDate: new Date(2026, 2, 30) }) // any date in Mar 29–Apr 4 week
+    // Should show "Mar 29 – Apr 4", not the ambiguous "Mar 29 – 4"
+    expect(screen.getByText(/Mar 29.*Apr 4/)).toBeInTheDocument()
+  })
+
+  it('same-month week → end date is day number only (no redundant month)', () => {
+    mockUseIsMobile.mockReturnValue(true)
+    renderPage({ initialDate: new Date(2026, 2, 22) }) // Mar 22 → week Mar 22–28
+    const label = screen.getByText(/Mar 22/)
+    expect(label.textContent).not.toMatch(/Mar 22.*Mar 28/) // no redundant month
+    expect(label.textContent).toMatch(/28/)                 // end day present
+  })
+})
+
+describe('test_mobile_garmin_button_layout_stability', () => {
+  it('Garmin button is in DOM while loading (visibility:hidden, no layout shift)', async () => {
+    mockUseIsMobile.mockReturnValue(true)
+    mockGetGarminStatus.mockReturnValue(new Promise(() => {})) // never resolves
+    renderPage({ initialDate: new Date(2026, 2, 23) })
+    await act(async () => {})
+    // Use DOM query — visibility:hidden removes from a11y tree so queryByRole returns null
+    const btn = document.querySelector('[aria-label*="Garmin"]') as HTMLElement | null
+    expect(btn).not.toBeNull()
+    expect(btn).toHaveStyle({ visibility: 'hidden' })
+  })
+
+  it('Garmin button becomes visible once status resolves', async () => {
+    mockUseIsMobile.mockReturnValue(true)
+    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    renderPage({ initialDate: new Date(2026, 2, 23) })
+    const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveStyle({ visibility: 'visible' })
+  })
+})
