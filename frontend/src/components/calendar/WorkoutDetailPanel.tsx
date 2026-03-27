@@ -192,6 +192,8 @@ function WorkoutDetailPlanned({
     setIsSyncing(true)
     try {
       await onSync(workout.id)
+    } catch {
+      // Error is handled by the caller (status indicator retains value; button re-enables)
     } finally {
       setIsSyncing(false)
     }

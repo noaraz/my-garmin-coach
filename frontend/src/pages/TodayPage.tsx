@@ -28,7 +28,7 @@ export function TodayPage() {
   const [selectedWorkout, setSelectedWorkout] = useState<ScheduledWorkoutWithActivity | null>(null)
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
 
-  const { workouts, loading, updateNotes } = useCalendar(weekStart, weekEnd)
+  const { workouts, loading, updateNotes, syncOneWorkout } = useCalendar(weekStart, weekEnd)
   const { garminConnected } = useGarminStatus()
   const { zonesConfigured } = useZonesStatus()
 
@@ -228,6 +228,12 @@ export function TodayPage() {
           onUnpair={() => {}}
           onUpdateNotes={(id, notes) => updateNotes(id, notes)}
           onNavigateToBuilder={() => {}}
+          onSync={garminConnected ? async (id) => {
+            const result = await syncOneWorkout(id)
+            setSelectedWorkout(prev =>
+              prev ? { ...prev, sync_status: result.sync_status, garmin_workout_id: result.garmin_workout_id } : null
+            )
+          } : undefined}
         />
       )}
     </div>
