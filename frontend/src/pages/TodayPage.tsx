@@ -228,12 +228,12 @@ export function TodayPage() {
           onUnpair={() => {}}
           onUpdateNotes={(id, notes) => updateNotes(id, notes)}
           onNavigateToBuilder={() => {}}
-          onSync={garminConnected ? async (id) => {
+          onSync={async (id) => {
             const result = await syncOneWorkout(id)
             setSelectedWorkout(prev =>
               prev ? { ...prev, sync_status: result.sync_status, garmin_workout_id: result.garmin_workout_id } : null
             )
-          } : undefined}
+          }}
         />
       )}
     </div>

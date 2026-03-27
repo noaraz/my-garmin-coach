@@ -464,7 +464,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           onUnpair={async (id) => { await unpair(id); handlePanelClose() }}
           onUpdateNotes={updateNotes}
           onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
-          onSync={garminConnected ? handleSync : undefined}
+          onSync={handleSync}
         />
       )}
 
