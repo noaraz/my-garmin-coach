@@ -154,8 +154,17 @@ All Garmin API calls from routers/services must go through `SyncOrchestrator` me
 
 ## Gotchas
 
+- **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new
+  OAuth2 token in memory only (`_garth_home` unset). Without persisting it, every sync loads the
+  same expired token from DB and triggers a new exchange at
+  `connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0`. Frequent syncs exhaust Garmin's
+  exchange rate limit → repeated 429s. **Fix**: `_persist_refreshed_token(adapter, user_id,
+  session)` in `sync.py` — called at the end of `sync_all` and `sync_single`. Uses
+  `adapter.dump_token()` (= `garth.dumps()`), re-encrypts, saves back to
+  `AthleteProfile.garmin_oauth_token_encrypted`.
+- `GarminAdapter.dump_token() -> str` — returns `garth.dumps()` JSON. Use after any sync to
+  capture the in-memory (potentially refreshed) token state for DB persistence.
 - **Pace format**: Garmin uses m/s, not sec/km. Always convert.
 - **Repeat nesting**: One level only. No repeats inside repeats.
 - **50-step limit**: Max ~50 steps including expanded repeats. Validate.
-- **Session expiry**: tokens expire. Implement refresh/re-login.
 - **garmin-workouts-mcp**: Reference for JSON format only, NOT a dependency.

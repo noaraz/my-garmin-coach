@@ -18,7 +18,7 @@ from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
 from src.garmin.adapter import GarminAdapter
 from src.garmin.client_factory import create_api_client
-from src.garmin.encryption import decrypt_token
+from src.garmin.encryption import decrypt_token, encrypt_token
 from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
 from src.repositories.calendar import scheduled_workout_repository
@@ -94,6 +94,34 @@ async def _get_garmin_sync_service(
         formatter=format_workout,
         resolver=_resolver,
     )
+
+
+async def _persist_refreshed_token(
+    adapter: GarminAdapter,
+    user_id: int,
+    session: AsyncSession,
+) -> None:
+    """Persist garth's current token state back to the DB.
+
+    garth may refresh the OAuth2 token in-memory during API calls (via
+    refresh_oauth2()). Without persisting it, each sync re-exchanges the same
+    expired token, hitting Garmin's rate limit on the exchange endpoint (429).
+    """
+    try:
+        settings = get_settings()
+        new_token_json = adapter.dump_token()
+        new_encrypted = encrypt_token(user_id, settings.garmincoach_secret_key, new_token_json)
+        profile = (
+            await session.exec(
+                select(AthleteProfile).where(AthleteProfile.user_id == user_id)
+            )
+        ).first()
+        if profile:
+            profile.garmin_oauth_token_encrypted = new_encrypted
+            session.add(profile)
+            await session.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not persist refreshed Garmin token (non-critical): %s", exc)
 
 
 async def sync_modified_workouts(
@@ -496,6 +524,11 @@ async def sync_all(
         except Exception as exc:  # noqa: BLE001
             logger.warning("Orphan cleanup failed (continuing): %s", exc)
 
+    # Persist any OAuth2 token refresh that occurred during sync.
+    # garth refreshes in-memory only; without this, each sync re-exchanges the
+    # same expired token and hits Garmin's rate limit on the exchange endpoint.
+    await _persist_refreshed_token(sync_service.adapter, current_user.id, session)
+
     return SyncAllResponse(
         synced=synced,
         failed=failed,
@@ -527,6 +560,8 @@ async def sync_single(
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
     await _sync_and_persist(session, sync_service, workout, hr_zone_map, pace_zone_map)
     await session.commit()
+
+    await _persist_refreshed_token(sync_service.adapter, current_user.id, session)
 
     return SyncSingleResponse(
         id=workout.id,  # type: ignore[arg-type]

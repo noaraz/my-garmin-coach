@@ -43,7 +43,14 @@ Python TLS via `GarminOAuth1Session`, which Akamai allows on the exchange endpoi
 **If `curl_cffi` raises the 429**: Akamai is blocking chrome TLS on that endpoint.
 Do NOT try to "fix" by routing more traffic through curl_cffi — that makes it worse.
 
-**If `requests` raises the 429**: The ChromeTLSSession is not being used.
+**If `requests` raises the 429** on the exchange endpoint and `ChromeTLSSession` IS set:
+This is a **rate-limit 429**, not a TLS fingerprint block. Cause: garth's `refresh_oauth2()`
+refreshes the token in memory only. Each sync loads the same expired token from DB → repeated
+exchanges → Garmin rate-limits. Fix: call `_persist_refreshed_token(adapter, user_id, session)` at
+the end of `sync_all` / `sync_single` to save the refreshed token back to DB. See
+`features/garmin-sync/CLAUDE.md` Gotchas section.
+
+**If `requests` raises the 429 and `ChromeTLSSession` is NOT set**: The ChromeTLSSession is not being used.
 Check that `create_api_client()` sets `client.garth.sess = ChromeTLSSession(...)`.
 
 ---

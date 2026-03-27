@@ -13,7 +13,7 @@ from src.api.dependencies import get_session
 from src.api.routers.sync import _get_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.db.models import ScheduledWorkout, WorkoutTemplate
+from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
 
 
 # ---------------------------------------------------------------------------
@@ -784,3 +784,93 @@ class TestSyncAllActivityFetch:
         response2 = await client.post("/api/v1/sync/all")
         assert response2.status_code == 200
         assert response2.json()["activities_fetched"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Token persistence after sync (prevents repeated OAuth2 exchange → 429)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncTokenPersistence:
+    """garth's refreshed OAuth2 token is persisted back to DB after each sync.
+
+    Without this, every sync loads the same expired token from DB and triggers
+    a new OAuth2 exchange at the exchange endpoint.  Frequent syncs hit Garmin's
+    rate limit (429) on that endpoint.
+    """
+
+    async def test_sync_all_persists_refreshed_token_to_db(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """After sync_all, the profile's encrypted token reflects garth's current state."""
+        from src.garmin.encryption import decrypt_token, encrypt_token
+
+        secret = "dev-secret-change-in-prod"
+        initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
+        refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh"}}'
+
+        profile = AthleteProfile(
+            user_id=1,
+            garmin_connected=True,
+            garmin_oauth_token_encrypted=encrypt_token(1, secret, initial_token),
+        )
+        session.add(profile)
+        await session.commit()
+        await session.refresh(profile)
+
+        mock_sync_service.adapter.dump_token.return_value = refreshed_token
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        await session.refresh(profile)
+        assert profile.garmin_oauth_token_encrypted is not None
+        stored = decrypt_token(1, secret, profile.garmin_oauth_token_encrypted)
+        assert stored == refreshed_token
+
+    async def test_sync_all_continues_when_token_persist_fails(
+        self,
+        client: AsyncClient,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Token persistence failure is non-critical — sync_all still returns 200."""
+        mock_sync_service.adapter.dump_token.side_effect = RuntimeError("garth error")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+
+    async def test_sync_single_persists_refreshed_token_to_db(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """After sync_single, the profile's encrypted token reflects garth's current state."""
+        from src.garmin.encryption import decrypt_token, encrypt_token
+
+        secret = "dev-secret-change-in-prod"
+        initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
+        refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh2"}}'
+
+        profile = AthleteProfile(
+            user_id=1,
+            garmin_connected=True,
+            garmin_oauth_token_encrypted=encrypt_token(1, secret, initial_token),
+        )
+        session.add(profile)
+        await session.commit()
+
+        sw = await _make_scheduled_workout(session, sync_status="pending")
+        mock_sync_service.adapter.dump_token.return_value = refreshed_token
+
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        assert response.status_code == 200
+        await session.refresh(profile)
+        assert profile.garmin_oauth_token_encrypted is not None
+        stored = decrypt_token(1, secret, profile.garmin_oauth_token_encrypted)
+        assert stored == refreshed_token
