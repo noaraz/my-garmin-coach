@@ -626,6 +626,77 @@ class TestSyncAll:
         body = response.json()
         assert body["synced"] == 1
 
+    async def test_sync_all_reconciles_stale_garmin_ids(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workouts with a garmin_workout_id not in Garmin's list are reset to 'modified' and re-pushed."""
+        # Arrange: a future 'synced' workout whose ID is no longer on Garmin
+        stale_id = "stale-garmin-999"
+        future_date = date.today() + timedelta(days=30)
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=stale_id, workout_date=future_date
+        )
+        # Garmin returns a different workout — stale_id is absent
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": "other-garmin-111", "workoutName": "Other"}
+        ]
+        mock_sync_service.sync_workout = AsyncMock(return_value="new-garmin-123")
+
+        # Act
+        response = await client.post("/api/v1/sync/all")
+
+        # Assert: sync_all re-pushed the stale workout
+        assert response.status_code == 200
+        assert response.json()["synced"] == 1
+
+        # DB: sync_status updated by _sync_and_persist after re-push
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "new-garmin-123"
+
+    async def test_sync_all_does_not_reset_synced_workout_when_id_exists_on_garmin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workouts whose garmin_workout_id IS in Garmin's list are not touched."""
+        valid_id = "valid-garmin-456"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=valid_id
+        )
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": valid_id, "workoutName": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 0  # not re-pushed
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == valid_id
+
+    async def test_sync_all_skips_reconciliation_when_get_workouts_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """If get_workouts() raises, reconciliation is skipped and sync continues."""
+        await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.get_workouts.side_effect = RuntimeError("429")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 0  # nothing re-pushed
+
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/sync/status

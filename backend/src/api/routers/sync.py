@@ -96,6 +96,44 @@ async def _get_garmin_sync_service(
     )
 
 
+async def _reconcile_stale_garmin_ids(
+    session: AsyncSession,
+    garmin_workouts: list[dict[str, Any]],
+    user_id: int,
+) -> int:
+    """Reset 'synced' workouts to 'modified' when their garmin_workout_id is gone from Garmin.
+
+    Detects state drift: DB says 'synced' but the Garmin workout was deleted, expired,
+    or the account was reconnected. Resets them so they are re-pushed in the same sync_all
+    call rather than remaining silently missing from the Garmin calendar.
+
+    Returns the count of workouts reset.
+    """
+    garmin_id_set = {str(w.get("workoutId", "")) for w in garmin_workouts}
+    synced_workouts = await scheduled_workout_repository.get_by_status(
+        session, ("synced",), user_id
+    )
+    today = datetime.now(timezone.utc).date()
+    stale = [
+        sw
+        for sw in synced_workouts
+        if sw.garmin_workout_id
+        and str(sw.garmin_workout_id) not in garmin_id_set
+        and not sw.completed
+        and sw.date >= today
+    ]
+    if stale:
+        for sw in stale:
+            sw.sync_status = "modified"
+            session.add(sw)
+        await session.commit()
+        logger.info(
+            "Reconciliation: reset %d stale Garmin workout(s) to modified for re-push",
+            len(stale),
+        )
+    return len(stale)
+
+
 async def _persist_refreshed_token(
     adapter: GarminAdapter,
     user_id: int,
@@ -417,15 +455,21 @@ async def sync_all(
         Counts of workouts synced/failed, activities fetched/matched, and any fetch error.
     """
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
-    workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
-    templates = await _preload_templates(session, workouts)
 
-    # Fetch existing Garmin workouts once for dedup across all pending pushes.
+    # Fetch Garmin workouts first — used for both dedup and reconciliation.
     garmin_workouts: list[dict[str, Any]] | None = None
     try:
         garmin_workouts = sync_service.get_workouts()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
+
+    # Reconcile: reset 'synced' workouts whose garmin_workout_id is no longer on Garmin.
+    # Handles state drift (Garmin-side deletion, account reconnect, stale IDs after 429 period).
+    if garmin_workouts is not None:
+        await _reconcile_stale_garmin_ids(session, garmin_workouts, current_user.id)
+
+    workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
+    templates = await _preload_templates(session, workouts)
 
     results = [
         await _sync_and_persist(
