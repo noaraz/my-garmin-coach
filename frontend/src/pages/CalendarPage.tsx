@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addDays, addMonths, subDays, subMonths } from 'date-fns'
+import { addDays, addMonths, subDays, subMonths, format } from 'date-fns'
 import { useCalendar } from '../hooks/useCalendar'
 import { fetchWorkoutTemplates, getActivePlan } from '../api/client'
 import type { WorkoutTemplate, ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
@@ -201,6 +201,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
     if (view === 'week') {
       const start = getWeekStart(currentDate)
       const end = addDays(start, 6)
+      if (isMobile) {
+        const sameMonth = start.getMonth() === end.getMonth()
+        return `${format(start, 'MMM d')} – ${format(end, sameMonth ? 'd' : 'MMM d')}`
+      }
       return `${toDateString(start)} – ${toDateString(end)}`
     }
     return currentDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -209,80 +213,173 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '9px 20px',
-        borderBottom: '1px solid var(--toolbar-border)',
-        background: 'var(--toolbar-bg)',
-        flexShrink: 0,
-        flexWrap: isMobile ? 'wrap' : 'nowrap',
-      }}>
-        <button
-          aria-label="Go to today"
-          onClick={handleToday}
-          disabled={isCurrentPeriod}
-          style={{
-            height: '27px',
-            padding: '0 10px',
-            borderRadius: '4px',
-            border: '1px solid var(--border-strong)',
-            background: 'transparent',
-            cursor: isCurrentPeriod ? 'default' : 'pointer',
-            color: 'var(--text-secondary)',
-            fontFamily: "'IBM Plex Sans Condensed', sans-serif",
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-            opacity: isCurrentPeriod ? 0.4 : 1,
-          }}
-        >Today</button>
-
-        <button
-          aria-label="Prev"
-          onClick={handlePrev}
-          style={{
-            width: '27px', height: '27px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '4px', border: '1px solid var(--border-strong)',
-            background: 'transparent', cursor: 'pointer',
-            color: 'var(--text-secondary)', fontSize: '16px',
-          }}
-        >‹</button>
-
-        <span style={{
-          fontFamily: "'IBM Plex Mono', monospace",
-          fontSize: '11px',
-          fontWeight: 500,
-          color: 'var(--text-secondary)',
-          minWidth: '174px',
-          textAlign: 'center',
-          letterSpacing: '0.03em',
-        }}>
-          {displayDateLabel()}
-        </span>
-
-        <button
-          aria-label="Next"
-          onClick={handleNext}
-          style={{
-            width: '27px', height: '27px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '4px', border: '1px solid var(--border-strong)',
-            background: 'transparent', cursor: 'pointer',
-            color: 'var(--text-secondary)', fontSize: '16px',
-          }}
-        >›</button>
-
-        {/* View toggle — desktop only */}
-        {!isMobile && (
+      {isMobile ? (
+        /* ── Mobile: intentional two-row layout ── */
+        <div style={{ borderBottom: '1px solid var(--toolbar-border)', background: 'var(--toolbar-bg)', flexShrink: 0 }}>
+          {/* Row 1: navigation */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px 6px', gap: '6px' }}>
+            <button
+              aria-label="Prev"
+              onClick={handlePrev}
+              style={{
+                width: '27px', height: '27px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: '4px', border: '1px solid var(--border-strong)',
+                background: 'transparent', cursor: 'pointer',
+                color: 'var(--text-secondary)', fontSize: '16px',
+              }}
+            >‹</button>
+            <span style={{
+              flex: 1,
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 'clamp(10px, 3.5vw, 13px)',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+              letterSpacing: '0.03em',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+            }}>
+              {displayDateLabel()}
+            </span>
+            <button
+              aria-label="Next"
+              onClick={handleNext}
+              style={{
+                width: '27px', height: '27px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: '4px', border: '1px solid var(--border-strong)',
+                background: 'transparent', cursor: 'pointer',
+                color: 'var(--text-secondary)', fontSize: '16px',
+              }}
+            >›</button>
+          </div>
+          {/* Row 2: actions */}
           <div style={{
-            display: 'flex',
-            marginLeft: '6px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: '4px',
-            overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '5px 14px 8px',
+            borderTop: '1px solid var(--border)',
+          }}>
+            <button
+              aria-label="Go to today"
+              onClick={handleToday}
+              disabled={isCurrentPeriod}
+              style={{
+                height: '26px', padding: '0 10px',
+                borderRadius: '4px', border: '1px solid var(--border-strong)',
+                background: 'transparent',
+                cursor: isCurrentPeriod ? 'default' : 'pointer',
+                color: 'var(--text-secondary)',
+                fontFamily: "'IBM Plex Sans Condensed', sans-serif",
+                fontSize: 'clamp(9px, 2.8vw, 11px)',
+                fontWeight: 600, letterSpacing: '0.04em',
+                opacity: isCurrentPeriod ? 0.4 : 1,
+              }}
+            >Today</button>
+            {/* visibility:hidden while loading keeps space-between layout stable (no shift when dot appears) */}
+            <button
+              onClick={() => navigate('/settings')}
+              aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                height: '26px', padding: '0 8px',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: 'clamp(9px, 2.8vw, 11px)',
+                fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                visibility: garminConnected === null ? 'hidden' : 'visible',
+              }}
+            >
+              <div style={{
+                width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
+                boxShadow: garminConnected ? '0 0 0 2px var(--color-success-glow)' : '0 0 0 2px var(--color-error-glow)',
+                }} />
+                Garmin
+            </button>
+            <button
+              onClick={handleSyncAll}
+              disabled={syncing}
+              aria-label={syncing ? 'Syncing…' : 'Sync All'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                height: '26px', padding: '0 12px',
+                background: 'transparent', color: 'var(--accent)',
+                border: '1px solid var(--accent)', borderRadius: '4px',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: 'clamp(9px, 2.8vw, 11px)',
+                fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                cursor: syncing ? 'not-allowed' : 'pointer',
+                opacity: syncing ? 0.75 : 1, transition: 'opacity 0.15s',
+              }}
+            >
+              <svg
+                className={syncing ? 'sync-spinning' : undefined}
+                width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-3.63"/>
+              </svg>
+              {syncing ? 'Syncing…' : 'Sync All'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ── Desktop: single-row layout ── */
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '9px 20px',
+          borderBottom: '1px solid var(--toolbar-border)',
+          background: 'var(--toolbar-bg)', flexShrink: 0,
+        }}>
+          <button
+            aria-label="Go to today"
+            onClick={handleToday}
+            disabled={isCurrentPeriod}
+            style={{
+              height: '27px', padding: '0 10px',
+              borderRadius: '4px', border: '1px solid var(--border-strong)',
+              background: 'transparent', cursor: isCurrentPeriod ? 'default' : 'pointer',
+              color: 'var(--text-secondary)',
+              fontFamily: "'IBM Plex Sans Condensed', sans-serif",
+              fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em',
+              opacity: isCurrentPeriod ? 0.4 : 1,
+            }}
+          >Today</button>
+          <button
+            aria-label="Prev"
+            onClick={handlePrev}
+            style={{
+              width: '27px', height: '27px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: '4px', border: '1px solid var(--border-strong)',
+              background: 'transparent', cursor: 'pointer',
+              color: 'var(--text-secondary)', fontSize: '16px',
+            }}
+          >‹</button>
+          <span style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: '11px', fontWeight: 500,
+            color: 'var(--text-secondary)', minWidth: '174px',
+            textAlign: 'center', letterSpacing: '0.03em',
+          }}>
+            {displayDateLabel()}
+          </span>
+          <button
+            aria-label="Next"
+            onClick={handleNext}
+            style={{
+              width: '27px', height: '27px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: '4px', border: '1px solid var(--border-strong)',
+              background: 'transparent', cursor: 'pointer',
+              color: 'var(--text-secondary)', fontSize: '16px',
+            }}
+          >›</button>
+          <div style={{
+            display: 'flex', marginLeft: '6px',
+            border: '1px solid var(--border-strong)', borderRadius: '4px', overflow: 'hidden',
           }}>
             {(['week', 'month'] as const).map((v, i) => (
               <button
@@ -290,14 +387,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 onClick={() => setView(v)}
                 aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
                 style={{
-                  padding: '5px 11px',
-                  fontSize: '10px',
+                  padding: '5px 11px', fontSize: '10px',
                   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  border: 'none',
-                  borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
+                  fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  border: 'none', borderLeft: i > 0 ? '1px solid var(--border-strong)' : 'none',
                   cursor: 'pointer',
                   background: view === v ? 'var(--text-primary)' : 'transparent',
                   color: view === v ? 'var(--bg-main)' : 'var(--text-secondary)',
@@ -308,78 +401,56 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
               </button>
             ))}
           </div>
-        )}
-
-        {/* Sync All + Garmin status */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {garminConnected !== null && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {garminConnected !== null && (
+              <button
+                onClick={() => navigate('/settings')}
+                aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  height: '27px', padding: '0 10px',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', fontSize: '10px',
+                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                  fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                }}
+              >
+                <div style={{
+                  width: '7px', height: '7px', borderRadius: '50%',
+                  background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
+                  boxShadow: garminConnected ? '0 0 0 2px var(--color-success-glow)' : '0 0 0 2px var(--color-error-glow)',
+                  flexShrink: 0,
+                }} />
+                Garmin
+              </button>
+            )}
             <button
-              onClick={() => navigate('/settings')}
-              aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
+              onClick={handleSyncAll}
+              disabled={syncing}
+              aria-label={syncing ? 'Syncing…' : 'Sync All'}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                height: '27px',
-                padding: '0 10px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                fontSize: '10px',
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '5px 13px',
+                background: 'var(--accent)', color: 'var(--text-on-accent)',
+                border: 'none', borderRadius: '4px', fontSize: '10px',
                 fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
+                fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                cursor: syncing ? 'not-allowed' : 'pointer',
+                opacity: syncing ? 0.75 : 1, transition: 'opacity 0.15s',
               }}
             >
-              <div style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
-                boxShadow: garminConnected
-                  ? '0 0 0 2px var(--color-success-glow)'
-                  : '0 0 0 2px var(--color-error-glow)',
-                flexShrink: 0,
-              }} />
-              Garmin
+              <svg
+                className={syncing ? 'sync-spinning' : undefined}
+                width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-3.63"/>
+              </svg>
+              {syncing ? 'Syncing…' : 'Sync All'}
             </button>
-          )}
-          <button
-            onClick={handleSyncAll}
-            disabled={syncing}
-            aria-label={syncing ? 'Syncing…' : 'Sync All'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '5px 13px',
-              background: 'var(--accent)',
-              color: 'var(--text-on-accent)',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              cursor: syncing ? 'not-allowed' : 'pointer',
-              opacity: syncing ? 0.75 : 1,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            <svg
-              className={syncing ? 'sync-spinning' : undefined}
-              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <polyline points="1 4 1 10 7 10"/>
-              <path d="M3.51 15a9 9 0 1 0 .49-3.63"/>
-            </svg>
-            {syncing ? 'Syncing…' : 'Sync All'}
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Calendar view */}
       <div className="mobile-page-content" style={{ flex: 1, overflow: 'hidden', display: 'flex', position: 'relative' }}>

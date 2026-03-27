@@ -1,6 +1,23 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-27 (v1.4.1 release)
+Last updated: 2026-03-27 (mobile calendar toolbar redesign)
+
+## Current Focus: Mobile Calendar Toolbar Redesign ✅
+
+### Mobile Calendar Toolbar Redesign
+| Task | Status |
+|------|--------|
+| Split single-row toolbar into two rows on mobile (nav row + action row) | ✅ |
+| Row 1: `[‹] [date — clamp() fluid text] [›]` — centered date, full-width | ✅ |
+| Row 2: `[Today] [• GARMIN] [SYNC ALL]` — space-between, consistent heights | ✅ |
+| SYNC ALL: change from filled accent to outlined accent (border + text, no fill) | ✅ |
+| Today + SYNC ALL: unified `height: 26px` so both rows are vertically balanced | ✅ |
+| Date font-size: `clamp(10px, 3.5vw, 13px)` — scales with viewport width | ✅ |
+| Garmin dot: `visibility:hidden` while loading (layout stable, no shift) | ✅ |
+| Fix: cross-month week label includes end month name ("Mar 29 – Apr 4") | ✅ |
+| Tests: cross-month label + Garmin layout stability (4 new tests) | ✅ |
+
+---
 
 ## Current Focus: v1.4.1 Release
 
@@ -614,6 +631,8 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 ⬜ not started · 🟡 in progress · ✅ done · ❌ blocked
 
 ## Known Issues (to fix later)
+
+- **`TestSyncTokenPersistence` — 2 integration tests failing** (`test_sync_all_persists_refreshed_token_to_db`, `test_sync_single_persists_refreshed_token_to_db`): Fernet `InvalidSignature` — the token written to the DB in the test was encrypted with a key that doesn't match the key used during decryption in the assertion. Root cause: test setup uses a different `GARMINCOACH_SECRET_KEY` than what `encryption.py` reads at module import time (module-level key derivation caches the key). Fix: ensure the test's `GARMINCOACH_SECRET_KEY` env var is set before any import of `src.garmin.encryption`, or mock `encrypt_token`/`decrypt_token` directly. Pre-existing, not caused by any recent PR.
 
 - **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
 

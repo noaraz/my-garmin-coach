@@ -75,3 +75,7 @@ Make every page of GarminCoach fully usable on mobile phones (< 768px) without c
 | CalendarPage: hide week/month toggle on mobile | ✅ |
 | Display Settings section in SettingsPage (mobile only) — theme toggle | ✅ |
 | Fix: TodayPage date parsing — parseLocalDate() helper for local midnight | ✅ |
+| CalendarPage mobile toolbar redesign — two-row layout (nav row + action row) | ✅ |
+| SYNC ALL mobile: outlined accent style (no fill) to match Today ghost button | ✅ |
+| Today + SYNC ALL: unified height: 26px in action row | ✅ |
+| Date font-size: clamp(10px, 3.5vw, 13px) — fluid text scaling | ✅ |
