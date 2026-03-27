@@ -19,7 +19,20 @@ Last updated: 2026-03-27 (mobile calendar toolbar redesign)
 
 ---
 
-## Current Focus: v1.4.1 Release
+## Garmin Sync 404 Hotfix ✅
+
+### Garmin Sync — Stale ID 404 Fix
+| Task | Status |
+|------|--------|
+| Fix `_is_garmin_404` three-tier detection (GarthHTTPError → curl_cffi → string fallback) | ✅ |
+| Add test for curl_cffi unwrapped 404 path | ✅ |
+| Update `features/garmin-sync/CLAUDE.md` with three-tier docs + stale ID recovery guide | ✅ |
+| Update root CLAUDE.md dedup section | ✅ |
+| PR #68 open with Render Preview | ✅ |
+
+---
+
+## v1.4.1 Release
 
 ### v1.4.1 Release
 | Task | Status |
