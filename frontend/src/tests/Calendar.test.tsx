@@ -281,6 +281,62 @@ describe('test_garmin_toolbar_button', () => {
   })
 })
 
+describe('test_today_button_renders', () => {
+  it('Today button is present in toolbar', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /go to today/i })).toBeInTheDocument()
+  })
+})
+
+describe('test_today_button_navigates_to_current_period', () => {
+  it('click Today after navigating away → date label includes current week', async () => {
+    const user = userEvent.setup()
+    // Start on a past date (January 2026)
+    renderPage({ initialDate: new Date(2026, 0, 4) }) // Sun Jan 4, 2026
+    // Verify we're showing January dates
+    expect(screen.getByText(/2026-01-04/)).toBeInTheDocument()
+    // Click Today
+    await user.click(screen.getByRole('button', { name: /go to today/i }))
+    // Date label should now contain today's date range
+    const now = new Date()
+    const year = now.getFullYear()
+    expect(screen.getByText(new RegExp(String(year)))).toBeInTheDocument()
+    // Should NOT show January anymore
+    expect(screen.queryByText(/2026-01-04/)).not.toBeInTheDocument()
+  })
+})
+
+describe('test_today_button_disabled_on_current_period', () => {
+  it('disabled when already viewing current week', () => {
+    // Default initialDate is new Date() — current week
+    renderPage()
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).toBeDisabled()
+  })
+
+  it('enabled when viewing a different week', () => {
+    renderPage({ initialDate: new Date(2026, 0, 4) })
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).not.toBeDisabled()
+  })
+
+  it('disabled when viewing current month in month view', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: /month/i }))
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).toBeDisabled()
+  })
+
+  it('enabled when viewing a different month in month view', async () => {
+    const user = userEvent.setup()
+    renderPage({ initialDate: new Date(2026, 0, 15) }) // January 2026
+    await user.click(screen.getByRole('button', { name: /month/i }))
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).not.toBeDisabled()
+  })
+})
+
 describe('test_mobile_reschedule_navigates_to_new_date', () => {
   it('mobile: after reschedule, day strip selects the new date', async () => {
     // Arrange — mobile view, week March 8–14 (Sun-Sat), selectedDay starts on March 9 (Mon)

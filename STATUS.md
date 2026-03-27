@@ -2,6 +2,19 @@
 
 Last updated: 2026-03-26 (v1.3.2 release — Garmin sync reliability + security hardening)
 
+## Current Focus: Calendar Today Button
+
+### Calendar Today Button
+| Task | Status |
+|------|--------|
+| Update docs (STATUS.md, calendar PLAN.md, calendar CLAUDE.md) | ✅ |
+| Write Today button tests (TDD RED) | ✅ |
+| Implement Today button (GREEN) | ✅ |
+| Run all tests + TypeScript build | ✅ |
+| Final docs update | ✅ |
+
+---
+
 ## Current Focus: Workout Removal Confirmation ✅
 
 ### Workout Removal Confirmation

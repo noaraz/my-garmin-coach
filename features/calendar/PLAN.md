@@ -78,6 +78,11 @@ Track progress in **STATUS.md**.
 - [ ] Frontend: API client — add `updateWorkoutNotes` function
 - [ ] Frontend: Tests for WorkoutDetailPanel
 
+### Today Button (2026-03-27)
+- [x] Write Today button tests → RED
+- [x] Implement `handleToday` + `isCurrentPeriod` + button JSX in `CalendarPage.tsx` → GREEN
+- [x] Verify tests pass + TypeScript build
+
 ### Month View Week Start
 - [x] Change `weekStartsOn` from 1 (Monday) to 0 (Sunday) in `MonthView.tsx`
 - [x] Reorder day-header array to `['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']`
