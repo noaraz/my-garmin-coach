@@ -20,10 +20,24 @@ class GarminAdapter:
         """Upload a workout and return the Garmin response (contains workoutId)."""
         return self._client.upload_workout(formatted_workout)
 
-    def schedule_workout(self, workout_id: str, workout_date: str) -> None:
-        """Schedule a workout on a specific date via the Garmin Connect API."""
+    def schedule_workout(self, workout_id: str, workout_date: str) -> dict[str, Any]:
+        """Schedule a workout on a specific date via the Garmin Connect API.
+
+        Returns the raw Garmin response dict, which typically includes
+        ``workoutScheduleId`` — the schedule entry ID used for reconciliation.
+        """
         url = f"{self._client.garmin_workouts_schedule_url}/{workout_id}"
-        self._client.garth.post("connectapi", url, json={"date": workout_date}, api=True)
+        resp = self._client.garth.post("connectapi", url, json={"date": workout_date}, api=True)
+        return resp.json() if hasattr(resp, "json") else {}
+
+    def get_scheduled_workout_by_id(self, schedule_id: str) -> dict[str, Any]:
+        """Fetch a Garmin calendar entry by its schedule ID.
+
+        Raises an exception (typically HTTPError with 404) when the entry no
+        longer exists — used by reconciliation to detect removed calendar entries.
+        """
+        url = f"{self._client.garmin_workouts_schedule_url}/{schedule_id}"
+        return self._client.connectapi(url)
 
     def update_workout(self, workout_id: str, formatted_workout: dict[str, Any]) -> None:
         """Update an existing Garmin workout in-place."""

@@ -98,30 +98,50 @@ async def _get_garmin_sync_service(
 
 async def _reconcile_stale_garmin_ids(
     session: AsyncSession,
+    sync_service: "SyncOrchestrator",
     garmin_workouts: list[dict[str, Any]],
     user_id: int,
 ) -> int:
-    """Reset 'synced' workouts to 'modified' when their garmin_workout_id is gone from Garmin.
+    """Reset 'synced' workouts to 'modified' when their calendar entry is gone from Garmin.
 
-    Detects state drift: DB says 'synced' but the Garmin workout was deleted, expired,
-    or the account was reconnected. Resets them so they are re-pushed in the same sync_all
-    call rather than remaining silently missing from the Garmin calendar.
+    Two-tier detection:
+    1. Schedule entry check (precise): if garmin_schedule_id is stored, call
+       get_scheduled_workout_by_id() — a 404 means the calendar entry was removed
+       (even if the template still exists in the Garmin library).
+    2. Template library check (fallback): if garmin_schedule_id is absent (legacy rows
+       synced before this change), fall back to checking the template ID against
+       get_workouts() as before.
 
     Returns the count of workouts reset.
     """
-    garmin_id_set = {str(w.get("workoutId", "")) for w in garmin_workouts}
     synced_workouts = await scheduled_workout_repository.get_by_status(
         session, ("synced",), user_id
     )
     today = datetime.now(timezone.utc).date()
-    stale = [
+    candidates = [
         sw
         for sw in synced_workouts
         if sw.garmin_workout_id
-        and str(sw.garmin_workout_id) not in garmin_id_set
         and not sw.completed
         and sw.date >= today
     ]
+
+    garmin_id_set = {str(w.get("workoutId", "")) for w in garmin_workouts}
+
+    stale: list = []
+    for sw in candidates:
+        if sw.garmin_schedule_id:
+            # Precise check: verify the calendar entry still exists.
+            try:
+                sync_service.get_scheduled_workout_by_id(sw.garmin_schedule_id)
+                # Entry exists — not stale.
+            except Exception:  # noqa: BLE001
+                stale.append(sw)
+        else:
+            # Legacy fallback: check template library.
+            if str(sw.garmin_workout_id) not in garmin_id_set:
+                stale.append(sw)
+
     if stale:
         for sw in stale:
             sw.sync_status = "modified"
@@ -417,13 +437,14 @@ async def _sync_and_persist(
             )
 
     try:
-        garmin_id: str = await sync_service.sync_workout(
+        garmin_id, schedule_id = await sync_service.sync_workout(
             resolved_steps=resolved_steps,
             workout_name=workout_name,
             workout_description=workout_description,
             date=str(workout.date),
         )
         workout.garmin_workout_id = garmin_id
+        workout.garmin_schedule_id = schedule_id
         workout.sync_status = "synced"
         session.add(workout)
         return garmin_id
@@ -463,10 +484,13 @@ async def sync_all(
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
 
-    # Reconcile: reset 'synced' workouts whose garmin_workout_id is no longer on Garmin.
+    # Reconcile: reset 'synced' workouts whose calendar entry is no longer on Garmin.
     # Handles state drift (Garmin-side deletion, account reconnect, stale IDs after 429 period).
+    reconciled = 0
     if garmin_workouts is not None:
-        await _reconcile_stale_garmin_ids(session, garmin_workouts, current_user.id)
+        reconciled = await _reconcile_stale_garmin_ids(
+            session, sync_service, garmin_workouts, current_user.id
+        )
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)

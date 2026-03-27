@@ -26,7 +26,7 @@ def mock_sync_service_fixture() -> MagicMock:
     """Return a MagicMock that stands in for SyncOrchestrator."""
     svc = MagicMock()
     svc.push_workout = AsyncMock(return_value="garmin-abc-123")
-    svc.sync_workout = AsyncMock(return_value="garmin-abc-123")
+    svc.sync_workout = AsyncMock(return_value=("garmin-abc-123", "sched-abc-123"))
     svc.schedule_workout.return_value = None
     # get_workouts returns empty by default — tests that need dedup override this
     svc.get_workouts.return_value = []
@@ -99,7 +99,7 @@ class TestSyncSingle:
         """POST /api/v1/sync/:id with an existing workout returns 200 and synced status."""
         # Arrange
         sw = await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.sync_workout.return_value = "garmin-xyz-999"
+        mock_sync_service.sync_workout.return_value = ("garmin-xyz-999", "sched-xyz-999")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -148,7 +148,7 @@ class TestSyncSingle:
         """POST /api/v1/sync/:id persists the updated sync_status in the DB."""
         # Arrange
         sw = await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.sync_workout.return_value = "garmin-persisted"
+        mock_sync_service.sync_workout.return_value = ("garmin-persisted", "sched-persisted")
 
         # Act
         await client.post(f"/api/v1/sync/{sw.id}")
@@ -169,7 +169,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="old-garmin-id"
         )
-        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("new-garmin-id", "sched-new-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -198,7 +198,7 @@ class TestSyncSingle:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.delete_workout.side_effect = Exception("500 Server Error")
-        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -224,7 +224,7 @@ class TestSyncSingle:
         mock_sync_service.delete_workout.side_effect = Exception(
             "404 Client Error: Not Found"
         )
-        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -247,7 +247,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="modified", garmin_workout_id="old-garmin-id"
         )
-        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("new-garmin-id", "sched-new-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -278,7 +278,7 @@ class TestSyncAll:
         await _make_scheduled_workout(session, sync_status="modified")
         await _make_scheduled_workout(session, sync_status="synced")
 
-        mock_sync_service.sync_workout.return_value = "garmin-bulk-id"
+        mock_sync_service.sync_workout.return_value = ("garmin-bulk-id", "sched-bulk-id")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -443,7 +443,7 @@ class TestSyncAll:
             garmin_workout_id="active-garmin-id",
             completed=False,
         )
-        mock_sync_service.sync_workout.return_value = "garmin-skip"
+        mock_sync_service.sync_workout.return_value = ("garmin-skip", "sched-skip")
 
         # Act
         await client.post("/api/v1/sync/all?fetch_days=30")
@@ -549,7 +549,7 @@ class TestSyncAll:
         mock_sync_service.get_workouts.return_value = [
             {"workoutId": "orphan-gw-123", "workoutName": "Easy Run"},
         ]
-        mock_sync_service.sync_workout.return_value = "new-gw-456"
+        mock_sync_service.sync_workout.return_value = ("new-gw-456", "sched-new-gw-456")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -616,7 +616,7 @@ class TestSyncAll:
         # Arrange
         await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.get_workouts.side_effect = RuntimeError("Garmin API down")
-        mock_sync_service.sync_workout.return_value = "gw-ok"
+        mock_sync_service.sync_workout.return_value = ("gw-ok", "sched-gw-ok")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -643,7 +643,7 @@ class TestSyncAll:
         mock_sync_service.get_workouts.return_value = [
             {"workoutId": "other-garmin-111", "workoutName": "Other"}
         ]
-        mock_sync_service.sync_workout = AsyncMock(return_value="new-garmin-123")
+        mock_sync_service.sync_workout = AsyncMock(return_value=("new-garmin-123", "sched-new-123"))
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -696,6 +696,72 @@ class TestSyncAll:
 
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # nothing re-pushed
+
+    async def test_sync_all_reconciles_via_schedule_id_when_calendar_entry_removed(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workout with garmin_schedule_id is reset when get_scheduled_workout_by_id raises 404."""
+        future_date = date.today() + timedelta(days=10)
+        sw = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="tmpl-111",
+            workout_date=future_date,
+        )
+        # Set schedule ID directly (simulates a row synced after this change)
+        sw.garmin_schedule_id = "sched-111"
+        session.add(sw)
+        await session.commit()
+
+        # Template still in library — old reconciliation would miss this
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": "tmpl-111", "workoutName": "Easy Run"}
+        ]
+        # Calendar entry is gone
+        mock_sync_service.get_scheduled_workout_by_id.side_effect = Exception("404 Not Found")
+        mock_sync_service.sync_workout = AsyncMock(return_value=("tmpl-new", "sched-new"))
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 1
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "tmpl-new"
+
+    async def test_sync_all_does_not_reset_when_schedule_entry_still_exists(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workout with valid garmin_schedule_id is NOT reset when calendar entry still exists."""
+        future_date = date.today() + timedelta(days=10)
+        sw = await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="tmpl-222",
+            workout_date=future_date,
+        )
+        sw.garmin_schedule_id = "sched-222"
+        session.add(sw)
+        await session.commit()
+
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": "tmpl-222", "workoutName": "Tempo"}
+        ]
+        # Calendar entry still present
+        mock_sync_service.get_scheduled_workout_by_id.return_value = {"workoutScheduleId": "sched-222"}
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 0
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
 
 
 # ---------------------------------------------------------------------------

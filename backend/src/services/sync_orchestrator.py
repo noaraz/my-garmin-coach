@@ -42,7 +42,7 @@ class SyncOrchestrator:
         workout_name: str,
         date: str,
         workout_description: str = "",
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """Resolve, format, push and schedule a single workout.
 
         Args:
@@ -52,12 +52,13 @@ class SyncOrchestrator:
             workout_description: Optional notes shown in Garmin Connect.
 
         Returns:
-            The Garmin workout ID assigned after the push.
+            Tuple of (garmin_workout_id, garmin_schedule_id).
+            garmin_schedule_id is None when Garmin's response omits it.
         """
         formatted = self._formatter(workout_name, resolved_steps, workout_description)
         garmin_id: str = await self._sync_service.push_workout(formatted)
-        self._sync_service.schedule_workout(garmin_id, date)
-        return garmin_id
+        schedule_id = self._sync_service.schedule_workout(garmin_id, date)
+        return garmin_id, schedule_id
 
     def get_workouts(self) -> list[dict[str, Any]]:
         """Fetch all planned workouts from Garmin Connect."""
@@ -66,6 +67,10 @@ class SyncOrchestrator:
     def delete_workout(self, garmin_workout_id: str) -> None:
         """Permanently remove a workout from Garmin Connect."""
         self._sync_service.delete_workout(garmin_workout_id)
+
+    def get_scheduled_workout_by_id(self, schedule_id: str) -> dict[str, Any]:
+        """Fetch a Garmin calendar entry by its schedule ID. Raises on 404."""
+        return self._sync_service.get_scheduled_workout_by_id(schedule_id)
 
     # ------------------------------------------------------------------
     # Bulk resync

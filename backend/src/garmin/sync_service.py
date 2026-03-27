@@ -67,9 +67,19 @@ class GarminSyncService:
         )
         return str(result["workoutId"])
 
-    def schedule_workout(self, garmin_workout_id: str, date: str) -> None:
-        """Place a workout on the Garmin calendar for *date* (YYYY-MM-DD)."""
-        self._client.schedule_workout(garmin_workout_id, date)
+    def schedule_workout(self, garmin_workout_id: str, date: str) -> str | None:
+        """Place a workout on the Garmin calendar for *date* (YYYY-MM-DD).
+
+        Returns:
+            The Garmin schedule entry ID (str) if the response includes one,
+            otherwise None.  Storing this allows reconciliation to verify the
+            calendar entry still exists independently of the workout template.
+        """
+        result = self._client.schedule_workout(garmin_workout_id, date)
+        if isinstance(result, dict):
+            sid = result.get("workoutScheduleId") or result.get("scheduledWorkoutId")
+            return str(sid) if sid is not None else None
+        return None
 
     def update_workout(
         self, garmin_workout_id: str, formatted_workout: dict[str, Any]
@@ -84,6 +94,13 @@ class GarminSyncService:
     def get_workouts(self) -> list[dict[str, Any]]:
         """Fetch all planned workouts from Garmin Connect."""
         return self._client.get_workouts()
+
+    def get_scheduled_workout_by_id(self, schedule_id: str) -> dict[str, Any]:
+        """Fetch a Garmin calendar entry by its schedule ID.
+
+        Raises on 404 when the entry no longer exists.
+        """
+        return self._client.get_scheduled_workout_by_id(schedule_id)
 
     # ------------------------------------------------------------------
     # Bulk operations
