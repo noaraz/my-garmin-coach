@@ -728,13 +728,15 @@ class TestSyncAll:
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # nothing re-pushed
 
-    async def test_sync_all_marks_template_gone_as_modified_when_get_returns_404(
+    @pytest.mark.parametrize("error_code", ["404", "403"])
+    async def test_sync_all_marks_template_inaccessible_as_modified_for_repush(
         self,
+        error_code: str,
         client: AsyncClient,
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """GET schedule returns 404 → template gone from Garmin → mark modified → full re-push."""
+        """GET schedule returns 404/403 → template inaccessible → mark modified → full re-push."""
         future_date = date.today() + timedelta(days=15)
         sw = await _make_scheduled_workout(
             session,
@@ -746,7 +748,9 @@ class TestSyncAll:
         session.add(sw)
         await session.commit()
 
-        mock_sync_service.get_scheduled_workout_by_id.side_effect = Exception("404 Not Found")
+        mock_sync_service.get_scheduled_workout_by_id.side_effect = Exception(
+            f"HTTP Error {error_code}: "
+        )
         mock_sync_service.sync_workout = AsyncMock(return_value=("tmpl-new", "sched-new"))
 
         response = await client.post("/api/v1/sync/all")

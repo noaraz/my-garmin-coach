@@ -155,11 +155,14 @@ async def _reconcile_calendar(
                 sw.id, sw.date,
             )
         except Exception as exc:  # noqa: BLE001
-            if "404" in str(exc):
-                # Template gone from Garmin — queue full re-push
+            exc_str = str(exc)
+            if "404" in exc_str or "403" in exc_str:
+                # 404 = template has no scheduled entries (or template gone)
+                # 403 = template inaccessible (auth hiccup or no longer owned)
+                # In both cases, queue full re-push to restore the calendar entry.
                 logger.info(
-                    "Reconciliation: workout %s template gone (404) — queuing full re-push",
-                    sw.id,
+                    "Reconciliation: workout %s not accessible (%s) — queuing full re-push",
+                    sw.id, exc_str.split("HTTP Error")[-1].strip() or exc_str,
                 )
                 sw.garmin_workout_id = None
                 sw.garmin_schedule_id = None
@@ -609,7 +612,10 @@ async def sync_all(
                     sync_service.delete_workout(orphan_id)
                     logger.info("Deleted orphaned Garmin workout %s", orphan_id)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, exc)
+                    # 404 is expected when the ID was already deleted during this sync
+                    # (reconciliation marks workouts modified → re-push deletes old template).
+                    if "404" not in str(exc):
+                        logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, exc)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Orphan cleanup failed (continuing): %s", exc)
 
