@@ -236,6 +236,7 @@ class TestSyncOrchestrator:
         # Arrange
         mock_sync_service = MagicMock()
         mock_sync_service.push_workout = AsyncMock(return_value="garmin-orch-1")
+        mock_sync_service.schedule_workout.return_value = "sched-99"
 
         mock_formatter = MagicMock()
         mock_formatter.return_value = {"workoutName": "Easy Run"}
@@ -252,7 +253,7 @@ class TestSyncOrchestrator:
         resolved_steps = [{"step": "raw"}]
 
         # Act
-        garmin_id = await orchestrator.sync_workout(
+        garmin_id, schedule_id = await orchestrator.sync_workout(
             resolved_steps=resolved_steps,
             workout_name="Easy Run",
             date="2026-03-10",
@@ -260,6 +261,7 @@ class TestSyncOrchestrator:
 
         # Assert
         assert garmin_id == "garmin-orch-1"
+        assert schedule_id == "sched-99"
         mock_sync_service.push_workout.assert_awaited_once()
         mock_sync_service.schedule_workout.assert_called_once_with(
             "garmin-orch-1", "2026-03-10"
