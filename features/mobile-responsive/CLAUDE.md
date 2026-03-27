@@ -114,11 +114,21 @@ The CalendarPage toolbar wraps to two rows on mobile (`isMobile = true`):
 ```
 - All three items: `height: 26px` — unified vertical alignment
 - **Today**: `border: 1px solid var(--border-strong)`, transparent bg, muted text — ghost style
-- **GARMIN dot**: hidden when `garminConnected === null` (loading); green dot when connected
+- **GARMIN dot**: uses `visibility: garminConnected === null ? 'hidden' : 'visible'` — **NOT** conditional render
+  - `visibility: hidden` keeps the button in the DOM so the `justify-content: space-between` row stays stable while status loads
+  - Conditional render (`{garminConnected !== null && <button>}`) causes a 3→2 child shift that jumps layout
+  - **Test pattern**: `visibility: hidden` elements are excluded from a11y tree — use `document.querySelector('[aria-label*="Garmin"]')` to find them, not `screen.queryByRole`
 - **SYNC ALL**: `border: 1px solid var(--accent)`, transparent bg, accent text — **outlined accent, NOT filled**
   - Using filled accent (blue bg) looked mismatched next to the ghost Today button — stick to outlined
 
 **Why outlined for SYNC ALL on mobile**: In a space-between row with peer buttons, a heavy filled CTA dominates visually. Outlined keeps equal weight while still being distinctly blue.
+
+**Cross-month week label**: use `sameMonth` check to decide end-date format:
+```tsx
+const sameMonth = start.getMonth() === end.getMonth()
+return `${format(start, 'MMM d')} – ${format(end, sameMonth ? 'd' : 'MMM d')}`
+// Same month: "Mar 22 – 28"  |  Cross-month: "Mar 29 – Apr 4"
+```
 
 ## Desktop Regression Policy
 After every task: `npm test -- --run && npx tsc -b --noEmit`
