@@ -152,28 +152,74 @@ Orphan cleanup only deletes Garmin workouts whose name matches a `WorkoutTemplat
 
 All Garmin API calls from routers/services must go through `SyncOrchestrator` methods, not `sync_service.adapter.*`. When adding a new Garmin API method, add it to all three layers: `GarminAdapter` → `GarminSyncService` → `SyncOrchestrator`.
 
-## Typed 404 Detection
+## Typed 404 Detection (updated 2026-03-27)
 
-Use `GarthHTTPError` from `garth.exc` instead of fragile string checks:
+`_is_garmin_404(exc)` uses three-tier detection to handle all HTTP client variants:
 
 ```python
-from garth.exc import GarthHTTPError
-
 def _is_garmin_404(exc: Exception) -> bool:
-    return isinstance(exc, GarthHTTPError) and exc.error.response.status_code == 404
+    # Tier 1: garth-wrapped requests.HTTPError
+    if isinstance(exc, GarthHTTPError):
+        return exc.error.response is not None and exc.error.response.status_code == 404
+    # Tier 2: curl_cffi HTTPError (garth doesn't catch it, bubbles up unwrapped)
+    response = getattr(exc, "response", None)
+    if response is not None:
+        return getattr(response, "status_code", None) == 404
+    # Tier 3: string fallback for bare requests.HTTPError with no .response object
+    return "404" in str(exc)
 ```
 
-In tests, construct a `GarthHTTPError` using dataclass kwargs:
+**Why three tiers**: garth wraps `requests.HTTPError` as `GarthHTTPError` (tier 1). curl_cffi raises its own `HTTPError` that garth doesn't catch — it surfaces unwrapped with a `.response` attribute (tier 2). `requests.exceptions.HTTPError` raised without a response object (e.g. direct `raise HTTPError("404 Client Error")`) only surfaces the status in its message (tier 3).
+
+**Test factories:**
 
 ```python
-from requests import Response
-from requests.exceptions import HTTPError as RequestsHTTPError
-
+# Tier 1 — GarthHTTPError
 def _garmin_404() -> GarthHTTPError:
-    resp = Response()
-    resp.status_code = 404
+    resp = Response(); resp.status_code = 404
     return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
+
+# Tier 2 — curl_cffi-style (unwrapped, has .response)
+def _curl_cffi_404() -> Exception:
+    class _FakeResponse:
+        status_code = 404
+    class _CurlCffiHTTPError(Exception):
+        response = _FakeResponse()
+    return _CurlCffiHTTPError("HTTP Error 404:")
 ```
+
+## Stale `garmin_workout_id` Recovery
+
+When a workout has a `garmin_workout_id` that no longer exists on Garmin (e.g. manually deleted from Garmin Connect), `_sync_and_persist` will receive a 404 on the delete attempt. `_is_garmin_404` detects it, clears the stale ID, and proceeds with a fresh push — self-healing on retry with no manual intervention needed.
+
+**If a workout is stuck as `sync_status="failed"` with a stale ID and self-heal isn't working** (e.g. `_is_garmin_404` not detecting the error variant), clear it manually:
+
+```bash
+docker compose exec backend python3 -c "
+import asyncio
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import select
+from src.db.models import ScheduledWorkout
+from src.core.config import get_settings
+
+settings = get_settings()
+engine = create_async_engine(settings.database_url)
+
+async def fix(workout_id: int):
+    async with AsyncSession(engine) as session:
+        sw = await session.get(ScheduledWorkout, workout_id)
+        sw.garmin_workout_id = None
+        sw.sync_status = 'modified'
+        session.add(sw)
+        await session.commit()
+        print(f'Fixed workout {workout_id}')
+
+asyncio.run(fix(252))  # replace 252 with actual ID
+"
+```
+
+Then retry `POST /api/v1/sync/{id}`.
 
 ## Sync-From-Panel
 

@@ -27,6 +27,22 @@ def _garmin_404() -> GarthHTTPError:
     return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
 
 
+def _curl_cffi_404() -> Exception:
+    """Simulate a raw curl_cffi HTTPError (404) that garth does not wrap.
+
+    garth's request() only catches requests.HTTPError; curl_cffi raises its own
+    HTTPError which bubbles up unwrapped with a .response attribute.
+    """
+
+    class _FakeResponse:
+        status_code = 404
+
+    class _CurlCffiHTTPError(Exception):
+        response = _FakeResponse()
+
+    return _CurlCffiHTTPError("HTTP Error 404:")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -233,6 +249,30 @@ class TestSyncSingle:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.delete_workout.side_effect = _garmin_404()
+        mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
+
+        # Act
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        # Assert — push proceeds, new ID assigned
+        assert response.status_code == 200
+        body = response.json()
+        assert body["garmin_workout_id"] == "fresh-garmin-id"
+        assert body["sync_status"] == "synced"
+        mock_sync_service.sync_workout.assert_called_once()
+
+    async def test_sync_single_resync_proceeds_when_curl_cffi_404(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """curl_cffi 404 (unwrapped by garth) also clears stale ID and re-pushes."""
+        # Arrange
+        sw = await _make_scheduled_workout(
+            session, sync_status="modified", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.delete_workout.side_effect = _curl_cffi_404()
         mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act

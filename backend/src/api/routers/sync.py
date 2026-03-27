@@ -107,12 +107,26 @@ async def _get_garmin_sync_service(
 
 
 def _is_garmin_404(exc: Exception) -> bool:
-    """Return True when exc is a Garmin 404 (resource not found on Connect)."""
-    return (
-        isinstance(exc, GarthHTTPError)
-        and exc.error.response is not None
-        and exc.error.response.status_code == 404
-    )
+    """Return True when exc is a Garmin 404 (resource not found on Connect).
+
+    Two cases:
+    - GarthHTTPError: garth wrapped a requests.HTTPError → check exc.error.response
+    - curl_cffi HTTPError: garth only catches requests.HTTPError, so curl_cffi's own
+      HTTPError bubbles up unwrapped → check exc.response directly
+    """
+    if isinstance(exc, GarthHTTPError):
+        return (
+            exc.error.response is not None
+            and exc.error.response.status_code == 404
+        )
+    # curl_cffi raises its own HTTPError (not requests.HTTPError); garth's except clause
+    # doesn't catch it, so it arrives here unwrapped with a .response attribute.
+    response = getattr(exc, "response", None)
+    if response is not None:
+        return getattr(response, "status_code", None) == 404
+    # Final fallback: some HTTP client variants surface the status only in the message
+    # (e.g. requests.exceptions.HTTPError("404 Client Error: ...")).
+    return "404" in str(exc)
 
 
 async def _persist_refreshed_token(
