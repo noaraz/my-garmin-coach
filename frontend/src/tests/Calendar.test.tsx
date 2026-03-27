@@ -319,6 +319,22 @@ describe('test_today_button_disabled_on_current_period', () => {
     const btn = screen.getByRole('button', { name: /go to today/i })
     expect(btn).not.toBeDisabled()
   })
+
+  it('disabled when viewing current month in month view', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: /month/i }))
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).toBeDisabled()
+  })
+
+  it('enabled when viewing a different month in month view', async () => {
+    const user = userEvent.setup()
+    renderPage({ initialDate: new Date(2026, 0, 15) }) // January 2026
+    await user.click(screen.getByRole('button', { name: /month/i }))
+    const btn = screen.getByRole('button', { name: /go to today/i })
+    expect(btn).not.toBeDisabled()
+  })
 })
 
 describe('test_mobile_reschedule_navigates_to_new_date', () => {

@@ -109,15 +109,16 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
 
   const handleToday = () => {
     const now = new Date()
-    setCurrentDate(now)
+    setCurrentDate(getWeekStart(now))
     if (isMobile) {
       setSelectedDay(toDateString(now))
     }
   }
 
+  const today = new Date()
   const isCurrentPeriod = view === 'week'
-    ? getWeekStart(currentDate).getTime() === getWeekStart(new Date()).getTime()
-    : currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()
+    ? getWeekStart(currentDate).getTime() === getWeekStart(today).getTime()
+    : currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()
 
   const handleAddWorkout = (date: string) => {
     setPickerDate(date)
