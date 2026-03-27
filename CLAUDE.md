@@ -377,6 +377,8 @@ const hasDistance = distanceM   != null && distanceM   > 0
 - **Compliance badge mapping**: `on_target` → "ON TARGET", `close` → "CLOSE", `off_target` → "OFF TARGET", `completed_no_plan` → "COMPLETED"
 - **formatPace**: Already exists in `frontend/src/utils/formatting.ts` — `formatPace(secPerKm)` → `"6:00/km"`
 - **Panel close**: X button, click backdrop, Escape key — all handled in `WorkoutDetailPanel.tsx`
+- **`onSync` always wired, no `garminConnected` guard**: Pass `onSync` unconditionally — the API returns an error if Garmin is not connected; the panel swallows it silently and re-enables the button via `finally`. Gating on `garminConnected` hides the button while context is loading (`null`).
+- **`syncOneWorkout(id)` in `useCalendar`**: calls `POST /api/v1/sync/{id}`, refetches calendar range, returns `SyncStatusItem { id, date, sync_status, garmin_workout_id }`. Patch `selectedWorkout` separately after the call — the refetched `workouts[]` array does not auto-update `selectedWorkout`.
 
 ## Alembic + SQLite Gotchas (added 2026-03-17)
 
@@ -419,6 +421,10 @@ Same for the `docker-compose.yml` `command:` override (it supersedes the Dockerf
 ```yaml
 command: sh -c "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload"
 ```
+
+### Deleting a migration added on the current branch
+
+If a migration was added in the current PR (not yet merged to `main`), the production Neon DB has not applied it — deleting the file is safe for production. The Render Preview DB will be at that revision and will fail `alembic upgrade head` on the next push. Reset it with `alembic stamp <previous-revision-id>` or let the preview environment rebuild from scratch.
 
 ### When a migration was stamped but not applied
 
@@ -637,11 +643,14 @@ async def _make_activity(self, session: AsyncSession) -> Any:
 
 ## Garmin Workout Dedup (added 2026-03-25)
 
-- **Orphan prevention**: `_sync_and_persist` skips push and marks `sync_status="failed"` when the old Garmin workout delete fails. `garmin_workout_id` is preserved for retry — never cleared on failure. **Exception**: 404 means the workout is already gone — clears the stale ID and proceeds with push (avoids infinite retry loop).
+- **Orphan prevention**: `_sync_and_persist` skips push and marks `sync_status="failed"` when the old Garmin workout delete fails. `garmin_workout_id` is preserved for retry — never cleared on failure. **Exception**: 404 means the workout is already gone — detected via `_is_garmin_404(exc)`, clears the stale ID and proceeds with push.
+- **`_is_garmin_404(exc)`** — typed helper in `sync.py`, replaces fragile `"404" in str(exc)`. Uses `GarthHTTPError` from `garth.exc` (`.error.response.status_code == 404`). Test factory: `GarthHTTPError(msg="...", error=RequestsHTTPError(response=resp))` where `resp.status_code = 404`.
+- **Garmin calendar read-back not feasible** — `GET /workout-service/schedule/{id}` always returns 404 for schedule entry IDs. Do not add reconciliation that reads back calendar entries from Garmin.
 - **Dedup module**: `backend/src/garmin/dedup.py` — `find_matching_garmin_workout(name, garmin_workouts)` matches by name (case-insensitive). `find_orphaned_garmin_workouts()` finds untracked Garmin workouts safe to delete.
 - **sync_all dedup**: Fetches `sync_service.get_workouts()` once per sync. Before pushing a workout with no `garmin_workout_id`, checks for name match. If found, deletes match first. Also runs orphan cleanup sweep (only deletes Garmin workouts matching our template names).
 - **commit_plan dedup**: When creating new SWs during plan commit, pre-links `garmin_workout_id` from matching Garmin workouts and sets `sync_status="modified"`. Prevents duplication when re-importing a plan.
 - **SyncOrchestrator is the public API**: Never call `sync_service.adapter.method()` directly. Expose new Garmin API methods on `SyncOrchestrator` (delegates to `GarminSyncService` → `GarminAdapter`). Pattern: `sync_service.get_workouts()`, `sync_service.delete_workout()`. The `.adapter` property exists for backward compat but new code should not use it.
+- **Layer propagation test mocks**: when a new method is added through all three layers, update integration test mocks from `mock_sync_service.adapter.X` to `mock_sync_service.X`. MagicMock auto-creates `.adapter.X` so the wrong mock path silently returns a new MagicMock — tests pass but the real call path is untested.
 - **Safety**: Only Garmin workouts whose name matches a `WorkoutTemplate.name` in our DB are ever deleted. User-created Garmin workouts are never touched.
 
 ---

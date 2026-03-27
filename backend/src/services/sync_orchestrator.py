@@ -64,6 +64,10 @@ class SyncOrchestrator:
         """Fetch all planned workouts from Garmin Connect."""
         return self._sync_service.get_workouts()
 
+    def dump_token(self) -> str:
+        """Return the current garth token state as a JSON string."""
+        return self._sync_service.dump_token()
+
     def delete_workout(self, garmin_workout_id: str) -> None:
         """Permanently remove a workout from Garmin Connect."""
         self._sync_service.delete_workout(garmin_workout_id)

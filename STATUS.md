@@ -1,6 +1,26 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-26 (v1.3.2 release — Garmin sync reliability + security hardening)
+Last updated: 2026-03-27 (Garmin token persist + sync-from-panel)
+
+## Current Focus: Garmin Token Persist + Sync From Panel ✅
+
+### Garmin OAuth2 Token Persistence + Sync-From-Panel
+| Task | Status |
+|------|--------|
+| Fix: `_persist_refreshed_token()` — persist garth OAuth2 token to DB after sync to prevent 429 storm | ✅ |
+| Typed 404 detection: `GarthHTTPError` + `_is_garmin_404()` helper | ✅ |
+| Remove dead calendar reconciliation (Garmin GET /schedule/{id} returns 404 always) | ✅ |
+| Add `syncOneWorkout` to `useCalendar` hook | ✅ |
+| Add `onSync` prop + "Sync to Garmin" button to `WorkoutDetailPanel` | ✅ |
+| Wire `onSync` in `CalendarPage` and `TodayPage` (no garminConnected guard) | ✅ |
+| `unsynced_workouts.py` diagnostic script (supports prod via DATABASE_URL) | ✅ |
+| Tests: token persistence, sync-from-panel (hook + panel + calendar), typed 404 | ✅ |
+| Fix dedup 404 path: move `return None` inside `else` so 404 falls through to push | ✅ |
+| Add `dump_token()` through all three layers (Adapter → SyncService → Orchestrator) | ✅ |
+| Fix `_persist_refreshed_token` to use `sync_service.dump_token()` (not `.adapter`) | ✅ |
+| Add `cache.invalidate()` after token persist commit | ✅ |
+
+---
 
 ## Current Focus: Calendar Today Button
 

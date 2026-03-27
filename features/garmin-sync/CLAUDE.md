@@ -152,6 +152,70 @@ Orphan cleanup only deletes Garmin workouts whose name matches a `WorkoutTemplat
 
 All Garmin API calls from routers/services must go through `SyncOrchestrator` methods, not `sync_service.adapter.*`. When adding a new Garmin API method, add it to all three layers: `GarminAdapter` → `GarminSyncService` → `SyncOrchestrator`.
 
+## Typed 404 Detection
+
+Use `GarthHTTPError` from `garth.exc` instead of fragile string checks:
+
+```python
+from garth.exc import GarthHTTPError
+
+def _is_garmin_404(exc: Exception) -> bool:
+    return isinstance(exc, GarthHTTPError) and exc.error.response.status_code == 404
+```
+
+In tests, construct a `GarthHTTPError` using dataclass kwargs:
+
+```python
+from requests import Response
+from requests.exceptions import HTTPError as RequestsHTTPError
+
+def _garmin_404() -> GarthHTTPError:
+    resp = Response()
+    resp.status_code = 404
+    return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
+```
+
+## Sync-From-Panel
+
+`POST /api/v1/sync/{id}` (`sync_single`) re-syncs a single workout and returns `SyncStatusItem`:
+`{ id, date, sync_status, garmin_workout_id }`.
+
+In the frontend, `useCalendar` exposes `syncOneWorkout(id)` which calls `syncOne(id)` and refetches
+the calendar range to update the workouts array. `WorkoutDetailPanel` receives `onSync?: (id) => Promise<void>`.
+The button always renders — no `garminConnected` guard. If Garmin is not connected the API returns an error
+which the panel silently swallows (button re-enables via `finally`).
+
+## Unsynced Workouts Script
+
+`backend/scripts/unsynced_workouts.py` lists all non-completed workouts with `sync_status != 'synced'`.
+Run against production:
+
+```bash
+DATABASE_URL="postgresql+asyncpg://user:pass@host/db?ssl=require" \
+  PYTHONPATH=backend .venv/bin/python backend/scripts/unsynced_workouts.py --future-only
+```
+
+Or inside Docker: `docker compose exec backend python scripts/unsynced_workouts.py --future-only`.
+
+## Dedup 404 Path — Fall-Through to Push
+
+When the dedup block in `_sync_and_persist` tries to delete a name-matched Garmin workout
+and gets a 404, the intent is "already gone — proceed with push". The `session.add` and
+`return None` that abort the function must be **inside the `else` branch only**:
+
+```python
+except Exception as exc:
+    if _is_garmin_404(exc):
+        workout.garmin_workout_id = None  # clear stale ID, fall through to push
+    else:
+        workout.sync_status = "failed"
+        session.add(workout)
+        return None           # ← only on real errors, never on 404
+```
+
+If `return None` sits outside the `if/else` at the `except` level, it runs on the 404 path
+and silently aborts the push — the workout is never synced and stays unsynced forever.
+
 ## Gotchas
 
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new
@@ -164,6 +228,9 @@ All Garmin API calls from routers/services must go through `SyncOrchestrator` me
   `AthleteProfile.garmin_oauth_token_encrypted`.
 - `GarminAdapter.dump_token() -> str` — returns `garth.dumps()` JSON. Use after any sync to
   capture the in-memory (potentially refreshed) token state for DB persistence.
+- **Calendar reconciliation is not feasible**: Garmin's `GET /workout-service/schedule/{id}` always
+  returns 404 for schedule entry IDs. Do not add reconciliation logic that reads back calendar entries —
+  use the orphan-prevention approach in `_sync_and_persist` instead.
 - **Pace format**: Garmin uses m/s, not sec/km. Always convert.
 - **Repeat nesting**: One level only. No repeats inside repeats.
 - **50-step limit**: Max ~50 steps including expanded repeats. Validate.

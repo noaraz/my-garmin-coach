@@ -18,6 +18,7 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.core import cache
 from src.garmin.adapter import GarminAdapter
 from src.garmin.client_factory import create_api_client
 from src.garmin.encryption import decrypt_token, encrypt_token
@@ -103,7 +104,6 @@ async def _get_garmin_sync_service(
 # but Garmin returns 404 for GET on schedule entry IDs (write-only endpoint) and 403 for
 # GET using template IDs. There is no accessible Garmin API endpoint to check whether a
 # specific workout template is still on the calendar without pushing a new schedule entry.
-# garmin_schedule_id is retained in the DB for future use if the API becomes available.
 
 
 def _is_garmin_404(exc: Exception) -> bool:
@@ -116,7 +116,7 @@ def _is_garmin_404(exc: Exception) -> bool:
 
 
 async def _persist_refreshed_token(
-    adapter: GarminAdapter,
+    sync_service: SyncOrchestrator,
     user_id: int,
     session: AsyncSession,
 ) -> None:
@@ -128,7 +128,7 @@ async def _persist_refreshed_token(
     """
     try:
         settings = get_settings()
-        new_token_json = adapter.dump_token()
+        new_token_json = sync_service.dump_token()
         new_encrypted = encrypt_token(user_id, settings.garmincoach_secret_key, new_token_json)
         profile = (
             await session.exec(
@@ -139,6 +139,7 @@ async def _persist_refreshed_token(
             profile.garmin_oauth_token_encrypted = new_encrypted
             session.add(profile)
             await session.commit()
+            cache.invalidate(f"profile:{user_id}")
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not persist refreshed Garmin token (non-critical): %s", exc)
 
@@ -379,8 +380,8 @@ async def _sync_and_persist(
                         exc,
                     )
                     workout.sync_status = "failed"
-                session.add(workout)
-                return None
+                    session.add(workout)
+                    return None
 
     resolved_steps: list = (
         json.loads(workout.resolved_steps) if workout.resolved_steps else []
@@ -398,14 +399,13 @@ async def _sync_and_persist(
             )
 
     try:
-        garmin_id, schedule_id = await sync_service.sync_workout(
+        garmin_id, _ = await sync_service.sync_workout(
             resolved_steps=resolved_steps,
             workout_name=workout_name,
             workout_description=workout_description,
             date=str(workout.date),
         )
         workout.garmin_workout_id = garmin_id
-        workout.garmin_schedule_id = schedule_id
         workout.sync_status = "synced"
         session.add(workout)
         return garmin_id
@@ -556,7 +556,7 @@ async def sync_all(
     # Persist any OAuth2 token refresh that occurred during sync.
     # garth refreshes in-memory only; without this, each sync re-exchanges the
     # same expired token and hits Garmin's rate limit on the exchange endpoint.
-    await _persist_refreshed_token(sync_service.adapter, current_user.id, session)
+    await _persist_refreshed_token(sync_service, current_user.id, session)
 
     return SyncAllResponse(
         synced=synced,
@@ -590,7 +590,7 @@ async def sync_single(
     await _sync_and_persist(session, sync_service, workout, hr_zone_map, pace_zone_map)
     await session.commit()
 
-    await _persist_refreshed_token(sync_service.adapter, current_user.id, session)
+    await _persist_refreshed_token(sync_service, current_user.id, session)
 
     return SyncSingleResponse(
         id=workout.id,  # type: ignore[arg-type]

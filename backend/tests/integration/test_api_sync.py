@@ -870,7 +870,7 @@ class TestSyncTokenPersistence:
         await session.commit()
         await session.refresh(profile)
 
-        mock_sync_service.adapter.dump_token.return_value = refreshed_token
+        mock_sync_service.dump_token.return_value = refreshed_token
 
         response = await client.post("/api/v1/sync/all")
 
@@ -886,7 +886,7 @@ class TestSyncTokenPersistence:
         mock_sync_service: MagicMock,
     ) -> None:
         """Token persistence failure is non-critical — sync_all still returns 200."""
-        mock_sync_service.adapter.dump_token.side_effect = RuntimeError("garth error")
+        mock_sync_service.dump_token.side_effect = RuntimeError("garth error")
 
         response = await client.post("/api/v1/sync/all")
 
@@ -914,7 +914,7 @@ class TestSyncTokenPersistence:
         await session.commit()
 
         sw = await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.adapter.dump_token.return_value = refreshed_token
+        mock_sync_service.dump_token.return_value = refreshed_token
 
         response = await client.post(f"/api/v1/sync/{sw.id}")
 

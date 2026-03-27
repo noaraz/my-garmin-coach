@@ -95,6 +95,10 @@ class GarminSyncService:
         """Fetch all planned workouts from Garmin Connect."""
         return self._client.get_workouts()
 
+    def dump_token(self) -> str:
+        """Return the current garth token state as a JSON string."""
+        return self._client.dump_token()
+
     # ------------------------------------------------------------------
     # Bulk operations
     # ------------------------------------------------------------------
