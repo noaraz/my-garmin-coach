@@ -113,7 +113,7 @@ The CalendarPage toolbar wraps to two rows on mobile (`isMobile = true`):
 [Today]  [• GARMIN]  [SYNC ALL]
 ```
 - All three items: `height: 26px` — unified vertical alignment
-- **Today**: `border: 1px solid var(--border)`, transparent bg, muted text — ghost style
+- **Today**: `border: 1px solid var(--border-strong)`, transparent bg, muted text — ghost style
 - **GARMIN dot**: hidden when `garminConnected === null` (loading); green dot when connected
 - **SYNC ALL**: `border: 1px solid var(--accent)`, transparent bg, accent text — **outlined accent, NOT filled**
   - Using filled accent (blue bg) looked mismatched next to the ghost Today button — stick to outlined

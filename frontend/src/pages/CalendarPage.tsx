@@ -202,7 +202,8 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       const start = getWeekStart(currentDate)
       const end = addDays(start, 6)
       if (isMobile) {
-        return `${format(start, 'MMM d')} – ${format(end, 'd')}`
+        const sameMonth = start.getMonth() === end.getMonth()
+        return `${format(start, 'MMM d')} – ${format(end, sameMonth ? 'd' : 'MMM d')}`
       }
       return `${toDateString(start)} – ${toDateString(end)}`
     }
@@ -275,28 +276,28 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 opacity: isCurrentPeriod ? 0.4 : 1,
               }}
             >Today</button>
-            {garminConnected !== null && (
-              <button
-                onClick={() => navigate('/settings')}
-                aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  height: '26px', padding: '0 8px',
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                  fontSize: 'clamp(9px, 2.8vw, 11px)',
-                  fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                }}
-              >
-                <div style={{
-                  width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
-                  background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
-                  boxShadow: garminConnected ? '0 0 0 2px var(--color-success-glow)' : '0 0 0 2px var(--color-error-glow)',
+            {/* visibility:hidden while loading keeps space-between layout stable (no shift when dot appears) */}
+            <button
+              onClick={() => navigate('/settings')}
+              aria-label={garminConnected ? 'Garmin Connected – go to Settings' : 'Garmin Not Connected – go to Settings'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                height: '26px', padding: '0 8px',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: 'clamp(9px, 2.8vw, 11px)',
+                fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                visibility: garminConnected === null ? 'hidden' : 'visible',
+              }}
+            >
+              <div style={{
+                width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                background: garminConnected ? 'var(--color-success)' : 'var(--color-error)',
+                boxShadow: garminConnected ? '0 0 0 2px var(--color-success-glow)' : '0 0 0 2px var(--color-error-glow)',
                 }} />
                 Garmin
-              </button>
-            )}
+            </button>
             <button
               onClick={handleSyncAll}
               disabled={syncing}
