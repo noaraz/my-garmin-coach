@@ -1,10 +1,21 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-27 (v1.4.0 release)
+Last updated: 2026-03-27 (v1.4.1 release)
 
-## Current Focus: v1.4.0 Release
+## Current Focus: v1.4.1 Release
 
-### v1.4.0 Release
+### v1.4.1 Release
+| Task | Status |
+|------|--------|
+| Fix: document alembic unknown-revision recovery procedure | ✅ |
+| Fix: add Neon pre-flight alembic check to /release workflow | ✅ |
+| Improve alembic-migration skill with recovery procedure + pre-release check | ✅ |
+| Bump frontend/package.json to 1.4.1 | ✅ |
+| Tag v1.4.1 + push | ✅ |
+
+---
+
+### v1.4.0 Release ✅
 | Task | Status |
 |------|--------|
 | Workout removal confirmation dialog | ✅ |

@@ -48,6 +48,50 @@ docker compose exec backend alembic upgrade head
 
 ---
 
+## If Neon DB has an unknown revision ("Can't locate revision")
+
+This happens when a placeholder or stale ID was stamped into `alembic_version`. Fix:
+
+**Step 1** — Find the real head revision in the codebase:
+```bash
+grep "^Revision ID" backend/alembic/versions/*.py | sort
+```
+Note the most recent one (highest revision ID). **Never use a made-up hex string.**
+
+**Step 2** — Update the DB directly (use sync DATABASE_URL from `.env.prod`):
+```python
+import psycopg2
+# Use postgresql://... (NOT postgresql+asyncpg://)
+conn = psycopg2.connect("postgresql://...?sslmode=require")
+cur = conn.cursor()
+cur.execute("SELECT version_num FROM alembic_version;")
+print("Current:", cur.fetchall())            # verify what's there
+cur.execute("UPDATE alembic_version SET version_num = '<real-head-id>';")
+conn.commit()
+conn.close()
+```
+
+**Step 3** — Verify the fix before redeploying:
+```bash
+cd backend && source ../.env.prod && DATABASE_URL=$DATABASE_URL .venv/bin/alembic current
+# Must show: <revision-id> (head)
+```
+
+**Never use `alembic stamp` when the DB has an unknown revision** — `stamp` itself fails if the current version is unrecognised. You must update the table directly first.
+
+---
+
+## Pre-release Neon check
+
+Run this before tagging any release to catch stale stamps early:
+```bash
+cd backend && source ../.env.prod && DATABASE_URL=$DATABASE_URL .venv/bin/alembic current
+# Must show: <revision-id> (head)
+```
+If it fails with "Can't locate revision", follow the recovery procedure above **before tagging**.
+
+---
+
 ## Before committing — checklist
 
 - [ ] `alembic/` and `alembic.ini` present in `backend/Dockerfile` COPY list
@@ -55,3 +99,4 @@ docker compose exec backend alembic upgrade head
 - [ ] `render_as_batch=_sync_url.startswith("sqlite")` in `alembic/env.py`
 - [ ] All writes to new DateTime columns use `.replace(tzinfo=None)`
 - [ ] `alembic current` shows `(head)` after apply
+- [ ] Neon pre-release check passes (`(head)`) before tagging
