@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { ScheduledWorkoutWithActivity, GarminActivity } from '../api/types'
-import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
+import type { ScheduledWorkoutWithActivity, GarminActivity, SyncStatusItem } from '../api/types'
+import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, syncOne, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
 import { toDateString } from '../utils/formatting'
 
 export function useCalendar(initialStart: Date, initialEnd: Date) {
@@ -43,6 +43,15 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     setWorkouts(prev => prev.filter(w => w.id !== id))
   }
 
+  const syncOneWorkout = async (id: number): Promise<SyncStatusItem> => {
+    const result = await syncOne(id)
+    const current = rangeRef.current
+    const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
+    setWorkouts(response.workouts)
+    setUnplannedActivities(response.unplanned_activities)
+    return result
+  }
+
   const syncAllWorkouts = async () => {
     await syncAll()
     // Use rangeRef (not range closure) so debounced callers always refetch
@@ -73,5 +82,5 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     setWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes: updated.notes } : w))
   }
 
-  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, pair, unpair, loadRange, updateNotes }
+  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, pair, unpair, loadRange, updateNotes }
 }

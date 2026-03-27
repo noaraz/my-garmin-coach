@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import type { ScheduledWorkoutWithActivity, GarminActivity, WorkoutTemplate } from '../api/types'
 
@@ -323,6 +323,85 @@ describe('WorkoutDetailPlanned', () => {
     vi.runAllTimers()
     expect(mockOnUpdateNotes).toHaveBeenCalledWith(1, 'New note')
     vi.useRealTimers()
+  })
+
+  it('shows Sync to Garmin button when onSync prop is provided', () => {
+    const mockOnSync = vi.fn().mockResolvedValue(undefined)
+    render(
+      <WorkoutDetailPanel
+        workout={mockWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+        onSync={mockOnSync}
+      />
+    )
+    expect(screen.getByText('Sync to Garmin')).toBeInTheDocument()
+  })
+
+  it('does not show Sync to Garmin button when onSync is undefined', () => {
+    render(
+      <WorkoutDetailPanel
+        workout={mockWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+      />
+    )
+    expect(screen.queryByText('Sync to Garmin')).not.toBeInTheDocument()
+  })
+
+  it('shows Syncing… and disables button while sync in flight', async () => {
+    let resolveSync!: () => void
+    const mockOnSync = vi.fn().mockReturnValue(new Promise<void>(resolve => { resolveSync = resolve }))
+    render(
+      <WorkoutDetailPanel
+        workout={mockWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+        onSync={mockOnSync}
+      />
+    )
+    const button = screen.getByText('Sync to Garmin')
+    fireEvent.click(button)
+    expect(screen.getByText('Syncing…')).toBeInTheDocument()
+    expect(screen.getByText('Syncing…')).toBeDisabled()
+    await act(async () => { resolveSync() })
+    expect(screen.getByText('Sync to Garmin')).toBeInTheDocument()
+    expect(screen.getByText('Sync to Garmin')).not.toBeDisabled()
+  })
+
+  it('re-enables button after sync error', async () => {
+    const mockOnSync = vi.fn().mockRejectedValue(new Error('Network error'))
+    render(
+      <WorkoutDetailPanel
+        workout={mockWorkout}
+        template={mockTemplate}
+        onClose={mockOnClose}
+        onReschedule={mockOnReschedule}
+        onRemove={mockOnRemove}
+        onUnpair={mockOnUnpair}
+        onUpdateNotes={mockOnUpdateNotes}
+        onNavigateToBuilder={mockOnNavigateToBuilder}
+        onSync={mockOnSync}
+      />
+    )
+    const button = screen.getByText('Sync to Garmin')
+    await act(async () => { fireEvent.click(button) })
+    expect(screen.getByText('Sync to Garmin')).not.toBeDisabled()
   })
 })
 

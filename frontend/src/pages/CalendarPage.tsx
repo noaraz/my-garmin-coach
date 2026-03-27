@@ -41,7 +41,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, unpair, loadRange, updateNotes } = useCalendar(
+  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, unpair, loadRange, updateNotes } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -151,6 +151,13 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         syncDebounceRef.current = null
       }
     }, 2000)
+  }
+
+  const handleSync = async (id: number) => {
+    const result = await syncOneWorkout(id)
+    setSelectedWorkout(prev =>
+      prev ? { ...prev, sync_status: result.sync_status, garmin_workout_id: result.garmin_workout_id } : null
+    )
   }
 
   // Panel handlers
@@ -457,6 +464,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           onUnpair={async (id) => { await unpair(id); handlePanelClose() }}
           onUpdateNotes={updateNotes}
           onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
+          onSync={handleSync}
         />
       )}
 

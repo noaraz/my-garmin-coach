@@ -8,12 +8,23 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from garth.exc import GarthHTTPError
+from requests import HTTPError as RequestsHTTPError
+from requests.models import Response
+
 from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.api.routers.sync import _get_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.db.models import ScheduledWorkout, WorkoutTemplate
+from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+
+
+def _garmin_404() -> GarthHTTPError:
+    """Build a GarthHTTPError with status 404 for use in mock side_effects."""
+    resp = Response()
+    resp.status_code = 404
+    return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +37,7 @@ def mock_sync_service_fixture() -> MagicMock:
     """Return a MagicMock that stands in for SyncOrchestrator."""
     svc = MagicMock()
     svc.push_workout = AsyncMock(return_value="garmin-abc-123")
-    svc.sync_workout = AsyncMock(return_value="garmin-abc-123")
+    svc.sync_workout = AsyncMock(return_value=("garmin-abc-123", "sched-abc-123"))
     svc.schedule_workout.return_value = None
     # get_workouts returns empty by default — tests that need dedup override this
     svc.get_workouts.return_value = []
@@ -99,7 +110,7 @@ class TestSyncSingle:
         """POST /api/v1/sync/:id with an existing workout returns 200 and synced status."""
         # Arrange
         sw = await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.sync_workout.return_value = "garmin-xyz-999"
+        mock_sync_service.sync_workout.return_value = ("garmin-xyz-999", "sched-xyz-999")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -148,7 +159,7 @@ class TestSyncSingle:
         """POST /api/v1/sync/:id persists the updated sync_status in the DB."""
         # Arrange
         sw = await _make_scheduled_workout(session, sync_status="pending")
-        mock_sync_service.sync_workout.return_value = "garmin-persisted"
+        mock_sync_service.sync_workout.return_value = ("garmin-persisted", "sched-persisted")
 
         # Act
         await client.post(f"/api/v1/sync/{sw.id}")
@@ -169,7 +180,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="old-garmin-id"
         )
-        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("new-garmin-id", "sched-new-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -198,7 +209,7 @@ class TestSyncSingle:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.delete_workout.side_effect = Exception("500 Server Error")
-        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -221,10 +232,8 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
-        mock_sync_service.delete_workout.side_effect = Exception(
-            "404 Client Error: Not Found"
-        )
-        mock_sync_service.sync_workout.return_value = "fresh-garmin-id"
+        mock_sync_service.delete_workout.side_effect = _garmin_404()
+        mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -247,7 +256,7 @@ class TestSyncSingle:
         sw = await _make_scheduled_workout(
             session, sync_status="modified", garmin_workout_id="old-garmin-id"
         )
-        mock_sync_service.sync_workout.return_value = "new-garmin-id"
+        mock_sync_service.sync_workout.return_value = ("new-garmin-id", "sched-new-id")
 
         # Act
         response = await client.post(f"/api/v1/sync/{sw.id}")
@@ -278,7 +287,7 @@ class TestSyncAll:
         await _make_scheduled_workout(session, sync_status="modified")
         await _make_scheduled_workout(session, sync_status="synced")
 
-        mock_sync_service.sync_workout.return_value = "garmin-bulk-id"
+        mock_sync_service.sync_workout.return_value = ("garmin-bulk-id", "sched-bulk-id")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -443,7 +452,7 @@ class TestSyncAll:
             garmin_workout_id="active-garmin-id",
             completed=False,
         )
-        mock_sync_service.sync_workout.return_value = "garmin-skip"
+        mock_sync_service.sync_workout.return_value = ("garmin-skip", "sched-skip")
 
         # Act
         await client.post("/api/v1/sync/all?fetch_days=30")
@@ -549,7 +558,7 @@ class TestSyncAll:
         mock_sync_service.get_workouts.return_value = [
             {"workoutId": "orphan-gw-123", "workoutName": "Easy Run"},
         ]
-        mock_sync_service.sync_workout.return_value = "new-gw-456"
+        mock_sync_service.sync_workout.return_value = ("new-gw-456", "sched-new-gw-456")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -616,7 +625,7 @@ class TestSyncAll:
         # Arrange
         await _make_scheduled_workout(session, sync_status="pending")
         mock_sync_service.get_workouts.side_effect = RuntimeError("Garmin API down")
-        mock_sync_service.sync_workout.return_value = "gw-ok"
+        mock_sync_service.sync_workout.return_value = ("gw-ok", "sched-gw-ok")
 
         # Act
         response = await client.post("/api/v1/sync/all")
@@ -625,6 +634,46 @@ class TestSyncAll:
         assert response.status_code == 200
         body = response.json()
         assert body["synced"] == 1
+
+    async def test_sync_all_does_not_reset_synced_workout_when_id_exists_on_garmin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workouts whose garmin_workout_id IS in Garmin's list are not touched."""
+        valid_id = "valid-garmin-456"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=valid_id
+        )
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": valid_id, "workoutName": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 0  # not re-pushed
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == valid_id
+
+    async def test_sync_all_skips_when_get_workouts_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """get_workouts() failure does not prevent sync_all from returning 200."""
+        await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.get_workouts.side_effect = RuntimeError("429")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["synced"] == 0  # synced workouts not re-pushed
 
 
 # ---------------------------------------------------------------------------
@@ -784,3 +833,93 @@ class TestSyncAllActivityFetch:
         response2 = await client.post("/api/v1/sync/all")
         assert response2.status_code == 200
         assert response2.json()["activities_fetched"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Token persistence after sync (prevents repeated OAuth2 exchange → 429)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncTokenPersistence:
+    """garth's refreshed OAuth2 token is persisted back to DB after each sync.
+
+    Without this, every sync loads the same expired token from DB and triggers
+    a new OAuth2 exchange at the exchange endpoint.  Frequent syncs hit Garmin's
+    rate limit (429) on that endpoint.
+    """
+
+    async def test_sync_all_persists_refreshed_token_to_db(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """After sync_all, the profile's encrypted token reflects garth's current state."""
+        from src.garmin.encryption import decrypt_token, encrypt_token
+
+        secret = "dev-secret-change-in-prod"
+        initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
+        refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh"}}'
+
+        profile = AthleteProfile(
+            user_id=1,
+            garmin_connected=True,
+            garmin_oauth_token_encrypted=encrypt_token(1, secret, initial_token),
+        )
+        session.add(profile)
+        await session.commit()
+        await session.refresh(profile)
+
+        mock_sync_service.dump_token.return_value = refreshed_token
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        await session.refresh(profile)
+        assert profile.garmin_oauth_token_encrypted is not None
+        stored = decrypt_token(1, secret, profile.garmin_oauth_token_encrypted)
+        assert stored == refreshed_token
+
+    async def test_sync_all_continues_when_token_persist_fails(
+        self,
+        client: AsyncClient,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Token persistence failure is non-critical — sync_all still returns 200."""
+        mock_sync_service.dump_token.side_effect = RuntimeError("garth error")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+
+    async def test_sync_single_persists_refreshed_token_to_db(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """After sync_single, the profile's encrypted token reflects garth's current state."""
+        from src.garmin.encryption import decrypt_token, encrypt_token
+
+        secret = "dev-secret-change-in-prod"
+        initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
+        refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh2"}}'
+
+        profile = AthleteProfile(
+            user_id=1,
+            garmin_connected=True,
+            garmin_oauth_token_encrypted=encrypt_token(1, secret, initial_token),
+        )
+        session.add(profile)
+        await session.commit()
+
+        sw = await _make_scheduled_workout(session, sync_status="pending")
+        mock_sync_service.dump_token.return_value = refreshed_token
+
+        response = await client.post(f"/api/v1/sync/{sw.id}")
+
+        assert response.status_code == 200
+        await session.refresh(profile)
+        assert profile.garmin_oauth_token_encrypted is not None
+        stored = decrypt_token(1, secret, profile.garmin_oauth_token_encrypted)
+        assert stored == refreshed_token

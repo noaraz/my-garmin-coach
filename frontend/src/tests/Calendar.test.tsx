@@ -50,6 +50,7 @@ vi.mock('../hooks/useCalendar', () => ({
     unpair: vi.fn(),
     updateNotes: vi.fn(),
     syncAllWorkouts: mockSyncAll,
+    syncOneWorkout: vi.fn(),
     loadRange: mockLoadRange,
   }),
 }))

@@ -131,6 +131,18 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] `create_api_client(token_json)` for API calls (replaces bare `garminconnect.Garmin()` in `sync.py`)
 - [x] TDD tests in `tests/unit/test_garmin_client_factory.py`
 
+### OAuth2 Token Persistence + Sync From Panel (2026-03-27)
+- [x] `_persist_refreshed_token(sync_service, user_id, session)` — re-encrypt and save token after every sync
+- [x] `dump_token()` propagated through all three layers: `GarminAdapter` → `GarminSyncService` → `SyncOrchestrator`
+- [x] `_is_garmin_404(exc)` typed helper — replaces fragile `"404" in str(exc)` string checks
+- [x] Fix dedup 404 path: `return None` moved inside `else` so 404 falls through to push
+- [x] `cache.invalidate(f"profile:{user_id}")` after token persist commit
+- [x] Remove dead calendar reconciliation code (Garmin GET /schedule/{id} returns 404 always)
+- [x] `syncOneWorkout(id)` in `useCalendar` hook — calls `POST /sync/{id}`, refetches calendar range
+- [x] `onSync` prop + "Sync to Garmin" button in `WorkoutDetailPanel` / `WorkoutDetailPlanned`
+- [x] Wire `onSync` in `CalendarPage` and `TodayPage` (always visible, no Garmin-connected guard)
+- [x] `backend/scripts/unsynced_workouts.py` — diagnostic script for production DB
+
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
 - [x] Zone/profile endpoints (`PUT /zones/hr`, `POST /zones/hr/recalculate`, `POST /zones/pace/recalculate`, `PUT /profile`) use `background_tasks.add_task(background_sync, ...)` — response returns in <100ms

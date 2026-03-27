@@ -104,6 +104,7 @@ interface WorkoutDetailPanelProps {
   onUnpair: (scheduledId: number) => void
   onUpdateNotes: (id: number, notes: string) => void
   onNavigateToBuilder: (templateId: number) => void
+  onSync?: (id: number) => Promise<void>
 }
 
 function syncStatusLabel(status: SyncStatus): string {
@@ -139,6 +140,7 @@ function WorkoutDetailPlanned({
   onRemove,
   onUpdateNotes,
   onNavigateToBuilder,
+  onSync,
 }: {
   workout: ScheduledWorkoutWithActivity
   template?: WorkoutTemplate
@@ -147,9 +149,11 @@ function WorkoutDetailPlanned({
   onRemove: (id: number) => void
   onUpdateNotes: (id: number, notes: string) => void
   onNavigateToBuilder: (templateId: number) => void
+  onSync?: (id: number) => Promise<void>
 }) {
   const [localNotes, setLocalNotes] = useState(workout.notes ?? '')
   const [saved, setSaved] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
@@ -181,6 +185,18 @@ function WorkoutDetailPlanned({
 
   const handleRemove = () => {
     onRemove(workout.id)
+  }
+
+  const handleSync = async () => {
+    if (!onSync) return
+    setIsSyncing(true)
+    try {
+      await onSync(workout.id)
+    } catch {
+      // Error is handled by the caller (status indicator retains value; button re-enables)
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   const handleEdit = () => {
@@ -254,12 +270,12 @@ function WorkoutDetailPlanned({
         {/* Workout Steps (parsed zones) */}
         <WorkoutSteps stepsJson={template?.steps} />
 
-        {/* Sync status */}
+        {/* Sync status + button */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
             marginBottom: '20px',
             fontSize: '12px',
             color: 'var(--text-secondary)',
@@ -269,6 +285,27 @@ function WorkoutDetailPlanned({
           <span style={{ fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
             {syncStatusText(workout.sync_status)}
           </span>
+          {onSync && (
+            <button
+              onClick={handleSync}
+              disabled={isSyncing}
+              style={{
+                marginLeft: 'auto',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: isSyncing ? 'default' : 'pointer',
+                opacity: isSyncing ? 0.6 : 1,
+              }}
+            >
+              {isSyncing ? 'Syncing…' : 'Sync to Garmin'}
+            </button>
+          )}
         </div>
 
         {/* Actions */}
@@ -1041,6 +1078,7 @@ export function WorkoutDetailPanel({
   onUnpair,
   onUpdateNotes,
   onNavigateToBuilder,
+  onSync,
 }: WorkoutDetailPanelProps) {
   const isMobile = useIsMobile()
 
@@ -1125,6 +1163,7 @@ export function WorkoutDetailPanel({
             onRemove={onRemove}
             onUpdateNotes={onUpdateNotes}
             onNavigateToBuilder={onNavigateToBuilder}
+            onSync={onSync}
           />
         )}
 
