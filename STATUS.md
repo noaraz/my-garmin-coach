@@ -1,6 +1,19 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-27 (mobile calendar toolbar redesign)
+Last updated: 2026-03-28 (v1.4.2 release)
+
+## v1.4.2 Release ✅
+
+### v1.4.2 Release
+| Task | Status |
+|------|--------|
+| Redesigned mobile calendar toolbar into two-row layout | ✅ |
+| Fixed all 404 variants in `_is_garmin_404` to unblock stuck syncs | ✅ |
+| Fixed token persistence tests to use configured secret key | ✅ |
+| Bump frontend/package.json to 1.4.2 | ✅ |
+| Tag v1.4.2 + push | ✅ |
+
+---
 
 ## Current Focus: Mobile Calendar Toolbar Redesign ✅
 
