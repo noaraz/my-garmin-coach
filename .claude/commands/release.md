@@ -111,14 +111,33 @@ This commit is what gets tagged. The sidebar reads this value at build time — 
 
 ## 6. Pre-Release Checklist
 
-Ask the user to confirm each item:
+Verify each item automatically before presenting to the user:
 
-> Before tagging, please confirm:
-> - [ ] `frontend/package.json` `"version"` matches the release tag
-> - [ ] All features for this release are merged to `main`
-> - [ ] No secrets are in the code or git history
-> - [ ] If schema changed: Alembic migration created and committed (`backend/alembic/versions/`)
-> - [ ] `RENDER_DEPLOY_HOOK_URL` secret is set in GitHub → Settings → Secrets → Actions
+```bash
+# 1. Verify frontend/package.json version matches the release tag
+node -e "const p = require('./frontend/package.json'); console.log(p.version)"
+
+# 2. Verify no uncommitted changes remain
+git status
+
+# 3. Check for any secrets accidentally staged (gitleaks-style quick check)
+git log --oneline -5
+
+# 4. Check if any Alembic migration files were added in commits since last tag
+git diff $(git describe --tags --abbrev=0)..HEAD --name-only | grep alembic/versions || echo "No migrations in this release"
+
+# 5. Verify RENDER_DEPLOY_HOOK_URL is set in GitHub Actions secrets
+gh secret list | grep RENDER_DEPLOY_HOOK_URL || echo "WARNING: RENDER_DEPLOY_HOOK_URL not found"
+```
+
+Present verified results, then ask the user to confirm any items you could not auto-verify:
+
+> Pre-release checks:
+> - [auto] `frontend/package.json` version: `<verified value>`
+> - [auto] Working tree: clean / <issues found>
+> - [auto] Alembic migrations in this release: yes/no
+> - [auto] `RENDER_DEPLOY_HOOK_URL` secret: present / NOT FOUND
+> - [ ] All features for this release are merged to `main` — please confirm
 
 ---
 
