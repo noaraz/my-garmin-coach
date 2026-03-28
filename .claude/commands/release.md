@@ -87,7 +87,7 @@ Wait for their selection.
 
 ---
 
-## 5. Bump `frontend/package.json` and Commit
+## 5. Bump `frontend/package.json`, Update STATUS.md, and Commit
 
 Update the version in `frontend/package.json` to match the release tag (strips the leading `v`):
 
@@ -96,16 +96,23 @@ Update the version in `frontend/package.json` to match the release tag (strips t
 node -e "const p = require('./frontend/package.json'); console.log('current:', p.version)"
 ```
 
-If it doesn't already match, update it and commit:
+Also update `STATUS.md` now — add a release entry at the top and update `Last updated:`. This must be in the **same commit** as the version bump so the tag points to a commit with both changes already present.
+
+```
+# STATUS.md changes:
+# - Update "Last updated:" line to today's date
+# - Add a ## vX.Y.Z Release ✅ section at the top with the release tasks table
+```
+
+Then commit and push **both files together**:
 
 ```bash
-# Edit frontend/package.json "version" field to <VERSION without v>
-git add frontend/package.json
+git add frontend/package.json STATUS.md
 git commit -m "chore: bump version to <VERSION>"
 git push origin main
 ```
 
-This commit is what gets tagged. The sidebar reads this value at build time — tagging alone does **not** update it. **Push before tagging** so the tag points to a commit that exists on the remote.
+This commit is what gets tagged. The sidebar reads `package.json` at build time and STATUS.md reflects the release immediately — tagging alone does **not** update either. **Push before tagging** so the tag points to a commit that exists on the remote.
 
 ---
 
@@ -218,27 +225,7 @@ If the deploy hook isn't set up yet:
 
 ---
 
-## 11. Update STATUS.md
-
-Read `STATUS.md` and make these changes automatically:
-
-1. Find any line containing the release tag (e.g. `Tag vX.Y.Z`) and mark it ✅ if not already
-2. Add a new line under `## Released` (or the equivalent section) recording this release:
-   `- vX.Y.Z — YYYY-MM-DD — <one-line summary from release notes>`
-3. Update the `Last updated:` line to today's date
-4. Update `## Current Focus` to reflect what's next
-
-Then commit and push:
-
-```bash
-git add STATUS.md
-git commit -m "docs: mark <VERSION> released in STATUS.md"
-git push origin main
-```
-
----
-
-## 12. Post-Deploy Verification
+## 11. Post-Deploy Verification
 
 After Render shows the deploy as live:
 
