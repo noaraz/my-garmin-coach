@@ -895,9 +895,10 @@ class TestSyncTokenPersistence:
         mock_sync_service: MagicMock,
     ) -> None:
         """After sync_all, the profile's encrypted token reflects garth's current state."""
+        from src.core.config import get_settings
         from src.garmin.encryption import decrypt_token, encrypt_token
 
-        secret = "dev-secret-change-in-prod"
+        secret = get_settings().garmincoach_secret_key
         initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
         refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh"}}'
 
@@ -939,9 +940,10 @@ class TestSyncTokenPersistence:
         mock_sync_service: MagicMock,
     ) -> None:
         """After sync_single, the profile's encrypted token reflects garth's current state."""
+        from src.core.config import get_settings
         from src.garmin.encryption import decrypt_token, encrypt_token
 
-        secret = "dev-secret-change-in-prod"
+        secret = get_settings().garmincoach_secret_key
         initial_token = '{"oauth1_token": "old", "oauth2_token": null}'
         refreshed_token = '{"oauth1_token": "old", "oauth2_token": {"access_token": "fresh2"}}'
 
