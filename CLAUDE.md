@@ -83,7 +83,7 @@ npm test -- --run                                   # frontend
 
 ## Security (Always)
 
-1. NEVER store Garmin passwords. OAuth tokens only, discard password immediately.
+1. Garmin credentials (email + password) ARE stored encrypted for auto-reconnect (30-day expiry, separate `GARMIN_CREDENTIAL_KEY`). NEVER store them unencrypted. NEVER log them. See `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`.
 2. NEVER log passwords, tokens, or session cookies.
 3. NEVER use raw SQL.
 4. NEVER use `dangerouslySetInnerHTML`.
@@ -702,7 +702,7 @@ Garmin's own calendar shows BOTH the scheduled planned workout AND the completed
 
 ---
 
-## Garmin SSO & API — Akamai Bot Detection (updated 2026-03-25)
+## Garmin SSO & API — Akamai Bot Detection (updated 2026-03-29)
 
 Garmin uses **Akamai Bot Manager**. Different subdomains have **different Akamai configs**:
 
@@ -743,6 +743,14 @@ class ChromeTLSSession(cffi_requests.Session):
 - `FIXIE_URL` optional fallback in `settings.fixie_url` — not required, only consumed on login 429 retry
 - **Re-test with `test_garmin_login.py`** (repo root) if 429s return — runs 4 approaches side-by-side to isolate IP vs TLS issues when Akamai updates detection
 - **`CHROME_VERSION` bumps**: When changing the constant in `client_factory.py`, grep all docs for the old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`. Update every stale reference.
+
+### Garth Deprecation (2026-03-27)
+
+garth was officially deprecated March 27, 2026 (https://github.com/matin/garth/discussions/222). Garmin changed their auth flow — `/mobile/api/login` is globally blocked by Cloudflare. We use garth 0.5.21 which uses the **old SSO form flow** (`/sso/signin`) — NOT affected. **DO NOT upgrade garth** past 0.5.x — newer versions use the dead mobile endpoint. See `features/garmin-sync/CLAUDE.md` "Garth Deprecation" for full context.
+
+### Auto-Reconnect (2026-03-29)
+
+When the OAuth2 token exchange fails with 429, `attempt_auto_reconnect()` in `backend/src/garmin/auto_reconnect.py` re-logins using stored encrypted credentials to obtain fresh tokens. Credentials stored on connect, encrypted with separate `GARMIN_CREDENTIAL_KEY`, auto-expire after 30 days. Three-layer storm prevention: early-exit (1 exchange per sync), module-level cooldown (30 min), in-process client cache. Design spec: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`.
 
 ---
 
@@ -890,6 +898,9 @@ Silent auto-fetch hid what Garmin context was being injected into the prompt. Th
 ## Nice to Have (future features)
 
 Ideas for future iterations, roughly in priority order.
+
+### Migrate off garth (deprecated)
+garth was deprecated March 27, 2026 (https://github.com/matin/garth/discussions/222). We're on garth 0.5.21 (old SSO form flow) which still works. DO NOT upgrade past 0.5.x. When it breaks, evaluate replacement libraries at that time. See `features/garmin-sync/CLAUDE.md` "Garth Deprecation" for context.
 
 ### Test Run → Zone Update
 When a user completes a deliberate effort (time trial, race, or 30-min test), they should be able to tag it and have zones auto-updated from the result.

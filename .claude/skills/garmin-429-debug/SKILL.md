@@ -33,6 +33,8 @@ Python TLS via `GarminOAuth1Session`, which Akamai allows on the exchange endpoi
 
 ## Step 0 — Check which library raises the 429
 
+> **NOTE (2026-03-29):** Auto-reconnect is being implemented — when exchange 429 occurs, the system will automatically re-login using stored encrypted credentials. See design spec: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`. Token persistence alone does NOT fix exchange 429s (it saves the stale expired token). The real fix is auto-reconnect + exchange storm prevention.
+
 **This is the most important diagnostic step.** Look at the stack trace bottom:
 
 | Stack trace ends with | Library | Meaning |
