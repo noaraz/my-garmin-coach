@@ -28,7 +28,7 @@ export function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const { isAdmin } = useAuth()
-  const { refresh } = useGarminStatus()
+  const { credentialsStored, refresh } = useGarminStatus()
 
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -37,7 +37,9 @@ export function SettingsPage() {
 
   useEffect(() => {
     getGarminStatus()
-      .then(res => setConnectionState(res.connected ? 'connected' : 'disconnected'))
+      .then(res => {
+        setConnectionState(res.connected ? 'connected' : 'disconnected')
+      })
       .catch(() => setConnectionState('disconnected'))
   }, [])
 
@@ -53,7 +55,7 @@ export function SettingsPage() {
         refresh()
         setGarminEmail('')
         setGarminPassword('')
-        setSuccessMsg('Garmin account connected successfully.')
+        setSuccessMsg('Connected. Credentials stored securely for 30 days.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed')
@@ -208,8 +210,8 @@ export function SettingsPage() {
                 margin: '0 0 16px',
                 lineHeight: 1.5,
               }}>
-                Enter your Garmin Connect credentials to sync workouts. Your password is used once
-                to obtain an OAuth token and is never stored.
+                Enter your Garmin Connect credentials to sync workouts. Credentials are encrypted
+                and stored securely for auto-reconnect, then automatically cleared after 30 days.
               </p>
 
               <div style={{ marginBottom: '12px' }}>
@@ -310,6 +312,59 @@ export function SettingsPage() {
           {/* Connected — show disconnect */}
           {connectionState === 'connected' && (
             <div>
+              {/* Reconnect prompt — shown when connected but credentials not yet stored */}
+              {!credentialsStored && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px 14px',
+                  background: 'var(--color-warning-bg)',
+                  border: '1px solid var(--color-warning-border)',
+                  borderRadius: '6px',
+                }}>
+                  <p style={{
+                    fontSize: '12px',
+                    color: 'var(--text-primary)',
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                    margin: '0 0 8px',
+                    lineHeight: 1.5,
+                    fontWeight: 600,
+                  }}>
+                    Reconnect to enable auto-reconnect
+                  </p>
+                  <p style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                    margin: '0 0 12px',
+                    lineHeight: 1.5,
+                  }}>
+                    We&apos;ve added a new feature that automatically reconnects to Garmin when your
+                    session expires, so syncing never breaks. To enable it, please disconnect and
+                    reconnect your Garmin account. This is a one-time step.
+                  </p>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={isSubmitting}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'var(--accent)',
+                      color: 'var(--text-on-accent)',
+                      border: 'none',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {isSubmitting ? 'Disconnecting…' : 'Disconnect & Reconnect'}
+                  </button>
+                </div>
+              )}
+
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-secondary)',

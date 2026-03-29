@@ -21,6 +21,7 @@ from src.api.schemas import (
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.db.models import GarminActivity, ScheduledWorkout
+from src.garmin.token_persistence import persist_refreshed_token
 from src.services.calendar_service import get_range, reschedule, schedule, unschedule
 from src.services.profile_service import get_or_create_profile
 from src.services.sync_orchestrator import SyncOrchestrator
@@ -155,6 +156,10 @@ async def pair_activity(
     await session.commit()
     await session.refresh(workout)
 
+    # Persist any OAuth2 token refresh that occurred during the Garmin delete
+    if garmin:
+        await persist_refreshed_token(garmin, current_user.id, session)
+
     return ScheduledWorkoutWithActivity(
         **ScheduledWorkoutRead.model_validate(workout).model_dump(),
         matched_activity_id=workout.matched_activity_id,
@@ -226,6 +231,11 @@ async def delete_schedule(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+    # Persist any OAuth2 token refresh that occurred during the Garmin delete
+    if garmin:
+        await persist_refreshed_token(garmin, current_user.id, session)
+
     return Response(status_code=204)
 
 

@@ -143,6 +143,16 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] Wire `onSync` in `CalendarPage` and `TodayPage` (always visible, no Garmin-connected guard)
 - [x] `backend/scripts/unsynced_workouts.py` — diagnostic script for production DB
 
+### Auto-Reconnect + Exchange 429 Fix (2026-03-29)
+- [x] Phase 1: Exchange storm prevention — early-exit, cooldown, client cache, token persistence extraction
+- [x] Phase 2: Auto-reconnect with encrypted credentials — `auto_reconnect.py`, credential encryption, config, migration
+- [x] Phase 3: Frontend 30-day expiry UX — CalendarPage toast, SettingsPage info text
+- [x] Phase 4: Tests — encryption, auto-reconnect, exchange detection, integration (33 new tests)
+- [x] Phase 5: Post-implementation docs + skill update
+- [x] Phase 6: Reconnect prompt for existing users — `GarminStatusResponse.credentials_stored`, CalendarPage session banner, SettingsPage warning card
+
+**Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
+
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
 - [x] Zone/profile endpoints (`PUT /zones/hr`, `POST /zones/hr/recalculate`, `POST /zones/pace/recalculate`, `PUT /profile`) use `background_tasks.add_task(background_sync, ...)` — response returns in <100ms

@@ -262,6 +262,84 @@ except Exception as exc:
 If `return None` sits outside the `if/else` at the `except` level, it runs on the 404 path
 and silently aborts the push — the workout is never synced and stays unsynced forever.
 
+## Auto-Reconnect (added 2026-03-29)
+
+When the OAuth2 exchange endpoint returns 429 and blocks all syncs, the auto-reconnect system re-logins using stored encrypted credentials to obtain fresh tokens.
+
+**Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
+
+### Exchange Storm Prevention (3 layers)
+
+1. **Early-exit**: `_is_exchange_429(exc)` detects exchange 429. On first detection in `sync_all`, return immediately — don't continue to activity fetch, paired cleanup, orphan cleanup.
+2. **Module-level cooldown**: After a 429, skip sync for 30 min. Prevents repeated exchange attempts.
+3. **Client cache**: `backend/src/garmin/client_cache.py` — caches `GarminAdapter` per `user_id` in process memory. Avoids loading expired token from DB when in-memory adapter has a valid token.
+
+### Auto-Reconnect Flow
+
+```
+Exchange 429 detected
+  → attempt_auto_reconnect(user_id, session)
+  → Check garmin_credential_encrypted exists + not expired (30 days)
+  → Per-user reconnect cooldown (15 min network errors, 1 hour auth failures)
+  → Decrypt credentials → create_login_client().login(email, password)
+  → On success: encrypt & persist fresh tokens, invalidate caches, return fresh adapter
+  → On GarthHTTPError: clear credentials immediately (bad password never retries)
+  → On other error: keep credentials, set cooldown, return None
+```
+
+### Credential Encryption
+
+- Separate key: `GARMIN_CREDENTIAL_KEY` env var (not `GARMINCOACH_SECRET_KEY`)
+- Algorithm: Fernet + HKDF-SHA256 with `salt=user_id`, domain `b"garmincoach-credential-v1"`
+- 30-day auto-expiry: credentials cleared on read if `garmin_credential_stored_at` > 30 days ago
+- Stored on `POST /api/v1/garmin/connect`, cleared on disconnect
+- **NEVER log `exc` objects from garth** — `PreparedRequest` in the traceback contains plaintext credentials in form body. Log `type(exc).__name__` only.
+
+### Token Persistence Helper
+
+`backend/src/garmin/token_persistence.py` — extracted `persist_refreshed_token()`. Called after every successful sync in `sync_all`, `sync_single`, `background_sync`, `pair_activity`, `delete_schedule`, `commit_plan`, `delete_plan`.
+
+**Important**: Token persistence is only useful when exchange SUCCEEDS. When exchange FAILS (429), garth still has the OLD expired token — persisting it saves stale data. Auto-reconnect is the fix for the failed-exchange case.
+
+## Garth Deprecation (added 2026-03-29)
+
+### What happened (March 2026)
+
+- March 17: Garmin deployed Cloudflare protection blocking `/mobile/api/login` globally (429 for all IPs)
+- March 27: garth maintainer (matin) officially deprecated garth — https://github.com/matin/garth/discussions/222
+- Root cause: Garmin changed auth flow, broke mobile auth approach used by garth 0.7.x
+- References: garth#217, python-garminconnect#332
+
+### Why we're safe (garth 0.5.21)
+
+- We use garth 0.5.21 which uses the **old SSO form flow** (`/sso/embed` + `/sso/signin`)
+- The blocked endpoint is `/mobile/api/login` (garth 0.7.x only) — we don't use it
+- Our exchange endpoint (`/oauth-service/oauth/exchange/user/2.0`) still works
+- **DO NOT upgrade garth** past 0.5.x — newer versions use the dead mobile endpoint
+
+### When this will break
+
+- If Garmin blocks `/sso/signin` (the old web form flow) — no signs of this yet
+- If Garmin changes the consumer key for `/oauth-service/oauth/preauthorized` (some users seeing 401 already)
+- garth will receive no more maintenance fixes
+
+### When it breaks — what to do
+
+- Evaluate the Garmin auth ecosystem at that time — multiple replacement approaches are emerging and the landscape will stabilize
+- Track: https://github.com/matin/garth/discussions/222 and https://github.com/cyberjunky/python-garminconnect/issues/332
+
+## Reconnect Prompt for Existing Users (added 2026-03-29)
+
+Existing users who connected to Garmin before the auto-reconnect feature was deployed have `garmin_credential_encrypted = NULL` — auto-reconnect won't work for them until they disconnect and reconnect.
+
+**Detection**: `GarminStatusResponse` includes `credentials_stored: bool` (true when `garmin_credential_encrypted IS NOT NULL`). Frontend uses `connected=true && credentials_stored=false` to identify users who need to reconnect.
+
+**CalendarPage banner**: One-time-per-session prompt (dismissable via `sessionStorage('reconnect_prompt_dismissed')`). Shows "Go to Settings" button and dismiss X. Not shown after dismiss until next browser session.
+
+**SettingsPage card**: Persistent warning card in the connected state when `credentialsStored=false`. Shows "Disconnect & Reconnect" button. Disappears after user reconnects (connect sets `credentials_stored=true`).
+
+**GarminStatusContext**: Extended with `credentialsStored: boolean | null` alongside `garminConnected`.
+
 ## Gotchas
 
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new
@@ -271,7 +349,8 @@ and silently aborts the push — the workout is never synced and stays unsynced 
   exchange rate limit → repeated 429s. **Fix**: `_persist_refreshed_token(adapter, user_id,
   session)` in `sync.py` — called at the end of `sync_all` and `sync_single`. Uses
   `adapter.dump_token()` (= `garth.dumps()`), re-encrypts, saves back to
-  `AthleteProfile.garmin_oauth_token_encrypted`.
+  `AthleteProfile.garmin_oauth_token_encrypted`. **Note**: this only helps when exchange succeeds.
+  When exchange FAILS (429), auto-reconnect is needed — see above.
 - `GarminAdapter.dump_token() -> str` — returns `garth.dumps()` JSON. Use after any sync to
   capture the in-memory (potentially refreshed) token state for DB persistence.
 - **Calendar reconciliation is not feasible**: Garmin's `GET /workout-service/schedule/{id}` always

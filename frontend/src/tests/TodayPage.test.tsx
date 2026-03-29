@@ -25,7 +25,7 @@ const mockEasyRunTemplate: WorkoutTemplate = {
 // Mock API
 const { mockFetchCalendar, mockGetGarminStatus, mockFetchProfile, mockFetchTemplates } = vi.hoisted(() => ({
   mockFetchCalendar: vi.fn().mockResolvedValue({ workouts: [], unplanned_activities: [] }),
-  mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: true }),
+  mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: true, credentials_stored: true }),
   mockFetchProfile: vi.fn().mockResolvedValue({ threshold_pace: 300 }),
   mockFetchTemplates: vi.fn().mockResolvedValue([]),
 }))
@@ -57,7 +57,7 @@ describe('TodayPage', () => {
     mockFetchCalendar.mockReset()
     mockFetchCalendar.mockResolvedValue({ workouts: [], unplanned_activities: [] })
     mockGetGarminStatus.mockReset()
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     mockFetchProfile.mockReset()
     mockFetchProfile.mockResolvedValue({ threshold_pace: 300 })
     mockFetchTemplates.mockReset()

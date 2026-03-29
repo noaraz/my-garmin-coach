@@ -33,6 +33,8 @@ Python TLS via `GarminOAuth1Session`, which Akamai allows on the exchange endpoi
 
 ## Step 0 — Check which library raises the 429
 
+> **Auto-reconnect is live (2026-03-29).** When exchange 429 occurs, `sync_all` triggers `attempt_auto_reconnect()` — re-logins using stored encrypted credentials, gets fresh tokens, retries the sync. Three layers of storm prevention: (1) early-exit on first exchange 429, (2) 30-min module-level cooldown, (3) in-process client cache per user. Token persistence alone does NOT fix exchange 429s (it saves the stale expired token). The real fix is auto-reconnect + exchange storm prevention. See `backend/src/garmin/auto_reconnect.py`.
+
 **This is the most important diagnostic step.** Look at the stack trace bottom:
 
 | Stack trace ends with | Library | Meaning |
@@ -44,14 +46,20 @@ Python TLS via `GarminOAuth1Session`, which Akamai allows on the exchange endpoi
 Do NOT try to "fix" by routing more traffic through curl_cffi — that makes it worse.
 
 **If `requests` raises the 429** on the exchange endpoint and `ChromeTLSSession` IS set:
-This is a **rate-limit 429**, not a TLS fingerprint block. Cause: garth's `refresh_oauth2()`
-refreshes the token in memory only. Each sync loads the same expired token from DB → repeated
-exchanges → Garmin rate-limits. Fix: call `_persist_refreshed_token(adapter, user_id, session)` at
-the end of `sync_all` / `sync_single` to save the refreshed token back to DB. See
-`features/garmin-sync/CLAUDE.md` Gotchas section.
+This is a **rate-limit 429**, not a TLS fingerprint block. Auto-reconnect should handle this
+automatically. If it's still failing, check the auto-reconnect failure diagnostics below.
 
 **If `requests` raises the 429 and `ChromeTLSSession` is NOT set**: The ChromeTLSSession is not being used.
 Check that `create_api_client()` sets `client.garth.sess = ChromeTLSSession(...)`.
+
+### Auto-reconnect failure diagnostics
+
+| Log message | Cause | Operator action |
+|-------------|-------|----------------|
+| `Auto-reconnect login failed for user X (clearing credentials)` | Bad password or Garmin account locked (`GarthHTTPError`). Credentials cleared, 1-hour cooldown. | User must reconnect in Settings with correct password |
+| `Auto-reconnect failed for user X: <ExcType>` | Transient network error. Credentials kept, 15-min cooldown, will retry. | Check network/Render status, wait for retry |
+| `Garmin credentials expired (30-day policy) for user X` | Credentials older than 30 days, auto-cleared. | User reconnects in Settings (normal flow) |
+| `Auto-reconnect on cooldown for user X` | A previous reconnect attempt failed recently. | Wait for cooldown to expire (15 min or 1 hour) |
 
 ---
 
@@ -230,3 +238,7 @@ If no CONNECT logs, `FIXIE_URL` env var is wrong or not set in Render.
 - [ ] `FIXIE_URL` set in Render (optional fallback for SSO login only)
 - [ ] Check stack trace library (Step 0) before assuming curl_cffi is the fix
 - [ ] After bumping `CHROME_VERSION`, grep docs for old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`
+- [ ] `auto_reconnect.py` exists in `backend/src/garmin/`
+- [ ] `GARMIN_CREDENTIAL_KEY` set to a **production-unique value** in Render (NOT the `.env.example` placeholder)
+- [ ] Credentials stored after connect (`garmin_credential_encrypted` populated in DB)
+- [ ] `client_cache.py` exists in `backend/src/garmin/` (in-process adapter cache)

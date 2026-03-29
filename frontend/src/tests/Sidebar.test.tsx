@@ -10,7 +10,7 @@ import { ZonesStatusProvider } from '../contexts/ZonesStatusContext'
 declare const __APP_VERSION__: string
 
 const { mockGetGarminStatus, mockFetchProfile, mockNavigate } = vi.hoisted(() => ({
-  mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: true }),
+  mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: true, credentials_stored: true }),
   mockFetchProfile: vi.fn().mockResolvedValue({ threshold_pace: null, lthr: null }),
   mockNavigate: vi.fn(),
 }))
@@ -50,7 +50,7 @@ vi.mock('../contexts/ThemeContext', async (importOriginal) => {
 
 beforeEach(() => {
   mockGetGarminStatus.mockReset()
-  mockGetGarminStatus.mockResolvedValue({ connected: true })
+  mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
   mockFetchProfile.mockReset()
   mockFetchProfile.mockResolvedValue({ threshold_pace: null, lthr: null })
   mockNavigate.mockReset()
@@ -86,19 +86,19 @@ describe('Sidebar version display', () => {
 
 describe('Garmin status row', () => {
   it('shows Connected label when garminConnected is true', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     renderSidebar()
     expect(await screen.findByText('Connected')).toBeInTheDocument()
   })
 
   it('shows Not connected label when garminConnected is false', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: false })
+    mockGetGarminStatus.mockResolvedValue({ connected: false, credentials_stored: false })
     renderSidebar()
     expect(await screen.findByText('Not connected')).toBeInTheDocument()
   })
 
   it('clicking Garmin row navigates to /settings', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     const user = userEvent.setup()
     renderSidebar()
     const btn = await screen.findByRole('button', { name: /Garmin: Connected/i })

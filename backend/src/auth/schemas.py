@@ -64,3 +64,4 @@ class GarminConnectRequest(BaseModel):
 
 class GarminStatusResponse(BaseModel):
     connected: bool
+    credentials_stored: bool = False

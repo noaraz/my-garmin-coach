@@ -96,9 +96,12 @@ class TestConnectGarmin:
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
-             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act
@@ -157,9 +160,12 @@ class TestConnectGarmin:
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
-             patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep:
+             patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep, \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             result = await connect_garmin(
@@ -216,9 +222,12 @@ class TestConnectGarmin:
         mock_garth_client.dumps.return_value = '{"oauth_token": "garmin_tok"}'
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
-             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
             # Act
@@ -233,6 +242,9 @@ class TestConnectGarmin:
         assert profile.garmin_oauth_token_encrypted is not None
         # Token should not be stored as plaintext
         assert "garmin_tok" not in profile.garmin_oauth_token_encrypted
+        # Credentials should be stored encrypted
+        assert profile.garmin_credential_encrypted is not None
+        assert profile.garmin_credential_stored_at is not None
 
     async def test_connect_sets_proxy_on_retry_when_fixie_url_configured(self) -> None:
         # New retry flow: attempt 1 = no proxy, attempt 2 (on 429) = proxy.
@@ -257,9 +269,12 @@ class TestConnectGarmin:
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
-             patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock):
+             patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock), \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
@@ -282,9 +297,12 @@ class TestConnectGarmin:
         mock_garth_client.dumps.return_value = '{"oauth_token": "tok"}'
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
-             patch("src.api.routers.garmin_connect.get_settings") as mock_settings:
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.return_value = mock_garth_client
             mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = ""
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
@@ -372,6 +390,46 @@ class TestGarminStatus:
         # Assert
         assert result.connected is False
 
+    async def test_status_credentials_stored_true_when_credentials_exist(self) -> None:
+        # Arrange
+        user = _make_user()
+        mock_session = _make_session()
+        profile = AthleteProfile(
+            id=1, name="Runner", user_id=1,
+            garmin_connected=True,
+            garmin_credential_encrypted="encrypted-blob",
+        )
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = profile
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        # Act
+        result = await garmin_status(current_user=user, session=mock_session)
+
+        # Assert
+        assert result.connected is True
+        assert result.credentials_stored is True
+
+    async def test_status_credentials_stored_false_when_no_credentials(self) -> None:
+        # Arrange
+        user = _make_user()
+        mock_session = _make_session()
+        profile = AthleteProfile(
+            id=1, name="Runner", user_id=1,
+            garmin_connected=True,
+            garmin_credential_encrypted=None,
+        )
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = profile
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        # Act
+        result = await garmin_status(current_user=user, session=mock_session)
+
+        # Assert
+        assert result.connected is True
+        assert result.credentials_stored is False
+
 
 # ---------------------------------------------------------------------------
 # disconnect_garmin
@@ -389,18 +447,23 @@ class TestDisconnectGarmin:
             user_id=1,
             garmin_connected=True,
             garmin_oauth_token_encrypted="encrypted-stuff",
+            garmin_credential_encrypted="encrypted-cred",
         )
         mock_exec_result = MagicMock()
         mock_exec_result.first.return_value = profile
         mock_session.exec = AsyncMock(return_value=mock_exec_result)
 
         # Act
-        result = await disconnect_garmin(current_user=user, session=mock_session)
+        with patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
+            result = await disconnect_garmin(current_user=user, session=mock_session)
 
         # Assert
         assert result.connected is False
         assert profile.garmin_connected is False
         assert profile.garmin_oauth_token_encrypted is None
+        assert profile.garmin_credential_encrypted is None
+        assert profile.garmin_credential_stored_at is None
         mock_session.add.assert_called_once_with(profile)
         mock_session.commit.assert_awaited_once()
 

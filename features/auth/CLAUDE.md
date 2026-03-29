@@ -32,23 +32,36 @@ async def get_current_user(
     return user
 ```
 
-## Garmin Connect Flow
+## Garmin Connect Flow (updated 2026-03-29)
 
 ```
 1. User clicks "Connect Garmin" in Settings
 2. Frontend shows email/password form (over HTTPS)
 3. POST /api/garmin/connect { email, password }
 4. Backend: create_login_client() → client.login(email, password)  [client_factory.py]
-5. Backend: encrypt tokens with user's Fernet key
-6. Backend: store encrypted tokens in DB
-7. Backend: discard email + password from memory
+5. Backend: encrypt tokens with GARMINCOACH_SECRET_KEY → save to DB
+6. Backend: encrypt credentials with GARMIN_CREDENTIAL_KEY → save to DB with timestamp
+7. Backend: discard email + password from memory (del)
 8. Return { connected: true }
 ```
+
+## Garmin Credential Storage (auto-reconnect, added 2026-03-29)
+
+Garmin credentials (email + password) are stored encrypted for auto-reconnect when OAuth2 exchange fails with 429.
+
+- **Env var**: `GARMIN_CREDENTIAL_KEY` — separate from `GARMINCOACH_SECRET_KEY` (defense-in-depth for cold DB backup)
+- **Encryption**: Fernet + HKDF-SHA256, per-user salt (`user_id`), domain `b"garmincoach-credential-v1"`
+- **30-day auto-expiry**: `garmin_credential_stored_at` checked on read; credentials cleared if > 30 days
+- **Stored on**: `POST /api/v1/garmin/connect` (before `del request`)
+- **Cleared on**: disconnect, login failure (`GarthHTTPError`), or 30-day expiry
+- **NEVER log `exc` objects from garth** — `PreparedRequest` contains plaintext credentials in form body. Log `type(exc).__name__` only.
+- **`del` is not a security control**: CPython strings are immutable and cannot be zeroed. Decrypted credentials may survive in memory until GC. Accepted for ephemeral Render containers.
+- See design spec: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
 ## Security Checklist (Before Deploying)
 
 - [ ] HTTPS via Let's Encrypt
-- [ ] GARMINCOACH_SECRET_KEY + JWT_SECRET set as strong random values
+- [ ] GARMINCOACH_SECRET_KEY + JWT_SECRET + GARMIN_CREDENTIAL_KEY set as strong random values (all different)
 - [ ] CORS restricted to your domain
 - [ ] Rate limiting on /api/auth/*
 - [ ] HttpOnly + Secure + SameSite=Strict on refresh cookie
