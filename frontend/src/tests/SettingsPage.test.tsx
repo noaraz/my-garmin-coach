@@ -17,7 +17,7 @@ vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
   return {
     ...actual,
-    getGarminStatus: vi.fn().mockResolvedValue({ connected: false }),
+    getGarminStatus: vi.fn().mockResolvedValue({ connected: false, credentials_stored: false }),
     connectGarmin: vi.fn(),
     disconnectGarmin: vi.fn(),
     createInvite: vi.fn().mockResolvedValue({ code: 'abc123' }),

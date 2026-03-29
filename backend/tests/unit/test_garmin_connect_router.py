@@ -390,6 +390,46 @@ class TestGarminStatus:
         # Assert
         assert result.connected is False
 
+    async def test_status_credentials_stored_true_when_credentials_exist(self) -> None:
+        # Arrange
+        user = _make_user()
+        mock_session = _make_session()
+        profile = AthleteProfile(
+            id=1, name="Runner", user_id=1,
+            garmin_connected=True,
+            garmin_credential_encrypted="encrypted-blob",
+        )
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = profile
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        # Act
+        result = await garmin_status(current_user=user, session=mock_session)
+
+        # Assert
+        assert result.connected is True
+        assert result.credentials_stored is True
+
+    async def test_status_credentials_stored_false_when_no_credentials(self) -> None:
+        # Arrange
+        user = _make_user()
+        mock_session = _make_session()
+        profile = AthleteProfile(
+            id=1, name="Runner", user_id=1,
+            garmin_connected=True,
+            garmin_credential_encrypted=None,
+        )
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = profile
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        # Act
+        result = await garmin_status(current_user=user, session=mock_session)
+
+        # Assert
+        assert result.connected is True
+        assert result.credentials_stored is False
+
 
 # ---------------------------------------------------------------------------
 # disconnect_garmin

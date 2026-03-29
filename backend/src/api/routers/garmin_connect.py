@@ -171,7 +171,7 @@ async def connect_garmin(
     client_cache.invalidate(current_user.id)
 
     logger.info("Garmin connected successfully for user_id=%s", current_user.id)
-    return GarminStatusResponse(connected=True)
+    return GarminStatusResponse(connected=True, credentials_stored=True)
 
 
 @router.get("/status", response_model=GarminStatusResponse)
@@ -186,7 +186,11 @@ async def garmin_status(
         )
     ).first()
     connected = profile is not None and profile.garmin_connected
-    return GarminStatusResponse(connected=connected)
+    credentials_stored = (
+        profile is not None
+        and profile.garmin_credential_encrypted is not None
+    )
+    return GarminStatusResponse(connected=connected, credentials_stored=credentials_stored)
 
 
 @router.post("/disconnect", response_model=GarminStatusResponse)

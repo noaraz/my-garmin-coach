@@ -21,13 +21,17 @@ interface CalendarPageProps {
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { garminConnected } = useGarminStatus()
+  const { garminConnected, credentialsStored } = useGarminStatus()
   const [view, setView] = useState<'week' | 'month'>('week')
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [reconnectDismissed, setReconnectDismissed] = useState(() =>
+    sessionStorage.getItem('reconnect_prompt_dismissed') === '1'
+  )
+  const showReconnectPrompt = garminConnected === true && credentialsStored === false && !reconnectDismissed
   const [activePlanName, setActivePlanName] = useState<string | undefined>(undefined)
   // Mobile day view: which day is selected in the strip
   const [selectedDay, setSelectedDay] = useState<string>(() => toDateString(initialDate ?? new Date()))
@@ -492,6 +496,64 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           </button>
           <button
             onClick={() => setSyncError(null)}
+            aria-label="Dismiss"
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '0 4px',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Reconnect prompt — once per session for existing users without stored credentials */}
+      {showReconnectPrompt && (
+        <div style={{
+          padding: '10px 16px',
+          background: 'var(--color-warning-bg, rgba(245, 158, 11, 0.08))',
+          borderBottom: '1px solid var(--border)',
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+          fontSize: '13px',
+          color: 'var(--text-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexShrink: 0,
+          flexWrap: 'wrap',
+        }}>
+          <span>
+            We added auto-reconnect so Garmin syncing never breaks. To enable it, please reconnect your Garmin account in Settings (one-time step).
+          </span>
+          <button
+            onClick={() => navigate('/settings')}
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '5px 12px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Go to Settings
+          </button>
+          <button
+            onClick={() => {
+              sessionStorage.setItem('reconnect_prompt_dismissed', '1')
+              setReconnectDismissed(true)
+            }}
             aria-label="Dismiss"
             style={{
               marginLeft: 'auto',

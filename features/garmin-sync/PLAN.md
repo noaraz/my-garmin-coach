@@ -149,6 +149,7 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] Phase 3: Frontend 30-day expiry UX — CalendarPage toast, SettingsPage info text
 - [x] Phase 4: Tests — encryption, auto-reconnect, exchange detection, integration (33 new tests)
 - [x] Phase 5: Post-implementation docs + skill update
+- [x] Phase 6: Reconnect prompt for existing users — `GarminStatusResponse.credentials_stored`, CalendarPage session banner, SettingsPage warning card
 
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 

@@ -24,7 +24,7 @@ const { mockSchedule, mockSyncAll, mockLoadRange, mockFetchTemplates, mockGetGar
     mockSyncAll: vi.fn(),
     mockLoadRange: vi.fn(),
     mockFetchTemplates: vi.fn().mockResolvedValue(defaultTemplates),
-    mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: false }),
+    mockGetGarminStatus: vi.fn().mockResolvedValue({ connected: false, credentials_stored: false }),
     mockGetActivePlan: vi.fn().mockResolvedValue(null),
     mockNavigate: vi.fn(),
     mockReschedule: vi.fn(),
@@ -85,7 +85,8 @@ beforeEach(() => {
   mockFetchTemplates.mockReset()
   mockFetchTemplates.mockResolvedValue(defaultTemplates)
   mockGetGarminStatus.mockReset()
-  mockGetGarminStatus.mockResolvedValue({ connected: false })
+  mockGetGarminStatus.mockResolvedValue({ connected: false, credentials_stored: false })
+  sessionStorage.clear()
   mockGetActivePlan.mockReset()
   mockGetActivePlan.mockResolvedValue(null)
   mockNavigate.mockReset()
@@ -255,13 +256,13 @@ describe('test_card_no_summary_when_no_data', () => {
 
 describe('test_garmin_toolbar_button', () => {
   it('shows Garmin toolbar button when connected', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     renderPage({ initialDate: new Date('2026-03-09') })
     expect(await screen.findByRole('button', { name: /Garmin Connected/i })).toBeInTheDocument()
   })
 
   it('shows Garmin toolbar button when not connected', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: false })
+    mockGetGarminStatus.mockResolvedValue({ connected: false, credentials_stored: false })
     renderPage({ initialDate: new Date('2026-03-09') })
     expect(await screen.findByRole('button', { name: /Garmin Not Connected/i })).toBeInTheDocument()
   })
@@ -274,7 +275,7 @@ describe('test_garmin_toolbar_button', () => {
   })
 
   it('clicking Garmin toolbar button navigates to /settings', async () => {
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     const user = userEvent.setup()
     renderPage({ initialDate: new Date('2026-03-09') })
     const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
@@ -395,7 +396,7 @@ describe('test_mobile_garmin_button_layout_stability', () => {
 
   it('Garmin button becomes visible once status resolves', async () => {
     mockUseIsMobile.mockReturnValue(true)
-    mockGetGarminStatus.mockResolvedValue({ connected: true })
+    mockGetGarminStatus.mockResolvedValue({ connected: true, credentials_stored: true })
     renderPage({ initialDate: new Date(2026, 2, 23) })
     const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
     expect(btn).toBeInTheDocument()

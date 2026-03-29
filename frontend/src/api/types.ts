@@ -127,6 +127,7 @@ export interface SyncAllResponse {
 
 export interface GarminStatusResponse {
   connected: boolean
+  credentials_stored: boolean
 }
 
 // Local builder types (not from API — these live only in the frontend)

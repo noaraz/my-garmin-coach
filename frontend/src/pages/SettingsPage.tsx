@@ -30,6 +30,7 @@ export function SettingsPage() {
   const { isAdmin } = useAuth()
   const { refresh } = useGarminStatus()
 
+  const [credentialsStored, setCredentialsStored] = useState(true)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -37,7 +38,10 @@ export function SettingsPage() {
 
   useEffect(() => {
     getGarminStatus()
-      .then(res => setConnectionState(res.connected ? 'connected' : 'disconnected'))
+      .then(res => {
+        setConnectionState(res.connected ? 'connected' : 'disconnected')
+        setCredentialsStored(res.credentials_stored)
+      })
       .catch(() => setConnectionState('disconnected'))
   }, [])
 
@@ -50,6 +54,7 @@ export function SettingsPage() {
       const res = await connectGarmin(garminEmail, garminPassword)
       if (res.connected) {
         setConnectionState('connected')
+        setCredentialsStored(true)
         refresh()
         setGarminEmail('')
         setGarminPassword('')
@@ -310,6 +315,59 @@ export function SettingsPage() {
           {/* Connected — show disconnect */}
           {connectionState === 'connected' && (
             <div>
+              {/* Reconnect prompt — shown when connected but credentials not yet stored */}
+              {!credentialsStored && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px 14px',
+                  background: 'var(--color-warning-bg, rgba(245, 158, 11, 0.08))',
+                  border: '1px solid var(--color-warning-border, rgba(245, 158, 11, 0.25))',
+                  borderRadius: '6px',
+                }}>
+                  <p style={{
+                    fontSize: '12px',
+                    color: 'var(--text-primary)',
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                    margin: '0 0 8px',
+                    lineHeight: 1.5,
+                    fontWeight: 600,
+                  }}>
+                    Reconnect to enable auto-reconnect
+                  </p>
+                  <p style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                    margin: '0 0 12px',
+                    lineHeight: 1.5,
+                  }}>
+                    We&apos;ve added a new feature that automatically reconnects to Garmin when your
+                    session expires, so syncing never breaks. To enable it, please disconnect and
+                    reconnect your Garmin account. This is a one-time step.
+                  </p>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={isSubmitting}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'var(--accent)',
+                      color: 'var(--text-on-accent)',
+                      border: 'none',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {isSubmitting ? 'Disconnecting…' : 'Disconnect & Reconnect'}
+                  </button>
+                </div>
+              )}
+
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-secondary)',

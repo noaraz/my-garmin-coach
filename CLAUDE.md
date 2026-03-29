@@ -210,10 +210,12 @@ Project slash commands in `.claude/commands/`:
 - **Route**: `/settings` → `SettingsPage.tsx` — protected, wrapped in AppShell + ErrorBoundary
 - **Sidebar**: Settings nav item with gear icon — last in nav list
 - **Garmin status**: `getGarminStatus()` called on mount; shows green dot "Connected" or red dot "Not connected" at all times
-- **Connect form**: email + password inputs → `connectGarmin(email, password)` → token encrypted by backend, credentials never stored
-- **Disconnect**: `disconnectGarmin()` → backend clears encrypted token + `garmin_connected = False`
+- **Connect form**: email + password inputs → `connectGarmin(email, password)` → token + credentials encrypted by backend (credentials stored for auto-reconnect, 30-day expiry)
+- **Disconnect**: `disconnectGarmin()` → backend clears encrypted token + credentials + `garmin_connected = False`
 - **API functions**: `getGarminStatus`, `connectGarmin`, `disconnectGarmin` in `frontend/src/api/client.ts`
-- **Type**: `GarminStatusResponse { connected: boolean }` in `frontend/src/api/types.ts`
+- **Type**: `GarminStatusResponse { connected: boolean, credentials_stored: boolean }` in `frontend/src/api/types.ts`
+- **Reconnect prompt**: CalendarPage shows a one-time-per-session banner when `connected=true` but `credentials_stored=false` (existing users who connected before auto-reconnect was added). Uses `sessionStorage('reconnect_prompt_dismissed')`. SettingsPage shows a persistent warning card in the same case.
+- **GarminStatusContext**: exposes `garminConnected`, `credentialsStored`, and `refresh()`
 
 ## Typography (updated 2026-03-16)
 

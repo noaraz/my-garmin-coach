@@ -328,6 +328,18 @@ Exchange 429 detected
 - Evaluate the Garmin auth ecosystem at that time — multiple replacement approaches are emerging and the landscape will stabilize
 - Track: https://github.com/matin/garth/discussions/222 and https://github.com/cyberjunky/python-garminconnect/issues/332
 
+## Reconnect Prompt for Existing Users (added 2026-03-29)
+
+Existing users who connected to Garmin before the auto-reconnect feature was deployed have `garmin_credential_encrypted = NULL` — auto-reconnect won't work for them until they disconnect and reconnect.
+
+**Detection**: `GarminStatusResponse` includes `credentials_stored: bool` (true when `garmin_credential_encrypted IS NOT NULL`). Frontend uses `connected=true && credentials_stored=false` to identify users who need to reconnect.
+
+**CalendarPage banner**: One-time-per-session prompt (dismissable via `sessionStorage('reconnect_prompt_dismissed')`). Shows "Go to Settings" button and dismiss X. Not shown after dismiss until next browser session.
+
+**SettingsPage card**: Persistent warning card in the connected state when `credentialsStored=false`. Shows "Disconnect & Reconnect" button. Disappears after user reconnects (connect sets `credentials_stored=true`).
+
+**GarminStatusContext**: Extended with `credentialsStored: boolean | null` alongside `garminConnected`.
+
 ## Gotchas
 
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new

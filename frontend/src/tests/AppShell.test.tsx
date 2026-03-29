@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 
 // Mock contexts that AppShell's providers depend on
 vi.mock('../api/client', () => ({
-  getGarminStatus: vi.fn().mockResolvedValue({ connected: false }),
+  getGarminStatus: vi.fn().mockResolvedValue({ connected: false, credentials_stored: false }),
   fetchProfile: vi.fn().mockResolvedValue(null),
 }))
 
