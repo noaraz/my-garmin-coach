@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -229,6 +230,53 @@ class TestAttemptAutoReconnect:
         assert profile.garmin_credential_stored_at == stored_at
         # 15min cooldown should be set
         assert user_id in auto_reconnect._cooldowns
+
+        # Cleanup
+        auto_reconnect._cooldowns.clear()
+
+    async def test_no_credentials_in_logs_on_failure(self, caplog):
+        """Security: verify that passwords/emails never appear in log output."""
+        # Arrange
+        user_id = 1
+        session = AsyncMock()
+        session.add = MagicMock()
+        stored_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+        profile = AthleteProfile(
+            user_id=user_id,
+            garmin_credential_encrypted="encrypted-blob",
+            garmin_credential_stored_at=stored_at,
+        )
+        mock_result = MagicMock()
+        mock_result.first.return_value = profile
+        session.exec.return_value = mock_result
+
+        mock_settings = MagicMock()
+        mock_settings.garmin_credential_key = "test-credential-key-32-chars!!"
+        mock_settings.garmincoach_secret_key = "test-secret-key-32-chars-long!"
+
+        secret_password = "super-secret-p4ssw0rd!"
+        secret_email = "secret-user@garmin.com"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        http_error = requests.exceptions.HTTPError("401", response=mock_response)
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = GarthHTTPError("401", http_error)
+
+        with (
+            caplog.at_level(logging.DEBUG, logger="src.garmin.auto_reconnect"),
+            patch("src.garmin.auto_reconnect.get_settings", return_value=mock_settings),
+            patch("src.garmin.auto_reconnect.decrypt_credential", return_value={"email": secret_email, "password": secret_password}),
+            patch("src.garmin.auto_reconnect.create_login_client", return_value=mock_client),
+        ):
+            # Act
+            await auto_reconnect.attempt_auto_reconnect(user_id, session)
+
+        # Assert — no credential leakage in any log record
+        full_log = " ".join(caplog.messages)
+        assert secret_password not in full_log, "Password leaked into logs!"
+        assert secret_email not in full_log, "Email leaked into logs!"
 
         # Cleanup
         auto_reconnect._cooldowns.clear()

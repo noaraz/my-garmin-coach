@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+
+from src.garmin.adapter import GarminAdapter
 
 # Cache entry: (adapter, timestamp)
-_cache: dict[int, tuple[Any, float]] = {}
+_cache: dict[int, tuple[GarminAdapter, float]] = {}
 _TTL_SECONDS = 3600  # 1 hour
 
 
-def get(user_id: int) -> Any | None:
+def get(user_id: int) -> GarminAdapter | None:
     """Get cached GarminAdapter for user if still valid."""
     entry = _cache.get(user_id)
     if entry is None:
@@ -20,7 +21,7 @@ def get(user_id: int) -> Any | None:
     return adapter
 
 
-def put(user_id: int, adapter: Any) -> None:
+def put(user_id: int, adapter: GarminAdapter) -> None:
     """Store a GarminAdapter in the cache."""
     _cache[user_id] = (adapter, time.monotonic())
 

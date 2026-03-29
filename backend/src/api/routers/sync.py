@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -55,13 +56,11 @@ def _is_exchange_429(exc: Exception) -> bool:
 
 def _set_exchange_cooldown(user_id: int) -> None:
     """Set a 30-minute exchange cooldown for a user."""
-    import time
     _exchange_cooldowns[user_id] = time.monotonic() + _EXCHANGE_COOLDOWN_SECONDS
 
 
 def _exchange_on_cooldown(user_id: int) -> bool:
     """Check if exchange is on cooldown for a user."""
-    import time
     until = _exchange_cooldowns.get(user_id)
     if until is None:
         return False
