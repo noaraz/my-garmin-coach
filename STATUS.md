@@ -1,6 +1,21 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-29 (Garmin auto-reconnect in progress)
+Last updated: 2026-03-29
+
+## v1.5.0 Release ✅
+
+### v1.5.0 Release
+| Task | Status |
+|------|--------|
+| Garmin auto-reconnect with encrypted credentials (30-day expiry) | ✅ |
+| Exchange 429 storm prevention (early-exit, 30-min cooldown, client cache) | ✅ |
+| Reconnect prompt for existing users without stored credentials | ✅ |
+| 33 new unit tests (auto_reconnect, client_cache, encryption, exchange_429) | ✅ |
+| Migration: add garmin credential fields (g2a3b4c5d678) | ✅ |
+| Bump frontend/package.json to 1.5.0 | ✅ |
+| Tag v1.5.0 + push | ✅ |
+
+---
 
 ## v1.4.2 Release ✅
 
