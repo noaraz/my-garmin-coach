@@ -19,12 +19,12 @@ Last updated: 2026-03-29 (Garmin auto-reconnect in progress)
 
 | Task | Status |
 |------|--------|
-| Phase 0: Commit design spec + update docs | 🔧 |
-| Phase 1: Exchange storm prevention (early-exit, cooldown, client cache) | |
-| Phase 2: Auto-reconnect with encrypted credentials | |
-| Phase 3: Frontend 30-day expiry UX | |
-| Phase 4: Tests | |
-| Phase 5: Post-implementation docs + skill update | |
+| Phase 0: Commit design spec + update docs | ✅ |
+| Phase 1: Exchange storm prevention (early-exit, cooldown, client cache) | ✅ |
+| Phase 2: Auto-reconnect with encrypted credentials | ✅ |
+| Phase 3: Frontend 30-day expiry UX | ✅ |
+| Phase 4: Tests (33 new unit tests) | ✅ |
+| Phase 5: Post-implementation docs + skill update | ✅ |
 
 ---
 

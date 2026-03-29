@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 import requests
 from curl_cffi import requests as cffi_requests
@@ -14,10 +15,12 @@ from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.auth.schemas import GarminConnectRequest, GarminStatusResponse
+from src.core import cache
 from src.core.config import get_settings
 from src.db.models import AthleteProfile
+from src.garmin import client_cache
 from src.garmin.client_factory import CHROME_VERSION, create_login_client
-from src.garmin.encryption import encrypt_token
+from src.garmin.encryption import encrypt_credential, encrypt_token
 
 logger = logging.getLogger(__name__)
 
@@ -150,15 +153,22 @@ async def connect_garmin(
             detail="Garmin is temporarily rate-limiting this server. Please try again in a few minutes.",
         ) from last_exc
 
-    # Encrypt and store token
+    # Encrypt and store token + credentials for auto-reconnect
     logger.info("Storing encrypted Garmin token for user_id=%s", current_user.id)
     encrypted = encrypt_token(current_user.id, settings.garmincoach_secret_key, token_json)
+    encrypted_cred = encrypt_credential(
+        current_user.id, settings.garmin_credential_key, email, password
+    )
 
     profile = await _get_or_create_profile(current_user, session)
     profile.garmin_oauth_token_encrypted = encrypted
     profile.garmin_connected = True
+    profile.garmin_credential_encrypted = encrypted_cred
+    profile.garmin_credential_stored_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.add(profile)
     await session.commit()
+    cache.invalidate(f"profile:{current_user.id}")
+    client_cache.invalidate(current_user.id)
 
     logger.info("Garmin connected successfully for user_id=%s", current_user.id)
     return GarminStatusResponse(connected=True)
@@ -193,7 +203,11 @@ async def disconnect_garmin(
     if profile is not None:
         profile.garmin_oauth_token_encrypted = None
         profile.garmin_connected = False
+        profile.garmin_credential_encrypted = None
+        profile.garmin_credential_stored_at = None
         session.add(profile)
         await session.commit()
+        cache.invalidate(f"profile:{current_user.id}")
+        client_cache.invalidate(current_user.id)
 
     return GarminStatusResponse(connected=False)

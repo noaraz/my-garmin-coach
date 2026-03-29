@@ -18,12 +18,14 @@ from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
-from src.core import cache
 from src.garmin.adapter import GarminAdapter
+from src.garmin import client_cache
+from src.garmin.auto_reconnect import attempt_auto_reconnect
 from src.garmin.client_factory import create_api_client
-from src.garmin.encryption import decrypt_token, encrypt_token
+from src.garmin.encryption import decrypt_token
 from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
+from src.garmin.token_persistence import persist_refreshed_token
 from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.services.calendar_service import resolve_builder_steps
@@ -35,6 +37,38 @@ router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
 
 # Include "failed" so a re-sync attempt retries previously failed workouts.
 _PENDING_STATUSES = ("pending", "modified", "failed")
+
+# ---------------------------------------------------------------------------
+# Exchange 429 detection + module-level cooldown
+# ---------------------------------------------------------------------------
+
+# Per-user exchange cooldown: {user_id: cooldown_until_monotonic}
+_exchange_cooldowns: dict[int, float] = {}
+_EXCHANGE_COOLDOWN_SECONDS = 1800  # 30 minutes
+
+
+def _is_exchange_429(exc: Exception) -> bool:
+    """Return True when exc indicates a Garmin OAuth exchange 429."""
+    msg = str(exc).lower()
+    return "429" in msg and "exchange" in msg
+
+
+def _set_exchange_cooldown(user_id: int) -> None:
+    """Set a 30-minute exchange cooldown for a user."""
+    import time
+    _exchange_cooldowns[user_id] = time.monotonic() + _EXCHANGE_COOLDOWN_SECONDS
+
+
+def _exchange_on_cooldown(user_id: int) -> bool:
+    """Check if exchange is on cooldown for a user."""
+    import time
+    until = _exchange_cooldowns.get(user_id)
+    if until is None:
+        return False
+    if time.monotonic() >= until:
+        del _exchange_cooldowns[user_id]
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -48,9 +82,17 @@ async def _get_garmin_adapter(
 ) -> GarminAdapter:
     """Return a GarminAdapter wired to the user's stored Garmin token.
 
+    Uses the in-process client cache when available (avoids re-decrypting
+    and re-creating the adapter on every request within the same process).
+
     Raises:
         HTTPException 403: if the user has not connected their Garmin account.
     """
+    # Check in-process cache first
+    cached = client_cache.get(current_user.id)
+    if cached is not None:
+        return cached
+
     settings = get_settings()
 
     profile = (
@@ -75,7 +117,9 @@ async def _get_garmin_adapter(
         profile.garmin_oauth_token_encrypted,
     )
 
-    return create_api_client(token_json)
+    adapter = create_api_client(token_json)
+    client_cache.put(current_user.id, adapter)
+    return adapter
 
 
 async def _get_garmin_sync_service(
@@ -136,26 +180,9 @@ async def _persist_refreshed_token(
 ) -> None:
     """Persist garth's current token state back to the DB.
 
-    garth may refresh the OAuth2 token in-memory during API calls (via
-    refresh_oauth2()). Without persisting it, each sync re-exchanges the same
-    expired token, hitting Garmin's rate limit on the exchange endpoint (429).
+    Delegates to the shared token_persistence module.
     """
-    try:
-        settings = get_settings()
-        new_token_json = sync_service.dump_token()
-        new_encrypted = encrypt_token(user_id, settings.garmincoach_secret_key, new_token_json)
-        profile = (
-            await session.exec(
-                select(AthleteProfile).where(AthleteProfile.user_id == user_id)
-            )
-        ).first()
-        if profile:
-            profile.garmin_oauth_token_encrypted = new_encrypted
-            session.add(profile)
-            await session.commit()
-            cache.invalidate(f"profile:{user_id}")
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Could not persist refreshed Garmin token (non-critical): %s", exc)
+    await persist_refreshed_token(sync_service, user_id, session)
 
 
 async def sync_modified_workouts(
@@ -208,6 +235,10 @@ async def background_sync(user_id: int) -> None:
                 resolver=lambda steps, **_: steps,
             )
             await sync_modified_workouts(session, orchestrator, user)
+            # Persist any OAuth2 token refresh that occurred during sync.
+            # Without this, each background sync re-exchanges the same expired
+            # token and hits Garmin's rate limit on the exchange endpoint (429).
+            await _persist_refreshed_token(orchestrator, user_id, session)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Background sync failed (user_id=%s): %s", user_id, exc)
 
@@ -450,14 +481,50 @@ async def sync_all(
     Returns:
         Counts of workouts synced/failed, activities fetched/matched, and any fetch error.
     """
+    # Exchange cooldown: if we recently hit a 429, skip sync entirely.
+    if _exchange_on_cooldown(current_user.id):
+        return SyncAllResponse(
+            synced=0,
+            failed=0,
+            fetch_error="Garmin sync temporarily paused (exchange rate limit). Will retry automatically.",
+        )
+
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
 
     # Fetch Garmin workouts first — used for dedup.
+    # This is also the first Garmin API call — if it triggers an exchange 429,
+    # attempt auto-reconnect before giving up.
     garmin_workouts: list[dict[str, Any]] | None = None
     try:
         garmin_workouts = sync_service.get_workouts()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
+        if _is_exchange_429(exc):
+            logger.warning("Exchange 429 on get_workouts — attempting auto-reconnect for user %s", current_user.id)
+            adapter = await attempt_auto_reconnect(current_user.id, session)
+            if adapter is None:
+                _set_exchange_cooldown(current_user.id)
+                return SyncAllResponse(
+                    synced=0,
+                    failed=0,
+                    fetch_error="Garmin credentials expired. Please reconnect in Settings.",
+                )
+            # Rebuild orchestrator with fresh adapter and retry
+            sync_service = SyncOrchestrator(
+                sync_service=GarminSyncService(adapter),
+                formatter=format_workout,
+                resolver=lambda steps, **_: steps,
+            )
+            try:
+                garmin_workouts = sync_service.get_workouts()
+            except Exception as retry_exc:  # noqa: BLE001
+                logger.warning("Retry after auto-reconnect also failed: %s", retry_exc)
+                _set_exchange_cooldown(current_user.id)
+                return SyncAllResponse(
+                    synced=0, failed=0,
+                    fetch_error="Garmin sync failed after reconnect. Please try again later.",
+                )
+        else:
+            logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)
@@ -498,8 +565,13 @@ async def sync_all(
         )
         await session.commit()
     except Exception as exc:  # noqa: BLE001
-        fetch_error = "Activity fetch failed — please retry"
-        logger.warning("Activity fetch failed (continuing): %s", exc)
+        if _is_exchange_429(exc):
+            # Exchange 429 during activity fetch — early-exit, don't continue to cleanup
+            _set_exchange_cooldown(current_user.id)
+            fetch_error = "Garmin exchange rate-limited — skipping activity fetch"
+        else:
+            fetch_error = "Activity fetch failed — please retry"
+            logger.warning("Activity fetch failed (continuing): %s", exc)
 
     # Best-effort cleanup: delete Garmin scheduled workouts for all completed workouts
     # in the sync window that still have garmin_workout_id set.
@@ -568,8 +640,6 @@ async def sync_all(
             logger.warning("Orphan cleanup failed (continuing): %s", exc)
 
     # Persist any OAuth2 token refresh that occurred during sync.
-    # garth refreshes in-memory only; without this, each sync re-exchanges the
-    # same expired token and hits Garmin's rate limit on the exchange endpoint.
     await _persist_refreshed_token(sync_service, current_user.id, session)
 
     return SyncAllResponse(

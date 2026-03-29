@@ -10,6 +10,7 @@ _DEV_SECRETS = {
     "dev-jwt-secret-change-in-prod",
     "dev-secret-change-in-prod",
     "dev-bootstrap-secret-change-in-prod",
+    "dev-credential-key-change-in-prod",
 }
 
 
@@ -33,6 +34,9 @@ class Settings(BaseSettings):
 
     # Garmin token encryption
     garmincoach_secret_key: str = "dev-secret-change-in-prod"
+
+    # Garmin credential encryption
+    garmin_credential_key: str = "dev-credential-key-change-in-prod"
 
     # Admin bootstrap
     bootstrap_secret: str = "dev-bootstrap-secret-change-in-prod"
@@ -62,9 +66,13 @@ class Settings(BaseSettings):
     def enforce_prod_secrets(self) -> Settings:
         if self.environment == "production":
             if self.jwt_secret in _DEV_SECRETS:
-                raise ValueError("JWT_SECRET must be set to a strong secret in production")
+                raise ValueError(
+                    "JWT_SECRET must be set to a strong secret in production"
+                )
             if self.garmincoach_secret_key in _DEV_SECRETS:
                 raise ValueError("GARMINCOACH_SECRET_KEY must be set in production")
+            if self.garmin_credential_key in _DEV_SECRETS:
+                raise ValueError("GARMIN_CREDENTIAL_KEY must be set in production")
             if self.bootstrap_secret in _DEV_SECRETS:
                 raise ValueError("BOOTSTRAP_SECRET must be set in production")
             if not self.google_client_id:

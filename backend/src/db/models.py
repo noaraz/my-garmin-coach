@@ -22,6 +22,9 @@ class AthleteProfile(SQLModel, table=True):
     # Garmin token storage (Fernet encrypted)
     garmin_oauth_token_encrypted: Optional[str] = Field(default=None)
     garmin_connected: bool = Field(default=False)
+    # Garmin credential storage for auto-reconnect (Fernet encrypted)
+    garmin_credential_encrypted: Optional[str] = Field(default=None)
+    garmin_credential_stored_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -72,8 +75,8 @@ class WorkoutTemplate(SQLModel, table=True):
     sport_type: str = Field(default="running")
     estimated_duration_sec: Optional[float] = Field(default=None)
     estimated_distance_m: Optional[float] = Field(default=None)
-    tags: Optional[str] = Field(default=None)    # JSON string
-    steps: Optional[str] = Field(default=None)   # JSON string of WorkoutStep list
+    tags: Optional[str] = Field(default=None)  # JSON string
+    steps: Optional[str] = Field(default=None)  # JSON string of WorkoutStep list
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

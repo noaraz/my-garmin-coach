@@ -14,6 +14,7 @@ from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.db.models import PlanCoachMessage, ScheduledWorkout
+from src.garmin.token_persistence import persist_refreshed_token
 from src.services.plan_import_service import (
     CommitResult,
     ValidateResult,
@@ -119,7 +120,7 @@ async def post_commit(
     Garmin cleanup before replacement. All logic is in commit_plan.
     """
     try:
-        return await commit_plan(
+        result = await commit_plan(
             session,
             user_id=current_user.id,  # type: ignore[arg-type]
             plan_id=plan_id,
@@ -130,6 +131,12 @@ async def post_commit(
         if "does not belong to" in msg:
             raise HTTPException(status_code=403, detail=msg) from exc
         raise HTTPException(status_code=404, detail=msg) from exc
+
+    # Persist any OAuth2 token refresh that occurred during Garmin operations
+    if garmin:
+        await persist_refreshed_token(garmin, current_user.id, session)
+
+    return result
 
 
 @router.get("/active", response_model=ActivePlanResponse)
@@ -198,6 +205,11 @@ async def delete_plan_endpoint(
         if "does not belong to" in msg:
             raise HTTPException(status_code=403, detail=msg) from exc
         raise HTTPException(status_code=404, detail=msg) from exc
+
+    # Persist any OAuth2 token refresh that occurred during Garmin deletes
+    if garmin:
+        await persist_refreshed_token(garmin, current_user.id, session)
+
     return Response(status_code=204)
 
 

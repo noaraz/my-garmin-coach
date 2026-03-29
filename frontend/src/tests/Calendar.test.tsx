@@ -77,6 +77,7 @@ vi.mock('../hooks/useIsMobile', () => ({
 beforeEach(() => {
   mockSchedule.mockReset()
   mockSyncAll.mockReset()
+  mockSyncAll.mockResolvedValue({ synced: 0, failed: 0, activities_fetched: 0, activities_matched: 0, fetch_error: null })
   const defaultTemplates = [
     { id: 1, name: 'Easy Run',  estimated_duration_sec: 2700, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
     { id: 2, name: 'Tempo Run', estimated_duration_sec: 3600, sport_type: 'running', description: null, estimated_distance_m: null, tags: null, steps: null, created_at: '', updated_at: '' },
@@ -195,7 +196,7 @@ describe('test_sync_all_button', () => {
   afterEach(() => vi.useRealTimers())
 
   it('click sync all → spinner shown immediately, syncAllWorkouts called after 2000ms', async () => {
-    mockSyncAll.mockResolvedValue(undefined)
+    mockSyncAll.mockResolvedValue({ synced: 0, failed: 0, activities_fetched: 0, activities_matched: 0, fetch_error: null })
     renderPage()
     // Synchronous click — no userEvent timer issues
     fireEvent.click(screen.getByRole('button', { name: /sync all/i }))

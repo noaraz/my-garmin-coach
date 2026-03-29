@@ -53,7 +53,7 @@ export function SettingsPage() {
         refresh()
         setGarminEmail('')
         setGarminPassword('')
-        setSuccessMsg('Garmin account connected successfully.')
+        setSuccessMsg('Connected. Credentials stored securely for 30 days.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed')
@@ -208,8 +208,8 @@ export function SettingsPage() {
                 margin: '0 0 16px',
                 lineHeight: 1.5,
               }}>
-                Enter your Garmin Connect credentials to sync workouts. Your password is used once
-                to obtain an OAuth token and is never stored.
+                Enter your Garmin Connect credentials to sync workouts. Credentials are encrypted
+                and stored securely for auto-reconnect, then automatically cleared after 30 days.
               </p>
 
               <div style={{ marginBottom: '12px' }}>

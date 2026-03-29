@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { ScheduledWorkoutWithActivity, GarminActivity, SyncStatusItem } from '../api/types'
+import type { ScheduledWorkoutWithActivity, GarminActivity, SyncAllResponse, SyncStatusItem } from '../api/types'
 import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, syncOne, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
 import { toDateString } from '../utils/formatting'
 
@@ -52,14 +52,15 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     return result
   }
 
-  const syncAllWorkouts = async () => {
-    await syncAll()
+  const syncAllWorkouts = async (): Promise<SyncAllResponse> => {
+    const result = await syncAll()
     // Use rangeRef (not range closure) so debounced callers always refetch
     // the range the user is currently viewing, not the range at call-capture time.
     const current = rangeRef.current
     const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
     setWorkouts(response.workouts)
     setUnplannedActivities(response.unplanned_activities)
+    return result
   }
 
   const pair = async (scheduledId: number, activityId: number) => {

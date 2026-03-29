@@ -144,11 +144,11 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] `backend/scripts/unsynced_workouts.py` — diagnostic script for production DB
 
 ### Auto-Reconnect + Exchange 429 Fix (2026-03-29)
-- [ ] Phase 1: Exchange storm prevention — early-exit, cooldown, client cache, token persistence extraction
-- [ ] Phase 2: Auto-reconnect with encrypted credentials — `auto_reconnect.py`, credential encryption, config, migration
-- [ ] Phase 3: Frontend 30-day expiry UX — CalendarPage toast, SettingsPage info text
-- [ ] Phase 4: Tests — encryption, auto-reconnect, exchange detection, integration
-- [ ] Phase 5: Post-implementation docs + skill update
+- [x] Phase 1: Exchange storm prevention — early-exit, cooldown, client cache, token persistence extraction
+- [x] Phase 2: Auto-reconnect with encrypted credentials — `auto_reconnect.py`, credential encryption, config, migration
+- [x] Phase 3: Frontend 30-day expiry UX — CalendarPage toast, SettingsPage info text
+- [x] Phase 4: Tests — encryption, auto-reconnect, exchange detection, integration (33 new tests)
+- [x] Phase 5: Post-implementation docs + skill update
 
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
