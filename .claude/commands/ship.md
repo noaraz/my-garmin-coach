@@ -32,7 +32,34 @@ Fix any errors before continuing. For ruff: `ruff check --fix src/ tests/` auto-
 
 ---
 
-## 3. Security Audit
+## 3. Migration Validation
+
+Check if any Alembic migration files were added or modified on this branch:
+
+```bash
+git diff main --name-only -- backend/alembic/versions/ backend/alembic/env.py
+```
+
+If the diff is empty, skip this step.
+
+If migrations were changed, dispatch the **migration-validator** agent:
+
+```
+Agent tool: subagent_type="migration-validator"
+Prompt: "Validate all migration files in this branch. Check revision chain integrity, revision ID stability vs main, env.py render_as_batch, batch_alter_table usage, naive datetime writes, and Docker config."
+```
+
+**Block PR creation if any `[RISK]` items are found.** Fix them first, then re-run the validator.
+
+Common risks this catches:
+- **Revision ID renamed** — deployed DBs (Render preview, production) already have the old ID stamped. Renaming breaks `alembic upgrade head` with "Can't locate revision".
+- **Broken revision chain** — `down_revision` doesn't match any other migration's `revision`.
+- **Bare `op.alter_column()`** — silently ignored on SQLite; must use `batch_alter_table`.
+- **Missing `.replace(tzinfo=None)`** — PostgreSQL rejects timezone-aware datetimes in `TIMESTAMP WITHOUT TIME ZONE` columns.
+
+---
+
+## 4. Security Audit
 
 Run security checks before opening the PR:
 
@@ -48,7 +75,7 @@ If `npm audit` flags new high/critical CVEs: run `npm audit fix` (or `npm audit 
 
 ---
 
-## 4. Ask What to Fix (Pre-PR)
+## 5. Ask What to Fix (Pre-PR)
 
 Show the test results and ask:
 
@@ -58,7 +85,7 @@ Wait for the user's response. Fix any requested items, re-run the affected tests
 
 ---
 
-## 5. Local Test Steps
+## 6. Local Test Steps
 
 Print this block for the user to run manually:
 
@@ -78,7 +105,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 6. Update All Relevant Docs
+## 7. Update All Relevant Docs
 
 ### STATUS.md
 - Mark all completed tasks as ✅
@@ -99,7 +126,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 7. Commit and Open PR
+## 8. Commit and Open PR
 
 Stage and review:
 ```bash
@@ -193,7 +220,7 @@ Return the PR URL to the user.
 
 ---
 
-## 8. Code Review on the PR
+## 9. Code Review on the PR
 
 Now that the PR exists, invoke the `code-review:code-review` skill on it:
 

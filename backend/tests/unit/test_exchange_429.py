@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import patch
+
+from garth.exc import GarthHTTPError
+from requests.exceptions import HTTPError as RequestsHTTPError
 
 from src.api.routers.sync import (
     _exchange_cooldowns,
@@ -10,9 +14,72 @@ from src.api.routers.sync import (
 )
 
 
+def _make_garth_exchange_429() -> GarthHTTPError:
+    """Build a GarthHTTPError wrapping a 429 on the exchange endpoint."""
+    resp = SimpleNamespace(
+        status_code=429,
+        url="https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0",
+        request=SimpleNamespace(url="https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0"),
+    )
+    inner = RequestsHTTPError(response=resp)
+    return GarthHTTPError(msg="429 Too Many Requests", error=inner)
+
+
+def _make_garth_non_exchange_429() -> GarthHTTPError:
+    """Build a GarthHTTPError wrapping a 429 on a non-exchange endpoint."""
+    resp = SimpleNamespace(
+        status_code=429,
+        url="https://connectapi.garmin.com/workout-service/workout",
+        request=SimpleNamespace(url="https://connectapi.garmin.com/workout-service/workout"),
+    )
+    inner = RequestsHTTPError(response=resp)
+    return GarthHTTPError(msg="429 Too Many Requests", error=inner)
+
+
+def _make_curl_cffi_exchange_429() -> Exception:
+    """Build a curl_cffi-style HTTPError with .response for exchange 429."""
+    exc = Exception("429 Too Many Requests")
+    exc.response = SimpleNamespace(
+        status_code=429,
+        url="https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0",
+        request=SimpleNamespace(url="https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0"),
+    )
+    return exc
+
+
 class TestIsExchange429:
-    def test_returns_true_for_429_with_exchange(self):
-        # Arrange
+    def test_garth_exchange_429_returns_true(self):
+        # Arrange — GarthHTTPError wrapping 429 on exchange URL
+        exc = _make_garth_exchange_429()
+
+        # Act
+        result = _is_exchange_429(exc)
+
+        # Assert
+        assert result is True
+
+    def test_garth_non_exchange_429_returns_false(self):
+        # Arrange — GarthHTTPError wrapping 429 on non-exchange URL
+        exc = _make_garth_non_exchange_429()
+
+        # Act
+        result = _is_exchange_429(exc)
+
+        # Assert
+        assert result is False
+
+    def test_curl_cffi_exchange_429_returns_true(self):
+        # Arrange — curl_cffi-style exception with .response
+        exc = _make_curl_cffi_exchange_429()
+
+        # Act
+        result = _is_exchange_429(exc)
+
+        # Assert
+        assert result is True
+
+    def test_string_fallback_returns_true_for_429_with_exchange(self):
+        # Arrange — bare Exception (string fallback tier)
         exc = Exception("429 Client Error: Too Many Requests for url: /oauth/exchange")
 
         # Act
@@ -41,19 +108,25 @@ class TestIsExchange429:
         # Assert
         assert result is False
 
-    def test_returns_true_for_uppercase_429_and_exchange(self):
+    def test_returns_false_for_unrelated_error(self):
         # Arrange
-        exc = Exception("429 CLIENT ERROR: EXCHANGE FAILED")
+        exc = Exception("Network timeout")
 
         # Act
         result = _is_exchange_429(exc)
 
         # Assert
-        assert result is True
+        assert result is False
 
-    def test_returns_false_for_unrelated_error(self):
-        # Arrange
-        exc = Exception("Network timeout")
+    def test_garth_500_on_exchange_returns_false(self):
+        # Arrange — GarthHTTPError wrapping 500 (not 429) on exchange URL
+        resp = SimpleNamespace(
+            status_code=500,
+            url="https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0",
+            request=SimpleNamespace(url=""),
+        )
+        inner = RequestsHTTPError(response=resp)
+        exc = GarthHTTPError(msg="500 Server Error", error=inner)
 
         # Act
         result = _is_exchange_429(exc)

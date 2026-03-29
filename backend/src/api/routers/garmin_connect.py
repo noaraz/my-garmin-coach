@@ -159,6 +159,7 @@ async def connect_garmin(
     encrypted_cred = encrypt_credential(
         current_user.id, settings.garmin_credential_key, email, password
     )
+    del email, password  # Discard credentials from memory after encryption
 
     profile = await _get_or_create_profile(current_user, session)
     profile.garmin_oauth_token_encrypted = encrypted

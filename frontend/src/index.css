@@ -54,6 +54,7 @@
   --color-error-glow:          rgba(239,68,68,0.18);
   --color-warning:             #ca8a04;
   --color-warning-bg:          rgba(202,138,4,0.08);
+  --color-warning-border:      rgba(202,138,4,0.25);
   --overlay-bg:                rgba(0,0,0,0.55);
   --shadow-overlay:            rgba(0,0,0,0.3);
   /* Mobile layout */
@@ -94,6 +95,7 @@
   --color-error-bg:            rgba(239,68,68,0.08);
   --color-warning:             #ca8a04;
   --color-warning-bg:          rgba(202,138,4,0.08);
+  --color-warning-border:      rgba(202,138,4,0.25);
   --overlay-bg:                rgba(0,0,0,0.55);
   --shadow-overlay:            rgba(0,0,0,0.3);
 }

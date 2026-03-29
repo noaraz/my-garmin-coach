@@ -49,7 +49,27 @@ _EXCHANGE_COOLDOWN_SECONDS = 1800  # 30 minutes
 
 
 def _is_exchange_429(exc: Exception) -> bool:
-    """Return True when exc indicates a Garmin OAuth exchange 429."""
+    """Return True when exc indicates a Garmin OAuth exchange 429.
+
+    Three-tier detection (same pattern as _is_garmin_404):
+    1. GarthHTTPError: garth wrapped a requests.HTTPError — check status + URL
+    2. curl_cffi HTTPError: arrives unwrapped — check .response directly
+    3. String fallback: check for "429" and "exchange" in the message
+    """
+    # Tier 1: GarthHTTPError wraps requests.HTTPError
+    if isinstance(exc, GarthHTTPError):
+        inner = getattr(exc, "error", None)
+        response = getattr(inner, "response", None)
+        if response is not None and getattr(response, "status_code", None) == 429:
+            url = getattr(response, "url", "") or str(getattr(getattr(response, "request", None), "url", ""))
+            return "exchange" in url.lower()
+        return False
+    # Tier 2: curl_cffi HTTPError (not caught by garth)
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "status_code", None) == 429:
+        url = getattr(response, "url", "") or str(getattr(getattr(response, "request", None), "url", ""))
+        return "exchange" in url.lower()
+    # Tier 3: string fallback for other HTTP client variants
     msg = str(exc).lower()
     return "429" in msg and "exchange" in msg
 
@@ -207,7 +227,7 @@ async def sync_modified_workouts(
             await _sync_and_persist(session, sync_service, w, hr_zone_map, pace_zone_map, templates)
         await session.commit()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Auto-sync after zone change failed (continuing): %s", exc)
+        logger.warning("Auto-sync after zone change failed (continuing): %s", type(exc).__name__)
 
 
 async def background_sync(user_id: int) -> None:
@@ -239,7 +259,7 @@ async def background_sync(user_id: int) -> None:
             # token and hits Garmin's rate limit on the exchange endpoint (429).
             await _persist_refreshed_token(orchestrator, user_id, session)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Background sync failed (user_id=%s): %s", user_id, exc)
+        logger.warning("Background sync failed (user_id=%s): %s", user_id, type(exc).__name__)
 
 
 async def get_optional_garmin_sync_service(
@@ -516,14 +536,14 @@ async def sync_all(
             try:
                 garmin_workouts = sync_service.get_workouts()
             except Exception as retry_exc:  # noqa: BLE001
-                logger.warning("Retry after auto-reconnect also failed: %s", retry_exc)
+                logger.warning("Retry after auto-reconnect also failed: %s", type(retry_exc).__name__)
                 _set_exchange_cooldown(current_user.id)
                 return SyncAllResponse(
                     synced=0, failed=0,
                     fetch_error="Garmin sync failed after reconnect. Please try again later.",
                 )
         else:
-            logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", exc)
+            logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", type(exc).__name__)
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)
@@ -570,7 +590,7 @@ async def sync_all(
             fetch_error = "Garmin exchange rate-limited — skipping activity fetch"
         else:
             fetch_error = "Activity fetch failed — please retry"
-            logger.warning("Activity fetch failed (continuing): %s", exc)
+            logger.warning("Activity fetch failed (continuing): %s", type(exc).__name__)
 
     # Best-effort cleanup: delete Garmin scheduled workouts for all completed workouts
     # in the sync window that still have garmin_workout_id set.
@@ -601,12 +621,12 @@ async def sync_all(
                     workout.garmin_workout_id = None
                     session.add(workout)
                 else:
-                    logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, exc)
+                    logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, type(exc).__name__)
 
         if paired_with_garmin:
             await session.commit()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Garmin paired-workout cleanup failed (continuing): %s", exc)
+        logger.warning("Garmin paired-workout cleanup failed (continuing): %s", type(exc).__name__)
 
     # Best-effort orphan cleanup: delete Garmin workouts that match our
     # template names but are not tracked by any ScheduledWorkout in our DB.
@@ -634,9 +654,9 @@ async def sync_all(
                     # 404 is expected when the ID was already deleted during this sync
                     # (reconciliation marks workouts modified → re-push deletes old template).
                     if not _is_garmin_404(exc):
-                        logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, exc)
+                        logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, type(exc).__name__)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Orphan cleanup failed (continuing): %s", exc)
+            logger.warning("Orphan cleanup failed (continuing): %s", type(exc).__name__)
 
     # Persist any OAuth2 token refresh that occurred during sync.
     await _persist_refreshed_token(sync_service, current_user.id, session)

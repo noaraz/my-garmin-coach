@@ -28,9 +28,8 @@ export function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const { isAdmin } = useAuth()
-  const { refresh } = useGarminStatus()
+  const { credentialsStored, refresh } = useGarminStatus()
 
-  const [credentialsStored, setCredentialsStored] = useState(true)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -40,7 +39,6 @@ export function SettingsPage() {
     getGarminStatus()
       .then(res => {
         setConnectionState(res.connected ? 'connected' : 'disconnected')
-        setCredentialsStored(res.credentials_stored)
       })
       .catch(() => setConnectionState('disconnected'))
   }, [])
@@ -54,7 +52,6 @@ export function SettingsPage() {
       const res = await connectGarmin(garminEmail, garminPassword)
       if (res.connected) {
         setConnectionState('connected')
-        setCredentialsStored(true)
         refresh()
         setGarminEmail('')
         setGarminPassword('')
@@ -320,8 +317,8 @@ export function SettingsPage() {
                 <div style={{
                   marginBottom: '16px',
                   padding: '12px 14px',
-                  background: 'var(--color-warning-bg, rgba(245, 158, 11, 0.08))',
-                  border: '1px solid var(--color-warning-border, rgba(245, 158, 11, 0.25))',
+                  background: 'var(--color-warning-bg)',
+                  border: '1px solid var(--color-warning-border)',
                   borderRadius: '6px',
                 }}>
                   <p style={{

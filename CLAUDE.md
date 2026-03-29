@@ -424,6 +424,21 @@ Same for the `docker-compose.yml` `command:` override (it supersedes the Dockerf
 command: sh -c "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload"
 ```
 
+### Never rename a migration ID after pushing (added 2026-03-29)
+
+**Rule: never rename a migration file or change its `Revision ID` after the first push to a PR.**
+
+Render preview containers run `alembic upgrade head` on every startup. The flow:
+1. First push → preview DB is fresh → all migrations apply from scratch → works
+2. Subsequent pushes → preview DB already has migrations stamped → only new ones apply → works
+3. **Rename a migration ID mid-PR** → preview DB has the OLD ID stamped, code has the NEW ID → `alembic upgrade head` fails with "Can't locate revision"
+
+Same principle applies to production: never rename a migration ID between releases.
+
+The `/ship` workflow runs the **migration-validator** agent (`.claude/agents/migration-validator.md`) which automatically detects renames via `git diff main --name-status` and blocks the PR with `[RISK: revision ID changed]`.
+
+**If a code review suggests renaming a migration ID** (e.g. non-hex prefix), reject the suggestion — Alembic revision IDs are arbitrary strings, not required to be hex.
+
 ### Deleting a migration added on the current branch
 
 If a migration was added in the current PR (not yet merged to `main`), the production Neon DB has not applied it — deleting the file is safe for production. The Render Preview DB will be at that revision and will fail `alembic upgrade head` on the next push. Reset it with `alembic stamp <previous-revision-id>` or let the preview environment rebuild from scratch.

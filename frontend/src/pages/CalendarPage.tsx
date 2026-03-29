@@ -466,7 +466,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       {syncError && (
         <div style={{
           padding: '10px 16px',
-          background: 'var(--color-error-bg, rgba(239, 68, 68, 0.1))',
+          background: 'var(--color-error-bg)',
           borderBottom: '1px solid var(--border)',
           fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
           fontSize: '13px',
@@ -516,7 +516,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
       {showReconnectPrompt && (
         <div style={{
           padding: '10px 16px',
-          background: 'var(--color-warning-bg, rgba(245, 158, 11, 0.08))',
+          background: 'var(--color-warning-bg)',
           borderBottom: '1px solid var(--border)',
           fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
           fontSize: '13px',
