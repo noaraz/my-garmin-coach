@@ -285,7 +285,7 @@ export function Sidebar() {
           </div>
           <button
             aria-label="Log out"
-            onClick={() => { logout(); navigate('/login') }}
+            onClick={async () => { await logout(); navigate('/login') }}
             style={{
               background: 'transparent',
               border: `1px solid ${SIDE_BORD}`,

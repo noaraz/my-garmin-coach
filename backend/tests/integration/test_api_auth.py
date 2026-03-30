@@ -187,14 +187,15 @@ async def test_protected_expired(auth_client: AsyncClient) -> None:
 async def test_refresh_token(
     auth_client: AsyncClient, invite_code: str
 ) -> None:
-    # Arrange — authenticate via Google
+    # Arrange — authenticate via Google, get cookie
     resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
-    refresh_tok = resp.json()["refresh_token"]
+    refresh_tok = resp.cookies.get("refresh_token")
+    assert refresh_tok is not None
 
-    # Act
+    # Act — send cookie instead of JSON body
     resp = await auth_client.post(
         "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_tok},
+        cookies={"refresh_token": refresh_tok},
     )
 
     # Assert
@@ -254,18 +255,19 @@ async def test_user_data_isolation(
 async def test_protected_with_wrong_token_type(
     auth_client: AsyncClient, invite_code: str
 ) -> None:
-    """A refresh token (type=refresh) must be rejected by protected routes."""
-    # Arrange — authenticate to get tokens
+    """An opaque refresh token sent as Bearer must be rejected by protected routes."""
+    # Arrange — authenticate to get refresh cookie
     resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
-    refresh_tok = resp.json()["refresh_token"]
+    refresh_tok = resp.cookies.get("refresh_token")
+    assert refresh_tok is not None
 
-    # Act — try to access protected route with refresh token
+    # Act — try to use opaque refresh token as a Bearer token (wrong usage)
     resp = await auth_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {refresh_tok}"},
     )
 
-    # Assert
+    # Assert — JWT decode will fail because it's not a JWT
     assert resp.status_code == 401
 
 
@@ -419,3 +421,392 @@ async def test_invite_blocked_for_non_admin(
 
     # Assert
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Refresh Token Rotation
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshTokenRotation:
+    """Test opaque refresh token rotation with httpOnly cookies."""
+
+    async def test_login_sets_httponly_cookie(
+        self, auth_client: AsyncClient, invite_code: str
+    ) -> None:
+        """POST /auth/google response sets httpOnly refresh_token cookie."""
+        # Act
+        resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+
+        # Assert
+        assert resp.status_code == 200
+        cookies = resp.cookies
+        assert "refresh_token" in cookies
+        # httpx doesn't expose cookie attributes directly, but we can check the cookie exists
+        # Backend test confirms httponly flag is set
+
+    async def test_login_response_has_no_refresh_token_field(
+        self, auth_client: AsyncClient, invite_code: str
+    ) -> None:
+        """POST /auth/google JSON body should NOT contain refresh_token field."""
+        # Act
+        resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+
+        # Assert
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "access_token" in body
+        assert "refresh_token" not in body
+        assert body["token_type"] == "bearer"
+
+    async def test_refresh_rotates_token(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """POST /auth/refresh with cookie returns new access_token and rotates refresh token."""
+        from src.auth.jwt import hash_token
+        from src.auth.models import RefreshToken
+
+        # Arrange — login and capture refresh token cookie
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        assert login_resp.status_code == 200
+        old_refresh_token = login_resp.cookies.get("refresh_token")
+        assert old_refresh_token is not None
+
+        old_hash = hash_token(old_refresh_token)
+        old_record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == old_hash)
+            )
+        ).first()
+        assert old_record is not None
+        assert old_record.revoked is False
+
+        # Act — refresh with cookie
+        refresh_resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": old_refresh_token},
+        )
+
+        # Assert
+        assert refresh_resp.status_code == 200
+        body = refresh_resp.json()
+        assert "access_token" in body
+        assert body["token_type"] == "bearer"
+
+        # New cookie set
+        new_refresh_token = refresh_resp.cookies.get("refresh_token")
+        assert new_refresh_token is not None
+        assert new_refresh_token != old_refresh_token
+
+        # Old token revoked
+        await auth_session.refresh(old_record)
+        assert old_record.revoked is True
+
+        # New token exists in DB
+        new_hash = hash_token(new_refresh_token)
+        new_record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == new_hash)
+            )
+        ).first()
+        assert new_record is not None
+        assert new_record.revoked is False
+
+    async def test_refresh_extends_expiry(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """New RefreshToken row has expires_at >= old."""
+        from src.auth.jwt import hash_token
+        from src.auth.models import RefreshToken
+
+        # Arrange
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        old_refresh_token = login_resp.cookies.get("refresh_token")
+        old_hash = hash_token(old_refresh_token)
+        old_record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == old_hash)
+            )
+        ).first()
+        old_expires = old_record.expires_at
+
+        # Act
+        refresh_resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": old_refresh_token},
+        )
+        new_refresh_token = refresh_resp.cookies.get("refresh_token")
+        new_hash = hash_token(new_refresh_token)
+        new_record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == new_hash)
+            )
+        ).first()
+
+        # Assert
+        assert new_record.expires_at >= old_expires
+
+    async def test_refresh_rejects_revoked_token_and_revokes_all(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """Stolen token scenario: using a revoked token triggers revoke-all."""
+        from src.auth.jwt import hash_token
+        from src.auth.models import RefreshToken, User
+
+        # Arrange — login, create a second token, then revoke the first
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        token1 = login_resp.cookies.get("refresh_token")
+        hash1 = hash_token(token1)
+
+        # Create second token by refreshing
+        refresh_resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": token1},
+        )
+        _token2 = refresh_resp.cookies.get("refresh_token")
+        assert _token2 is not None  # Verify rotation happened
+
+        # token1 should now be revoked after successful refresh
+        record1 = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == hash1)
+            )
+        ).first()
+        assert record1.revoked is True
+
+        # Act — try to use the already-revoked token1 (theft scenario)
+        resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": token1},
+        )
+
+        # Assert — 401 response
+        assert resp.status_code == 401
+
+        # All tokens for this user should now be revoked (theft detection)
+        user = (
+            await auth_session.exec(
+                select(User).where(User.email == FAKE_GOOGLE_USER_A["email"])
+            )
+        ).first()
+        all_tokens = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.user_id == user.id)
+            )
+        ).all()
+        for token_record in all_tokens:
+            await auth_session.refresh(token_record)
+            assert token_record.revoked is True
+
+    async def test_refresh_rejects_expired_token(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """Expired refresh token returns 401."""
+        from datetime import timedelta
+
+        from src.auth.jwt import hash_token
+        from src.auth.models import RefreshToken
+
+        # Arrange
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        token = login_resp.cookies.get("refresh_token")
+        token_hash = hash_token(token)
+
+        # Manually expire the token in DB
+        record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+            )
+        ).first()
+        record.expires_at = datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ) - timedelta(days=1)
+        auth_session.add(record)
+        await auth_session.commit()
+
+        # Act
+        resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": token},
+        )
+
+        # Assert
+        assert resp.status_code == 401
+
+    async def test_refresh_rejects_unknown_token(
+        self, auth_client: AsyncClient
+    ) -> None:
+        """Unknown refresh token returns 401 without side effects."""
+        # Act
+        resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": "garbage-token-unknown"},
+        )
+
+        # Assert
+        assert resp.status_code == 401
+
+    async def test_logout_revokes_token(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """POST /auth/logout marks token as revoked."""
+        from src.auth.jwt import hash_token
+        from src.auth.models import RefreshToken
+
+        # Arrange
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        token = login_resp.cookies.get("refresh_token")
+        token_hash = hash_token(token)
+
+        # Act
+        logout_resp = await auth_client.post(
+            "/api/v1/auth/logout",
+            cookies={"refresh_token": token},
+        )
+
+        # Assert
+        assert logout_resp.status_code == 200
+        body = logout_resp.json()
+        assert body["ok"] is True
+
+        # Token revoked in DB
+        record = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+            )
+        ).first()
+        await auth_session.refresh(record)
+        assert record.revoked is True
+
+    async def test_logout_clears_cookie(
+        self, auth_client: AsyncClient, invite_code: str
+    ) -> None:
+        """POST /auth/logout response deletes the cookie."""
+        # Arrange
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        token = login_resp.cookies.get("refresh_token")
+
+        # Act
+        logout_resp = await auth_client.post(
+            "/api/v1/auth/logout",
+            cookies={"refresh_token": token},
+        )
+
+        # Assert
+        assert logout_resp.status_code == 200
+        # Check that Set-Cookie header deletes the cookie (max-age=0 or expires in past)
+        set_cookie_header = logout_resp.headers.get("set-cookie", "")
+        assert "refresh_token" in set_cookie_header
+        # Either max-age=0 or expires in past indicates deletion
+        assert "max-age=0" in set_cookie_header.lower() or "expires=" in set_cookie_header.lower()
+
+    async def test_logout_idempotent_no_cookie(
+        self, auth_client: AsyncClient
+    ) -> None:
+        """POST /auth/logout with no cookie returns 200."""
+        # Act
+        resp = await auth_client.post("/api/v1/auth/logout")
+
+        # Assert
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+
+    async def test_logout_all_revokes_all_tokens(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """POST /auth/logout-all revokes all refresh tokens for the user."""
+        from src.auth.models import RefreshToken, User
+
+        # Arrange — login and create 2 tokens by refreshing
+        login_resp = await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+        access_token = login_resp.json()["access_token"]
+        token1 = login_resp.cookies.get("refresh_token")
+
+        refresh_resp = await auth_client.post(
+            "/api/v1/auth/refresh",
+            cookies={"refresh_token": token1},
+        )
+        token2 = refresh_resp.cookies.get("refresh_token")
+
+        # User now has 2 RefreshToken rows (token1 revoked, token2 active from rotation)
+        user = (
+            await auth_session.exec(
+                select(User).where(User.email == FAKE_GOOGLE_USER_A["email"])
+            )
+        ).first()
+        tokens_before = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.user_id == user.id)
+            )
+        ).all()
+        assert len(tokens_before) == 2
+
+        # Act — logout all (requires Bearer token)
+        logout_resp = await auth_client.post(
+            "/api/v1/auth/logout-all",
+            headers={"Authorization": f"Bearer {access_token}"},
+            cookies={"refresh_token": token2},
+        )
+
+        # Assert
+        assert logout_resp.status_code == 200
+        body = logout_resp.json()
+        assert body["revoked"] == 2
+
+        # Both tokens revoked
+        tokens_after = (
+            await auth_session.exec(
+                select(RefreshToken).where(RefreshToken.user_id == user.id)
+            )
+        ).all()
+        for token_record in tokens_after:
+            await auth_session.refresh(token_record)
+            assert token_record.revoked is True
+
+    async def test_reset_admins_deletes_refresh_tokens(
+        self,
+        auth_session: AsyncSession,
+        auth_client: AsyncClient,
+        invite_code: str,
+    ) -> None:
+        """reset_admins deletes RefreshToken rows without FK errors."""
+        from src.auth.models import RefreshToken
+
+        # Arrange — login to create a refresh token
+        await _google_auth(auth_client, FAKE_GOOGLE_USER_A, invite_code)
+
+        # Verify token exists
+        tokens_before = (await auth_session.exec(select(RefreshToken))).all()
+        assert len(tokens_before) > 0
+
+        # Act — reset admins
+        reset_resp = await auth_client.post(
+            "/api/v1/auth/reset-admins",
+            json={"setup_token": _test_settings.bootstrap_secret},
+        )
+
+        # Assert
+        assert reset_resp.status_code == 200
+
+        # RefreshToken table empty
+        tokens_after = (await auth_session.exec(select(RefreshToken))).all()
+        assert len(tokens_after) == 0

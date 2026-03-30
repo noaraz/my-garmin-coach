@@ -197,6 +197,15 @@ Project slash commands in `.claude/commands/`:
 - **`/code-review uncommitted changes`**: runs 5-agent review (CLAUDE.md, bugs, git history, PR history, comments) with confidence scoring. Issues scored ≥ 80 are actionable.
 - **`create_app()` factory pattern**: `src/api/app.py` exports both `create_app()` and a module-level `app = create_app()` for backward compat with uvicorn.
 
+## Refresh Token Rotation + httpOnly Cookie (added 2026-03-30)
+
+- **`delete_cookie` must mirror `set_cookie` attrs** — `httponly`, `samesite`, `secure` must be passed to `delete_cookie()` or browsers in production won't match and clear the cookie. Missing attrs = silent no-op on logout.
+- **Theft detection commit before raise** — `revoke_all_refresh_tokens()` bulk-updates rows. Any `raise HTTPException` after it (before router's `session.commit()`) rolls back the whole transaction. Always `await session.commit()` before raising in the theft-detection path.
+- **`setIsLoading(false)` must be in `.finally()`** — If `AuthContext` mounts with an expired token and calls `tryRefreshToken()`, calling `setIsLoading(false)` synchronously (outside the promise chain) fires before the refresh resolves. `ProtectedRoute` then sees `isLoading=false, user=null` and redirects to `/login` during a successful silent refresh. Always put it in `.finally()`.
+- **Singleton refresh promise** — `_refreshPromise` in `client.ts` prevents concurrent 401s from each independently calling `/auth/refresh`. Without it the second call sends the already-rotated (now revoked) token → theft detection → all sessions nuked.
+- **`session.flush()` not `session.commit()` in `google_auth`** — flush gets `user.id` within the transaction; router does the single terminal commit.
+- Full patterns: `features/auth/CLAUDE.md` — Refresh Token Rotation section.
+
 ## Google OAuth Gotchas (added 2026-03-17)
 
 - **`aud` is NOT in the userinfo response** — `/oauth2/v3/userinfo` does not expose the token audience. Only ID tokens (JWTs) have `aud`. For access tokens, use the tokeninfo endpoint.
@@ -423,6 +432,15 @@ Same for the `docker-compose.yml` `command:` override (it supersedes the Dockerf
 ```yaml
 command: sh -c "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload"
 ```
+
+### Alembic autogenerate drift — review generated files before committing (added 2026-03-30)
+
+`alembic revision --autogenerate` diffs the **full** schema. Tables with pre-existing drift emit
+spurious `drop_index` / `drop_column` ops unrelated to your migration. Always review the generated
+file and delete any operations on out-of-scope tables before committing.
+
+`AutoString` type: autogenerate may emit `sqlmodel.sql.sqltypes.AutoString()` without importing
+sqlmodel — replace with `sa.String()`. The migration-validator agent checks for both.
 
 ### Never rename a migration ID after pushing (added 2026-03-29)
 
@@ -943,13 +961,6 @@ test_type: Optional[str] = None   # "lthr" | "threshold_pace" | "max_hr"
 
 ---
 
-### Playwright E2E Tests
-Full browser tests for the critical user journey: login → set zones → build workout → schedule it → sync to Garmin.
-
-**`webServer` config required**: `playwright.config.ts` must include a `webServer` block (`command: 'npm run dev'`, `url: 'http://localhost:5173'`, `reuseExistingServer: !process.env.CI`). Without it, `npx playwright test` fails with `ERR_CONNECTION_REFUSED` unless the dev server is already running manually.
-
----
-
 ### Mobile Responsive
 CSS polish pass — the app is built desktop-first. Key breakpoints needed for calendar, sidebar, and workout builder on small screens.
 
@@ -959,9 +970,6 @@ CSS polish pass — the app is built desktop-first. Key breakpoints needed for c
 Add `slowapi` (or similar) to limit `/api/v1/auth/login` and `/api/v1/auth/register` to e.g. 10 req/min per IP. Required before making the app publicly accessible.
 
 ---
-
-### Refresh Token Rotation
-Currently the refresh token is long-lived and static. Implement single-use rotation: each `/auth/refresh` call returns a new refresh token and invalidates the old one. Requires a `RefreshToken` DB table.
 
 ---
 

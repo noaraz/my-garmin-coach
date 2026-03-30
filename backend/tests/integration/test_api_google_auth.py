@@ -155,8 +155,10 @@ class TestGoogleAuthEndpoint:
         assert resp.status_code == 200
         body = resp.json()
         assert "access_token" in body
-        assert "refresh_token" in body
+        assert "refresh_token" not in body  # Now in httpOnly cookie
         assert body["token_type"] == "bearer"
+        # Check cookie is set
+        assert "refresh_token" in resp.cookies
 
     @patch("src.auth.service._google_userinfo", return_value=FAKE_GOOGLE_IDINFO)
     async def test_google_auth_does_not_grant_access_by_email_alone(
@@ -197,7 +199,9 @@ class TestGoogleAuthEndpoint:
         assert resp.status_code == 200
         body = resp.json()
         assert "access_token" in body
-        assert "refresh_token" in body
+        assert "refresh_token" not in body  # Now in httpOnly cookie
+        # Check cookie is set
+        assert "refresh_token" in resp.cookies
 
     @patch("src.auth.service._google_userinfo", return_value=FAKE_GOOGLE_IDINFO_2)
     async def test_google_auth_rejects_invalid_invite(

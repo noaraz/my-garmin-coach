@@ -19,7 +19,7 @@ from src.db.models import (  # noqa: F401
     TrainingPlan,
     WorkoutTemplate,
 )
-from src.auth.models import User, InviteCode  # noqa: F401
+from src.auth.models import User, InviteCode, RefreshToken  # noqa: F401
 from sqlmodel import SQLModel
 
 # Alembic Config object

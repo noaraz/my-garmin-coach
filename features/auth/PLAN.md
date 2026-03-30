@@ -77,6 +77,19 @@ Track progress in **STATUS.md**.
 ### Bootstrap + Admin + Invite UI
 Full plan: `docs/superpowers/plans/2026-03-16-admin-bootstrap-invite.md`
 
+### Refresh Token Rotation + Auto-Login (2026-03-29)
+Design spec: `docs/superpowers/specs/2026-03-29-refresh-token-rotation-design.md`
+
+- [x] Phase 1: Add `RefreshToken` SQLModel + Alembic migration
+- [x] Phase 2a: `jwt.py` — add `hash_token`, remove `create_refresh_token`
+- [x] Phase 2b: `schemas.py` — remove `RefreshRequest`, consolidate `TokenResponse` → `AccessTokenResponse`
+- [x] Phase 2c: `service.py` — add rotation/revocation helpers, fix `google_auth` flush, update `reset_admins`
+- [x] Phase 2d: `routers.py` — httpOnly cookie on login/refresh, new logout + logout-all endpoints
+- [x] Phase 3a: `client.ts` — `credentials: 'include'`, export `tryRefreshToken`, retry guard
+- [x] Phase 3b: `AuthContext.tsx` — silent refresh on mount, async logout
+- [x] Phase 3c: Update logout callers (Sidebar, BottomTabBar, SettingsPage)
+- [x] Phase 3d: SettingsPage — "Sign out of all devices" button
+
 - [x] Add `is_admin: bool = False` to `User` model
 - [x] Add `bootstrap_secret` to `Settings` (env var `BOOTSTRAP_SECRET`)
 - [x] Add `BootstrapRequest`/`BootstrapResponse` schemas; add `is_admin` to `UserResponse`
@@ -185,33 +198,40 @@ encrypted = cipher.encrypt(token_json.encode())
 
 ```
 backend/src/auth/
-  models.py       — User (google_oauth_sub, password_hash nullable), InviteCode
-  schemas.py      — GoogleAuthRequest, BootstrapRequest (google_id_token), TokenResponse
-  service.py      — google_auth(), bootstrap(), refresh, create_invite
-  jwt.py          — create_access_token, create_refresh_token, decode_token
-  passwords.py    — hash_password, verify_password (legacy / Garmin connect only)
+  models.py       — User, InviteCode, RefreshToken (opaque SHA-256 hash, sliding 7-day window)
+  schemas.py      — GoogleAuthRequest, BootstrapRequest, AccessTokenResponse, LogoutResponse, LogoutAllResponse
+  service.py      — google_auth(), bootstrap(), refresh_token(), rotate_refresh_token(), revoke_all_refresh_tokens(), create_invite
+  jwt.py          — create_access_token, hash_token (SHA-256), decode_token
+  passwords.py    — hash_password, verify_password (legacy only)
   dependencies.py — get_current_user
 
 backend/src/api/routers/
-  auth.py         — POST /google, POST /bootstrap, POST /refresh, POST /invite, GET /me
+  auth.py         — POST /google, POST /bootstrap, POST /refresh, POST /logout, POST /logout-all, POST /invite, GET /me
   garmin_connect.py
+
+backend/alembic/versions/
+  460d2c67b829_add_refresh_token_table.py
 
 frontend/src/pages/
   LoginPage.tsx    — GoogleLogin button
   RegisterPage.tsx — GoogleLogin button + invite from URL param (hidden input)
-  SettingsPage.tsx
+  SettingsPage.tsx — Garmin connect + "Sign out of all devices" button
   SetupPage.tsx    — GoogleLogin button for admin bootstrap
 
 frontend/src/contexts/
-  AuthContext.tsx  — googleLogin(idToken, inviteCode?), isAdmin, user
+  AuthContext.tsx  — googleLogin(), logout (async, calls POST /auth/logout), silent refresh on mount
 
 frontend/src/components/auth/
   ProtectedRoute.tsx
+
+frontend/src/components/layout/
+  Sidebar.tsx      — async logout handler
+  BottomTabBar.tsx — async logout handler
 
 backend/src/core/
   config.py        — bootstrap_secret, google_client_id
 
 frontend/src/api/
-  client.ts   (getGarminStatus, connectGarmin, disconnectGarmin, googleLogin, bootstrapAdmin, createInvite)
-  types.ts    (GarminStatusResponse, BootstrapResponse)
+  client.ts   (tryRefreshToken, logout, logoutAll, _refreshPromise singleton)
+  types.ts    (TokenResponse → AccessTokenResponse)
 ```

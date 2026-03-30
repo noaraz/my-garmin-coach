@@ -15,7 +15,38 @@ import type {
 
 const BASE = '/api/v1'
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Singleton promise: if a refresh is already in flight, all callers share it.
+// Prevents concurrent 401s from each independently rotating the token, which
+// would cause the second rotation to trigger theft detection (revoked token reuse).
+let _refreshPromise: Promise<boolean> | null = null
+
+export async function tryRefreshToken(): Promise<boolean> {
+  if (_refreshPromise) return _refreshPromise
+  _refreshPromise = _doRefresh().finally(() => { _refreshPromise = null })
+  return _refreshPromise
+}
+
+async function _doRefresh(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+
+    if (!res.ok) {
+      return false
+    }
+
+    const data = await res.json() as TokenResponse
+    localStorage.setItem('access_token', data.access_token)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
   const token = localStorage.getItem('access_token')
   const authHeader: Record<string, string> = token
     ? { Authorization: `Bearer ${token}` }
@@ -23,16 +54,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
+    credentials: 'include',
     ...options,
   })
 
   if (res.status === 401) {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
     // Only redirect if this was an authenticated request (token expired / revoked).
     // Auth endpoints (login, register) have no token — let the error propagate so
     // the form can display "Invalid credentials" instead of silently reloading.
+    if (token && !retried) {
+      // Try to refresh the token
+      const refreshed = await tryRefreshToken()
+      if (refreshed) {
+        // Retry the original request with the new token
+        return request<T>(path, options, true)
+      }
+    }
+
+    // Refresh failed or already retried — clear tokens and redirect
     if (token) {
+      localStorage.removeItem('access_token')
       window.location.href = '/login'
       return undefined as T
     }
@@ -175,3 +216,29 @@ export const sendChatMessage = (content: string) =>
     method: 'POST',
     body: JSON.stringify({ content }),
   })
+
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${BASE}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+  } catch {
+    // Best-effort — clear localStorage regardless
+  }
+  localStorage.removeItem('access_token')
+}
+
+export async function logoutAll(): Promise<void> {
+  const token = localStorage.getItem('access_token')
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+
+  await fetch(`${BASE}/auth/logout-all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader },
+    credentials: 'include',
+  })
+}

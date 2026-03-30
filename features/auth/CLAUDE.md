@@ -64,7 +64,7 @@ Garmin credentials (email + password) are stored encrypted for auto-reconnect wh
 - [ ] GARMINCOACH_SECRET_KEY + JWT_SECRET + GARMIN_CREDENTIAL_KEY set as strong random values (all different)
 - [ ] CORS restricted to your domain
 - [ ] Rate limiting on /api/auth/*
-- [ ] HttpOnly + Secure + SameSite=Strict on refresh cookie
+- [x] HttpOnly + Secure + SameSite=Lax on refresh cookie (implemented 2026-03-29)
 - [ ] .env NOT in git
 - [ ] Database NOT publicly accessible
 - [ ] Registration is invite-only
@@ -78,18 +78,16 @@ from the JWT payload. If `email` is missing, `userFromPayload` returns `null` �
 ProtectedRoute redirects back to `/login` after a successful login creating an infinite redirect loop.
 Always call `create_access_token(user.id, user.email)` — never the one-arg form.
 
-### client.ts 401 handler must be token-aware
-A global 401 handler that always redirects to `/login` breaks the login form — a failed login
-attempt (wrong password) also returns 401, which would redirect before the form can show an error.
-Guard the redirect: only redirect if there was a stored token (expired authenticated session):
+### client.ts 401 handler — try refresh before redirecting (updated 2026-03-29)
+On 401, try a silent token refresh first. Only redirect to `/login` if the refresh also fails.
+Use a `retried` parameter to prevent infinite recursion:
 ```typescript
-if (res.status === 401) {
+if (res.status === 401 && token && !retried) {
+  const ok = await tryRefreshToken()
+  if (ok) return request<T>(path, options, true)  // retry once
   localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  if (token) {          // ← only redirect when session was authenticated
-    window.location.href = '/login'
-    return undefined as T
-  }
+  window.location.href = '/login'
+  return undefined as T
 }
 ```
 
@@ -281,6 +279,84 @@ Do NOT mock `GoogleLogin` component — `LoginPage` doesn't use it.
 - Publishing status: Published (avoids 7-day token expiry and test-user list requirement)
 - `VITE_GOOGLE_CLIENT_ID` in frontend env (Vite bakes it in at build time)
 - `GOOGLE_CLIENT_ID` in backend env (not used for auth, but good to have for future)
+
+## Refresh Token Rotation + httpOnly Cookie (added 2026-03-29)
+
+Design spec: `docs/superpowers/specs/2026-03-29-refresh-token-rotation-design.md`
+
+### Architecture
+- Refresh tokens are **opaque** (`secrets.token_urlsafe(32)`), not JWTs. Only `SHA-256(token)` stored in DB.
+- Token stored in `httpOnly; SameSite=Lax; Secure` cookie scoped to `path="/api/v1/auth"`.
+- `AccessToken` (30-min JWT) remains in `localStorage`.
+- Each `/auth/refresh` call rotates the token (old revoked, new issued) — sliding 7-day window.
+
+### Key rules
+- **Never store raw token in DB** — only `hashlib.sha256(token.encode()).hexdigest()`
+- **`session.commit()` before `response.set_cookie()`** — DB write is what can fail; cookie is in-memory
+- **`session.flush()` not `session.commit()` in `google_auth`** — flush gets `user.id` within the transaction; router does the single terminal commit
+- **`logout` is async** — must call `POST /auth/logout` to revoke DB record; all callers must `await logout()`
+- **Theft detection**: reused revoked token → revoke ALL sessions for that user + log warning
+- **Singleton `_refreshPromise`** — prevents concurrent 401s from each independently calling `/auth/refresh`. Second call sends the already-rotated (revoked) token → theft detection → all sessions nuked. `if (_refreshPromise) return _refreshPromise` before creating the promise.
+
+### Theft detection cases in `/auth/refresh`
+1. Hash **not in DB** → plain 401
+2. Hash in DB, `revoked=True` → revoke all user tokens, 401
+3. Hash in DB, not revoked, `expires_at < now` → plain 401
+
+**Critical**: Case 2 must call `await session.commit()` **before** `raise HTTPException`. The router's
+`session.commit()` is never reached after a raised exception — without the explicit commit, all
+`revoke_all_refresh_tokens()` updates are rolled back and theft detection is silently a no-op.
+
+### `delete_cookie` must mirror `set_cookie` attributes
+
+`response.delete_cookie()` must include the same `httponly`, `samesite`, and `secure` attributes
+used in `set_cookie()`. Without them, browsers in production (strict mode / `Secure` flag) won't
+match the cookie and the delete is silently ignored:
+
+```python
+# ✅ Correct
+response.delete_cookie(
+    key="refresh_token",
+    path="/api/v1/auth",
+    httponly=True,
+    samesite="lax",
+    secure=settings.environment != "development",
+)
+
+# ❌ Wrong — browser won't clear the Secure cookie in production
+response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+```
+
+### `setIsLoading(false)` must be in `.finally()` when async refresh happens
+
+If `AuthContext` mounts with an expired token and triggers `tryRefreshToken()`, `setIsLoading(false)`
+must be in the `.finally()` callback — not synchronously after the `.then()` chain. Firing it
+synchronously means `ProtectedRoute` sees `isLoading=false, user=null` and redirects to `/login`
+before the refresh promise resolves, breaking silent refresh on page load.
+
+### `handleSignOutAll` — always navigate in `finally`
+
+`logoutAll()` may fail (network error, 401). The `finally` block ensures `logout()` (clears local
+session) and `navigate('/login')` always run regardless:
+
+```typescript
+try {
+  await logoutAll()
+} catch (err) {
+  setError(...)
+} finally {
+  await logout()
+  navigate('/login')
+}
+```
+
+### Logout callers (all must await)
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/layout/BottomTabBar.tsx`
+- `frontend/src/pages/SettingsPage.tsx`
+
+### `reset_admins` ordering
+Always delete `RefreshToken` before `InviteCode` before `User` — FK constraint on PostgreSQL.
 
 ### Admin user creation
 

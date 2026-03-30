@@ -1,13 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   fetchProfile, fetchHRZones, fetchCalendarRange,
   scheduleWorkout, rescheduleWorkout, syncAll,
+  tryRefreshToken, logout, logoutAll,
 } from '../api/client'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-beforeEach(() => { mockFetch.mockReset() })
+beforeEach(() => {
+  mockFetch.mockReset()
+  localStorage.clear()
+  delete (window as { location?: unknown }).location
+  ;(window as { location: Partial<Location> }).location = { href: '' } as Location
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function mockResponse(data: unknown, status = 200) {
   mockFetch.mockResolvedValueOnce({
@@ -94,5 +104,198 @@ describe('test_handles_network_error', () => {
   it('mock failure → error thrown', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'Internal Server Error' })
     await expect(fetchProfile()).rejects.toThrow('500:')
+  })
+})
+
+describe('tryRefreshToken', () => {
+  it('tryRefreshToken_concurrent_onlyOneRequest', async () => {
+    // Two concurrent calls should result in only one fetch to /auth/refresh
+    mockResponse({ access_token: 'new-token', token_type: 'bearer' })
+
+    const [r1, r2] = await Promise.all([tryRefreshToken(), tryRefreshToken()])
+
+    expect(r1).toBe(true)
+    expect(r2).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(1)  // singleton — only one request
+    expect(localStorage.getItem('access_token')).toBe('new-token')
+  })
+
+  it('tryRefreshToken_success_storesNewToken', async () => {
+    mockResponse({ access_token: 'new-token', token_type: 'bearer' })
+
+    const result = await tryRefreshToken()
+
+    expect(result).toBe(true)
+    expect(localStorage.getItem('access_token')).toBe('new-token')
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/auth/refresh',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      })
+    )
+  })
+
+  it('tryRefreshToken_failure_returnsFalse', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ detail: 'Token expired' }),
+      text: async () => JSON.stringify({ detail: 'Token expired' }),
+    })
+
+    const result = await tryRefreshToken()
+
+    expect(result).toBe(false)
+    expect(localStorage.getItem('access_token')).toBeNull()
+  })
+})
+
+describe('401 retry behavior', () => {
+  it('client_401_triesToRefresh_thenRetries', async () => {
+    localStorage.setItem('access_token', 'old-token')
+
+    let callCount = 0
+    mockFetch.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) {
+        // First call to /profile returns 401
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Unauthorized' }),
+          text: async () => JSON.stringify({ detail: 'Unauthorized' }),
+        })
+      } else if (callCount === 2) {
+        // Second call to /auth/refresh succeeds
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: 'new-token', token_type: 'bearer' }),
+          text: async () => JSON.stringify({ access_token: 'new-token', token_type: 'bearer' }),
+        })
+      } else {
+        // Third call to /profile succeeds
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 1, name: 'Test' }),
+          text: async () => JSON.stringify({ id: 1, name: 'Test' }),
+        })
+      }
+    })
+
+    const profile = await fetchProfile()
+
+    expect(profile).toEqual({ id: 1, name: 'Test' })
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(localStorage.getItem('access_token')).toBe('new-token')
+  })
+
+  it('client_401_refreshFails_redirectsToLogin', async () => {
+    localStorage.setItem('access_token', 'old-token')
+
+    let callCount = 0
+    mockFetch.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) {
+        // First call to /profile returns 401
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Unauthorized' }),
+          text: async () => JSON.stringify({ detail: 'Unauthorized' }),
+        })
+      } else {
+        // Second call to /auth/refresh fails
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Refresh token expired' }),
+          text: async () => JSON.stringify({ detail: 'Refresh token expired' }),
+        })
+      }
+    })
+
+    // Should not throw, but redirect
+    await fetchProfile()
+
+    expect(window.location.href).toBe('/login')
+    expect(localStorage.getItem('access_token')).toBeNull()
+  })
+
+  it('client_401_noInfiniteRetry', async () => {
+    localStorage.setItem('access_token', 'old-token')
+
+    let callCount = 0
+    mockFetch.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) {
+        // First call to /profile returns 401
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Unauthorized' }),
+          text: async () => JSON.stringify({ detail: 'Unauthorized' }),
+        })
+      } else if (callCount === 2) {
+        // Second call to /auth/refresh succeeds
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: 'new-token', token_type: 'bearer' }),
+          text: async () => JSON.stringify({ access_token: 'new-token', token_type: 'bearer' }),
+        })
+      } else {
+        // Third call (retry) to /profile STILL returns 401 (token invalid)
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Unauthorized' }),
+          text: async () => JSON.stringify({ detail: 'Unauthorized' }),
+        })
+      }
+    })
+
+    await fetchProfile()
+
+    // Should redirect, not retry infinitely
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(window.location.href).toBe('/login')
+  })
+})
+
+describe('logout', () => {
+  it('logout_callsBackendEndpoint', async () => {
+    localStorage.setItem('access_token', 'token')
+    mockResponse({ ok: true })
+
+    await logout()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/auth/logout',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      })
+    )
+    expect(localStorage.getItem('access_token')).toBeNull()
+  })
+})
+
+describe('logoutAll', () => {
+  it('logoutAll_callsBackendEndpoint', async () => {
+    localStorage.setItem('access_token', 'token')
+    mockResponse({ revoked: 3 })
+
+    await logoutAll()
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/auth/logout-all',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      })
+    )
   })
 })

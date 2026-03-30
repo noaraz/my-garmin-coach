@@ -1,27 +1,29 @@
 from __future__ import annotations
 
+import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 from fastapi import HTTPException
+from sqlalchemy import delete, update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.auth.jwt import create_access_token, create_refresh_token, decode_token
-from src.auth.models import InviteCode, User
+from src.auth.jwt import create_access_token, hash_token
+from src.auth.models import InviteCode, RefreshToken, User
 from src.auth.schemas import (
-    AccessTokenResponse,
     BootstrapRequest,
     BootstrapResponse,
     GoogleAuthRequest,
     ResetAdminsRequest,
     ResetAdminsResponse,
-    TokenResponse,
 )
 from src.core import cache
 from src.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -112,8 +114,10 @@ async def bootstrap(
 async def google_auth(
     request: GoogleAuthRequest,
     session: AsyncSession,
-) -> TokenResponse:
+) -> tuple[str, str]:
     """Authenticate or register a user via Google OAuth.
+
+    Returns tuple of (access_token, raw_refresh_token).
 
     Raises:
         HTTPException 401 if the Google access token is invalid.
@@ -134,7 +138,9 @@ async def google_auth(
 
     # Existing user -> issue tokens
     if user:
-        return _make_token_response(user)
+        access_token = create_access_token(user.id, user.email, user.is_admin)
+        raw_refresh_token = await create_refresh_token_record(user.id, session)
+        return (access_token, raw_refresh_token)
 
     # New user with invite -> create account
     if request.invite_code:
@@ -153,27 +159,19 @@ async def google_auth(
             google_oauth_sub=google_sub,
         )
         session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        await session.flush()  # Get user.id without committing
 
         invite.used_by = user.id
         invite.used_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(invite)
-        await session.commit()
 
-        return _make_token_response(user)
+        access_token = create_access_token(user.id, user.email, user.is_admin)
+        raw_refresh_token = await create_refresh_token_record(user.id, session)
+        return (access_token, raw_refresh_token)
 
     # No invite -> 403
     raise HTTPException(
         status_code=403, detail="No account found. Request an invite to join."
-    )
-
-
-def _make_token_response(user: User) -> TokenResponse:
-    """Build a TokenResponse with access + refresh tokens for the given user."""
-    return TokenResponse(
-        access_token=create_access_token(user.id, user.email, user.is_admin),
-        refresh_token=create_refresh_token(user.id),
     )
 
 
@@ -186,8 +184,6 @@ async def reset_admins(
     Raises:
         HTTPException 403 if setup_token is wrong.
     """
-    from sqlalchemy import delete
-
     settings = get_settings()
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
         raise HTTPException(status_code=403, detail="Invalid setup token")
@@ -196,7 +192,8 @@ async def reset_admins(
     users = (await session.exec(select(User))).all()
     user_count = len(users)
 
-    # Bulk delete — FK order: invites first, then users
+    # Bulk delete — FK order: RefreshToken, InviteCode, then User
+    await session.execute(delete(RefreshToken))
     await session.execute(delete(InviteCode))
     await session.execute(delete(User))
     await session.commit()
@@ -210,30 +207,47 @@ async def reset_admins(
 async def refresh_token(
     refresh_tok: str,
     session: AsyncSession,
-) -> AccessTokenResponse:
-    """Exchange a refresh token for a new access token.
+) -> tuple[str, str]:
+    """Exchange an opaque refresh token for a new access token + rotated refresh token.
+
+    Returns tuple of (access_token, new_raw_refresh_token).
 
     Raises:
-        HTTPException 401 on invalid or expired refresh token.
+        HTTPException 401 on invalid, expired, or revoked refresh token.
     """
-    from jose import JWTError
+    token_hash = hash_token(refresh_tok)
+    record = (
+        await session.exec(
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+        )
+    ).first()
 
-    try:
-        payload = decode_token(refresh_tok)
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    # Case 1: Hash not found
+    if record is None:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
+    # Case 2: Hash found but revoked (theft detection)
+    if record.revoked:
+        logger.warning(
+            f"Revoked token used for user_id={record.user_id} — revoking all tokens (theft)"
+        )
+        await revoke_all_refresh_tokens(record.user_id, session)
+        await session.commit()  # persist revocations before raising
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    user_id = int(payload["sub"])
-    user = await session.get(User, user_id)
+    # Case 3: Expired
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if record.expires_at < now:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+
+    # Valid token — rotate
+    user = await session.get(User, record.user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    return AccessTokenResponse(
-        access_token=create_access_token(user.id, user.email, user.is_admin)
-    )
+    new_raw_token = await rotate_refresh_token(record, user.id, session)
+    access_token = create_access_token(user.id, user.email, user.is_admin)
+    return (access_token, new_raw_token)
 
 
 async def create_invite(
@@ -247,3 +261,77 @@ async def create_invite(
     await session.commit()
     await session.refresh(invite)
     return invite
+
+
+async def create_refresh_token_record(
+    user_id: int,
+    session: AsyncSession,
+) -> str:
+    """Create a new opaque RefreshToken in the DB.
+
+    Returns the raw token string (caller must send in httpOnly cookie).
+    Does NOT commit — caller commits once.
+    """
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hash_token(raw_token)
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7)
+    record = RefreshToken(
+        token_hash=token_hash,
+        user_id=user_id,
+        expires_at=expires_at,
+    )
+    session.add(record)
+    return raw_token
+
+
+async def rotate_refresh_token(
+    old_record: RefreshToken,
+    user_id: int,
+    session: AsyncSession,
+) -> str:
+    """Mark old token as revoked, create new token.
+
+    Returns the raw new token string.
+    Does NOT commit — caller commits once.
+    """
+    # Revoke old token (record already loaded by caller — no second DB fetch)
+    old_record.revoked = True
+    session.add(old_record)
+
+    # Create new token
+    return await create_refresh_token_record(user_id, session)
+
+
+async def revoke_refresh_token(
+    token_hash: str,
+    session: AsyncSession,
+) -> None:
+    """Mark a single refresh token as revoked.
+
+    Does NOT commit — caller commits once.
+    """
+    record = (
+        await session.exec(
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+        )
+    ).first()
+    if record:
+        record.revoked = True
+        session.add(record)
+
+
+async def revoke_all_refresh_tokens(
+    user_id: int,
+    session: AsyncSession,
+) -> int:
+    """Mark all refresh tokens for a user as revoked.
+
+    Returns count of revoked tokens.
+    Does NOT commit — caller commits once.
+    """
+    result = await session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user_id)
+        .values(revoked=True)
+    )
+    return result.rowcount  # type: ignore[return-value]

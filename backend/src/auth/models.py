@@ -6,6 +6,21 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
+class RefreshToken(SQLModel, table=True):
+    """DB-backed opaque refresh token for sliding window rotation."""
+
+    __tablename__ = "refreshtoken"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token_hash: str = Field(unique=True, index=True)  # SHA-256 of raw token
+    user_id: int = Field(foreign_key="user.id", index=True)
+    expires_at: datetime  # reset to now+7d on each rotation
+    revoked: bool = Field(default=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+
 class User(SQLModel, table=True):
     """Application user — Google OAuth only."""
 

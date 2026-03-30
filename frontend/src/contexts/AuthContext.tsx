@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { googleAuth } from '../api/client'
+import { googleAuth, tryRefreshToken, logout as logoutAPI } from '../api/client'
 
 interface User {
   id: number
@@ -12,7 +12,7 @@ interface AuthContextValue {
   accessToken: string | null
   isAdmin: boolean
   googleLogin: (accessToken: string, inviteCode?: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   isLoading: boolean
 }
 
@@ -55,7 +55,7 @@ const AuthContext = createContext<AuthContextValue>({
   accessToken: null,
   isAdmin: false,
   googleLogin: async () => {},
-  logout: () => {},
+  logout: async () => {},
   isLoading: true,
 })
 
@@ -77,11 +77,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(stored)
         } else {
           localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
         }
       } else {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        // Token is expired — try silent refresh
+        tryRefreshToken()
+          .then((success) => {
+            if (success) {
+              // Refresh succeeded — reload token from localStorage
+              const newToken = localStorage.getItem('access_token')
+              if (newToken) {
+                const newPayload = decodeJwtPayload(newToken)
+                if (newPayload) {
+                  const parsedUser = userFromPayload(newPayload)
+                  if (parsedUser) {
+                    setUser(parsedUser)
+                    setAccessToken(newToken)
+                  } else {
+                    localStorage.removeItem('access_token')
+                  }
+                }
+              }
+            } else {
+              // Refresh failed — clear token
+              localStorage.removeItem('access_token')
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem('access_token')
+          })
+          .finally(() => {
+            setIsLoading(false)
+          })
+        return  // loading will be set false by the promise chain above
       }
     }
     setIsLoading(false)
@@ -90,7 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const googleLogin = async (accessToken: string, inviteCode?: string): Promise<void> => {
     const data = await googleAuth(accessToken, inviteCode)
     localStorage.setItem('access_token', data.access_token)
-    localStorage.setItem('refresh_token', data.refresh_token)
     setAccessToken(data.access_token)
     const payload = decodeJwtPayload(data.access_token)
     if (payload) {
@@ -98,9 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+  const logout = async (): Promise<void> => {
+    await logoutAPI()
     setUser(null)
     setAccessToken(null)
   }
