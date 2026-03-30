@@ -144,8 +144,14 @@ async def logout(
     await auth_service.revoke_refresh_token(token_hash, session)
     await session.commit()
 
-    # Delete cookie
-    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+    settings = get_settings()
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/v1/auth",
+        httponly=True,
+        samesite="lax",
+        secure=settings.environment != "development",
+    )
 
     return LogoutResponse(ok=True)
 
@@ -163,7 +169,13 @@ async def logout_all(
     )
     await session.commit()
 
-    # Delete cookie
-    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+    settings = get_settings()
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/v1/auth",
+        httponly=True,
+        samesite="lax",
+        secure=settings.environment != "development",
+    )
 
     return LogoutAllResponse(revoked=revoked_count)

@@ -105,6 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .catch(() => {
             localStorage.removeItem('access_token')
           })
+          .finally(() => {
+            setIsLoading(false)
+          })
+        return  // loading will be set false by the promise chain above
       }
     }
     setIsLoading(false)

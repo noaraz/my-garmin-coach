@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite, logoutAll } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
@@ -19,6 +20,7 @@ const sectionLabel: React.CSSProperties = {
 
 export function SettingsPage() {
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const [connectionState, setConnectionState] = useState<ConnectionState>('loading')
   const [garminEmail, setGarminEmail] = useState('')
@@ -108,9 +110,11 @@ export function SettingsPage() {
     }
     try {
       await logoutAll()
-      await logout()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign out failed')
+    } finally {
+      await logout()
+      navigate('/login')
     }
   }
 

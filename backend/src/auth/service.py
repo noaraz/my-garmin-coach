@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 from fastapi import HTTPException
+from sqlalchemy import delete, update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -183,8 +184,6 @@ async def reset_admins(
     Raises:
         HTTPException 403 if setup_token is wrong.
     """
-    from sqlalchemy import delete
-
     settings = get_settings()
     if not secrets.compare_digest(request.setup_token, settings.bootstrap_secret):
         raise HTTPException(status_code=403, detail="Invalid setup token")
@@ -233,6 +232,7 @@ async def refresh_token(
             f"Revoked token used for user_id={record.user_id} — revoking all tokens (theft)"
         )
         await revoke_all_refresh_tokens(record.user_id, session)
+        await session.commit()  # persist revocations before raising
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     # Case 3: Expired
@@ -245,7 +245,7 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    new_raw_token = await rotate_refresh_token(token_hash, user.id, session)
+    new_raw_token = await rotate_refresh_token(record, user.id, session)
     access_token = create_access_token(user.id, user.email, user.is_admin)
     return (access_token, new_raw_token)
 
@@ -285,7 +285,7 @@ async def create_refresh_token_record(
 
 
 async def rotate_refresh_token(
-    old_hash: str,
+    old_record: RefreshToken,
     user_id: int,
     session: AsyncSession,
 ) -> str:
@@ -294,15 +294,9 @@ async def rotate_refresh_token(
     Returns the raw new token string.
     Does NOT commit — caller commits once.
     """
-    # Revoke old token
-    old_record = (
-        await session.exec(
-            select(RefreshToken).where(RefreshToken.token_hash == old_hash)
-        )
-    ).first()
-    if old_record:
-        old_record.revoked = True
-        session.add(old_record)
+    # Revoke old token (record already loaded by caller — no second DB fetch)
+    old_record.revoked = True
+    session.add(old_record)
 
     # Create new token
     return await create_refresh_token_record(user_id, session)
@@ -335,8 +329,6 @@ async def revoke_all_refresh_tokens(
     Returns count of revoked tokens.
     Does NOT commit — caller commits once.
     """
-    from sqlalchemy import update
-
     result = await session.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id)
