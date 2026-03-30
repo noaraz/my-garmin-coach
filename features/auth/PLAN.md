@@ -77,6 +77,19 @@ Track progress in **STATUS.md**.
 ### Bootstrap + Admin + Invite UI
 Full plan: `docs/superpowers/plans/2026-03-16-admin-bootstrap-invite.md`
 
+### Refresh Token Rotation + Auto-Login (2026-03-29)
+Design spec: `docs/superpowers/specs/2026-03-29-refresh-token-rotation-design.md`
+
+- [x] Phase 1: Add `RefreshToken` SQLModel + Alembic migration
+- [x] Phase 2a: `jwt.py` — add `hash_token`, remove `create_refresh_token`
+- [x] Phase 2b: `schemas.py` — remove `RefreshRequest`, consolidate `TokenResponse` → `AccessTokenResponse`
+- [x] Phase 2c: `service.py` — add rotation/revocation helpers, fix `google_auth` flush, update `reset_admins`
+- [x] Phase 2d: `routers.py` — httpOnly cookie on login/refresh, new logout + logout-all endpoints
+- [x] Phase 3a: `client.ts` — `credentials: 'include'`, export `tryRefreshToken`, retry guard
+- [x] Phase 3b: `AuthContext.tsx` — silent refresh on mount, async logout
+- [x] Phase 3c: Update logout callers (Sidebar, BottomTabBar, SettingsPage)
+- [x] Phase 3d: SettingsPage — "Sign out of all devices" button
+
 - [x] Add `is_admin: bool = False` to `User` model
 - [x] Add `bootstrap_secret` to `Settings` (env var `BOOTSTRAP_SECRET`)
 - [x] Add `BootstrapRequest`/`BootstrapResponse` schemas; add `is_admin` to `UserResponse`

@@ -5,19 +5,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
 class AccessTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
 
 
 class UserResponse(BaseModel):
@@ -36,8 +26,8 @@ class GoogleAuthRequest(BaseModel):
     invite_code: Optional[str] = None
 
 
-# GoogleAuthResponse reuses TokenResponse (access_token + refresh_token + token_type).
-GoogleAuthResponse = TokenResponse
+# GoogleAuthResponse reuses AccessTokenResponse (access_token + token_type only).
+GoogleAuthResponse = AccessTokenResponse
 
 
 class BootstrapRequest(BaseModel):
@@ -55,6 +45,14 @@ class ResetAdminsRequest(BaseModel):
 
 class ResetAdminsResponse(BaseModel):
     deleted: int
+
+
+class LogoutResponse(BaseModel):
+    ok: bool = True
+
+
+class LogoutAllResponse(BaseModel):
+    revoked: int
 
 
 class GarminConnectRequest(BaseModel):

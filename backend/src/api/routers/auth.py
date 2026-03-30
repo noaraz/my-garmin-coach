@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
 from src.auth import service as auth_service
 from src.auth.dependencies import get_current_user
+from src.auth.jwt import hash_token
 from src.auth.models import User
 from src.auth.schemas import (
     AccessTokenResponse,
@@ -14,11 +15,13 @@ from src.auth.schemas import (
     GoogleAuthRequest,
     GoogleAuthResponse,
     InviteResponse,
-    RefreshRequest,
+    LogoutAllResponse,
+    LogoutResponse,
     ResetAdminsRequest,
     ResetAdminsResponse,
     UserResponse,
 )
+from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -26,19 +29,55 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 @router.post("/google", response_model=GoogleAuthResponse)
 async def google_auth(
     request: GoogleAuthRequest,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> GoogleAuthResponse:
     """Authenticate or register via Google OAuth and receive JWT tokens."""
-    return await auth_service.google_auth(request, session)
+    access_token, raw_refresh_token = await auth_service.google_auth(request, session)
+    await session.commit()
+
+    settings = get_settings()
+    response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh_token,
+        httponly=True,
+        secure=settings.environment != "development",
+        samesite="lax",
+        max_age=7 * 24 * 3600,
+        path="/api/v1/auth",
+    )
+
+    return GoogleAuthResponse(access_token=access_token)
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
 async def refresh(
-    request: RefreshRequest,
+    request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> AccessTokenResponse:
-    """Exchange a refresh token for a new access token."""
-    return await auth_service.refresh_token(request.refresh_token, session)
+    """Exchange a refresh token (from httpOnly cookie) for a new access token."""
+    refresh_tok = request.cookies.get("refresh_token")
+    if not refresh_tok:
+        raise HTTPException(status_code=401, detail="No refresh token provided")
+
+    access_token, new_raw_refresh_token = await auth_service.refresh_token(
+        refresh_tok, session
+    )
+    await session.commit()
+
+    settings = get_settings()
+    response.set_cookie(
+        key="refresh_token",
+        value=new_raw_refresh_token,
+        httponly=True,
+        secure=settings.environment != "development",
+        samesite="lax",
+        max_age=7 * 24 * 3600,
+        path="/api/v1/auth",
+    )
+
+    return AccessTokenResponse(access_token=access_token)
 
 
 @router.post("/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
@@ -87,3 +126,44 @@ async def me(
         is_active=current_user.is_active,
         is_admin=current_user.is_admin,
     )
+
+
+@router.post("/logout", response_model=LogoutResponse)
+async def logout(
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> LogoutResponse:
+    """Revoke the current refresh token and clear the cookie."""
+    refresh_tok = request.cookies.get("refresh_token")
+    if not refresh_tok:
+        # Idempotent — no cookie means already logged out
+        return LogoutResponse(ok=True)
+
+    token_hash = hash_token(refresh_tok)
+    await auth_service.revoke_refresh_token(token_hash, session)
+    await session.commit()
+
+    # Delete cookie
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+
+    return LogoutResponse(ok=True)
+
+
+@router.post("/logout-all", response_model=LogoutAllResponse)
+async def logout_all(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> LogoutAllResponse:
+    """Revoke all refresh tokens for the current user (sign out of all devices)."""
+    revoked_count = await auth_service.revoke_all_refresh_tokens(
+        current_user.id, session
+    )
+    await session.commit()
+
+    # Delete cookie
+    response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+
+    return LogoutAllResponse(revoked=revoked_count)

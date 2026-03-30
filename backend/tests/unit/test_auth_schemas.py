@@ -4,11 +4,11 @@ import pytest
 from pydantic import ValidationError
 
 from src.auth.schemas import (
+    AccessTokenResponse,
     BootstrapRequest,
     BootstrapResponse,
     GoogleAuthRequest,
     GoogleAuthResponse,
-    TokenResponse,
     UserResponse,
 )
 
@@ -70,19 +70,18 @@ class TestGoogleAuthRequest:
 
 
 class TestGoogleAuthResponse:
-    def test_is_alias_for_token_response(self) -> None:
-        """GoogleAuthResponse is TokenResponse."""
-        assert GoogleAuthResponse is TokenResponse
+    def test_is_alias_for_access_token_response(self) -> None:
+        """GoogleAuthResponse is AccessTokenResponse (no refresh_token in body)."""
+        assert GoogleAuthResponse is AccessTokenResponse
 
-    def test_has_access_and_refresh_token_fields(self) -> None:
-        """GoogleAuthResponse carries access_token, refresh_token, and token_type."""
+    def test_has_access_token_field_only(self) -> None:
+        """GoogleAuthResponse carries access_token and token_type (refresh_token in httpOnly cookie)."""
         resp = GoogleAuthResponse(
             access_token="access.jwt",
-            refresh_token="refresh.jwt",
         )
         assert resp.access_token == "access.jwt"
-        assert resp.refresh_token == "refresh.jwt"
         assert resp.token_type == "bearer"
+        assert not hasattr(resp, "refresh_token")
 
 
 class TestUserResponse:

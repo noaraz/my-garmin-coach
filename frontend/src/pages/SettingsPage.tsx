@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite } from '../api/client'
+import { getGarminStatus, connectGarmin, disconnectGarmin, createInvite, logoutAll } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -27,7 +27,7 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const { isAdmin } = useAuth()
+  const { isAdmin, logout } = useAuth()
   const { credentialsStored, refresh } = useGarminStatus()
 
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -99,6 +99,18 @@ export function SettingsPage() {
       setError(err instanceof Error ? err.message : 'Disconnect failed')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleSignOutAll = async () => {
+    if (!confirm('Sign out of all devices? You will need to log in again on this device.')) {
+      return
+    }
+    try {
+      await logoutAll()
+      await logout()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign out failed')
     }
   }
 
@@ -465,6 +477,48 @@ export function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Account section */}
+      <div style={{ marginTop: '32px' }}>
+        <div style={sectionLabel}>Account</div>
+
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          padding: '20px 22px',
+        }}>
+          <p style={{
+            fontSize: '12px',
+            color: 'var(--text-secondary)',
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+            margin: '0 0 16px',
+            lineHeight: 1.5,
+          }}>
+            Sign out of all devices where you are currently logged in. This will invalidate all active sessions.
+          </p>
+
+          <button
+            onClick={handleSignOutAll}
+            style={{
+              padding: '9px 20px',
+              background: 'transparent',
+              color: 'var(--color-error)',
+              border: '1px solid var(--color-error-border-weak)',
+              borderRadius: '5px',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              cursor: 'pointer',
+              transition: 'border-color 0.15s, color 0.15s',
+            }}
+          >
+            Sign out of all devices
+          </button>
+        </div>
+      </div>
 
       {/* Admin section — only visible to admin users */}
       {isAdmin && (

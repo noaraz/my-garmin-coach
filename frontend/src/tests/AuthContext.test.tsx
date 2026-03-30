@@ -1,24 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, useAuth } from '../contexts/AuthContext'
 
-const { mockGoogleAuth } = vi.hoisted(() => ({
+const { mockGoogleAuth, mockTryRefreshToken } = vi.hoisted(() => ({
   mockGoogleAuth: vi.fn().mockResolvedValue({
     access_token: 'header.eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6OTk5OTk5OTk5OX0.sig',
-    refresh_token: 'refresh-token-value',
     token_type: 'bearer',
   }),
+  mockTryRefreshToken: vi.fn().mockResolvedValue(false),
 }))
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
-  return { ...actual, googleAuth: mockGoogleAuth }
+  return {
+    ...actual,
+    googleAuth: mockGoogleAuth,
+    tryRefreshToken: mockTryRefreshToken,
+  }
 })
 
 // A valid JWT payload: { userId: 1, email: "test@example.com", exp: 9999999999 }
 // base64url-encoded: eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6OTk5OTk5OTk5OX0
 const VALID_TOKEN =
   'header.eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6OTk5OTk5OTk5OX0.sig'
+
+// Expired token payload: { userId: 1, email: "test@example.com", exp: 1000000000 } (year 2001)
+// base64url-encoded: eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6MTAwMDAwMDAwMH0
+const EXPIRED_TOKEN =
+  'header.eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6MTAwMDAwMDAwMH0.sig'
 
 function AuthConsumer() {
   const { user, isLoading, logout } = useAuth()
@@ -27,7 +36,7 @@ function AuthConsumer() {
   return (
     <div>
       <span data-testid="email">{user.email}</span>
-      <button onClick={logout}>logout</button>
+      <button onClick={async () => await logout()}>logout</button>
     </div>
   )
 }
@@ -37,9 +46,10 @@ beforeEach(() => {
   mockGoogleAuth.mockReset()
   mockGoogleAuth.mockResolvedValue({
     access_token: VALID_TOKEN,
-    refresh_token: 'refresh-token-value',
     token_type: 'bearer',
   })
+  mockTryRefreshToken.mockReset()
+  mockTryRefreshToken.mockResolvedValue(false)
 })
 
 describe('AuthContext', () => {
@@ -74,13 +84,12 @@ describe('AuthContext', () => {
     await user.click(screen.getByRole('button', { name: 'login' }))
 
     expect(localStorage.getItem('access_token')).toBe(VALID_TOKEN)
-    expect(localStorage.getItem('refresh_token')).toBe('refresh-token-value')
+    expect(localStorage.getItem('refresh_token')).toBeNull() // refresh token is now httpOnly cookie only
     expect(await screen.findByTestId('email')).toHaveTextContent('test@example.com')
   })
 
   it('logout_clears_tokens', async () => {
     localStorage.setItem('access_token', VALID_TOKEN)
-    localStorage.setItem('refresh_token', 'refresh-token-value')
 
     render(
       <AuthProvider>
@@ -96,12 +105,10 @@ describe('AuthContext', () => {
 
     expect(screen.getByText('no user')).toBeInTheDocument()
     expect(localStorage.getItem('access_token')).toBeNull()
-    expect(localStorage.getItem('refresh_token')).toBeNull()
   })
 
   it('initializes_from_localStorage_on_mount', async () => {
     localStorage.setItem('access_token', VALID_TOKEN)
-    localStorage.setItem('refresh_token', 'refresh-token-value')
 
     render(
       <AuthProvider>
@@ -110,5 +117,81 @@ describe('AuthContext', () => {
     )
 
     expect(await screen.findByTestId('email')).toHaveTextContent('test@example.com')
+  })
+
+  it('AuthContext_validToken_restoresSession', async () => {
+    localStorage.setItem('access_token', VALID_TOKEN)
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    )
+
+    // Should restore session without calling tryRefreshToken
+    expect(await screen.findByTestId('email')).toHaveTextContent('test@example.com')
+    expect(mockTryRefreshToken).not.toHaveBeenCalled()
+  })
+
+  it('AuthContext_noStoredToken_setsLoadingFalse', () => {
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    )
+
+    // Should show "no user" immediately (isLoading=false, user=null)
+    expect(screen.getByText('no user')).toBeInTheDocument()
+    expect(mockTryRefreshToken).not.toHaveBeenCalled()
+  })
+
+  it('AuthContext_expiredToken_silentlyRefreshes', async () => {
+    localStorage.setItem('access_token', EXPIRED_TOKEN)
+    mockTryRefreshToken.mockResolvedValue(true)
+
+    // After refresh succeeds, new token will be in localStorage
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem')
+    getItemSpy.mockImplementation((key) => {
+      if (key === 'access_token' && mockTryRefreshToken.mock.calls.length > 0) {
+        return VALID_TOKEN
+      }
+      return EXPIRED_TOKEN
+    })
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    )
+
+    // Should call tryRefreshToken
+    await waitFor(() => expect(mockTryRefreshToken).toHaveBeenCalled())
+
+    // Wait for the second effect to restore the session after refresh
+    await waitFor(() => {
+      const email = screen.queryByTestId('email')
+      expect(email).toBeInTheDocument()
+      expect(email).toHaveTextContent('test@example.com')
+    })
+
+    getItemSpy.mockRestore()
+  })
+
+  it('AuthContext_refreshFails_clearsToken', async () => {
+    localStorage.setItem('access_token', EXPIRED_TOKEN)
+    mockTryRefreshToken.mockResolvedValue(false)
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    )
+
+    // Should call tryRefreshToken
+    await waitFor(() => expect(mockTryRefreshToken).toHaveBeenCalled())
+
+    // Should show "no user" after failed refresh
+    expect(screen.getByText('no user')).toBeInTheDocument()
+    expect(localStorage.getItem('access_token')).toBeNull()
   })
 })

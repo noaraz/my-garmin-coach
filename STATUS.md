@@ -2,6 +2,20 @@
 
 Last updated: 2026-03-29
 
+## v1.6.0 — Refresh Token Rotation + Auto-Login ✅
+
+### Refresh Token Rotation + Auto-Login
+| Task | Status |
+|------|--------|
+| Phase 0: Docs update | ✅ |
+| Phase 1: RefreshToken model + Alembic migration | ✅ |
+| Phase 2: Backend TDD (jwt, schemas, service, routers) | ✅ |
+| Phase 3: Frontend TDD (client.ts, AuthContext, logout callers, SettingsPage) | ✅ |
+| Phase 4: Verification (564 backend + 309 frontend tests pass) | ✅ |
+| Phase 5: Docs wrap-up | ✅ |
+
+---
+
 ## v1.5.0 Release ✅
 
 ### v1.5.0 Release
@@ -151,9 +165,7 @@ Last updated: 2026-03-29
 | Task | Priority | Notes |
 |------|----------|-------|
 | Test Run → Zone Update | Medium | Tag a completed workout as zone test, auto-update thresholds from Garmin activity data |
-| Playwright E2E Tests | Medium | Full browser tests: login → zones → build → schedule → sync |
 | Rate Limiting on Auth Routes | Medium | `slowapi` on login/register — required before public access |
-| Refresh Token Rotation | Low | Single-use rotation, `RefreshToken` DB table |
 | ESLint v9 → v10 upgrade | Low | 5 moderate `brace-expansion` CVEs (dev-only). Breaking change, may need lint config updates. After upgrade, restore `--audit-level=moderate` in `.github/workflows/ci.yml` |
 | Activity Feed / History | Low | Show completed Garmin activities beyond scheduled workouts |
 
@@ -687,10 +699,6 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 
 ## Known Issues (to fix later)
 
-- **`TestSyncTokenPersistence` — 2 integration tests failing** (`test_sync_all_persists_refreshed_token_to_db`, `test_sync_single_persists_refreshed_token_to_db`): Fernet `InvalidSignature` — the token written to the DB in the test was encrypted with a key that doesn't match the key used during decryption in the assertion. Root cause: test setup uses a different `GARMINCOACH_SECRET_KEY` than what `encryption.py` reads at module import time (module-level key derivation caches the key). Fix: ensure the test's `GARMINCOACH_SECRET_KEY` env var is set before any import of `src.garmin.encryption`, or mock `encrypt_token`/`decrypt_token` directly. Pre-existing, not caused by any recent PR.
-
-- **`TodayPage.test.tsx` — `TodayPage_withWorkout_showsHeroCard` failing**: Unable to find text "45:00" — the hero card duration display logic or the test fixture may be mismatched after the mobile-responsive refactor. Pre-existing, unrelated to zones. Fix: audit `TodayPage.tsx` hero card rendering vs. the test's mock workout data.
-
 - **Backend dependency CVEs (pip-audit warnings)**: `pip-audit --local` currently reports several CVEs that are pre-existing and not caused by project code changes. Context for future sessions:
   - `urllib3 2.5.0` — CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 → fix: upgrade to `urllib3>=2.6.3` in pyproject.toml (or let `python-garminconnect` pull the latest transitively)
   - `pyasn1 0.6.2` — CVE-2026-30922 → fix: upgrade to `pyasn1>=0.6.3`
@@ -698,12 +706,9 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
   - `wheel 0.45.1` — CVE-2026-24049 → build tool, not a runtime dependency; upgrade or ignore
   - The only approved-ignore CVE is `GHSA-25h7-pfq9-p65f` (ecdsa, used by `garth`; no fix available) — already in the ship workflow's `pip-audit --ignore-vuln` flag. Do NOT add new --ignore-vuln flags without reviewing the CVE.
 
-- **`google_auth` two sequential commits**: `auth/service.py` `google_auth()` has two `session.commit()` calls (line ~155: create user, line ~161: mark invite used). Should be batched into one commit for atomicity and to reduce DB round-trips. Requires restructuring the FK dependency (user must exist before invite references it). Related CLAUDE.md rule: "Batch commits. Call session.add() multiple times, then a single session.commit()."
 - **`reset_admins` has no rate limiting**: `POST /api/v1/auth/reset-admins` is a destructive endpoint (factory reset) with no rate limiting. An attacker who brute-forces the setup token can wipe all users. Needs `slowapi` or equivalent before public deployment. Flagged as Critical in PR #19 review. See CLAUDE.md "Nice to Have — Rate Limiting on Auth Routes."
 
 - **Rate limiting on bootstrap + reset-admins** (security, moderate effort): `POST /api/v1/auth/bootstrap` and `POST /api/v1/auth/reset-admins` have no rate limiter — only a static setup token. Requires adding `slowapi` package, a `Limiter` instance in `app.py`, and `@limiter.limit("10/minute")` on both endpoints. Low exploitability today (invite-only app, endpoints require `BOOTSTRAP_SECRET`), but required before any public deployment. See "Nice to Have — Rate Limiting on Auth Routes" in CLAUDE.md.
-
-- **Refresh token revocation missing** (security, complex): Stolen refresh tokens stay valid for their full 7-day TTL even after logout or Garmin disconnect. Fix requires a `RefreshToken` DB table (id, user_id, token_hash, expires_at, revoked), an Alembic migration, and updating `/auth/refresh` to invalidate the old token and issue a new one. See "Nice to Have — Refresh Token Rotation" in CLAUDE.md.
 
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path

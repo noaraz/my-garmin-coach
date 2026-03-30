@@ -44,6 +44,13 @@ Validate all new or modified migration files in `backend/alembic/versions/` agai
 - SQLite ALTER operations: must use `with op.batch_alter_table("table_name") as batch_op:` context manager
 - Bare `op.alter_column()` calls outside batch context → `[RISK: silently ignored on SQLite]`
 - `op.add_column()` for DateTime columns: note the column name for check #5
+- **Unrelated operations**: autogenerate diffs the full DB schema — spurious `drop_index` /
+  `drop_column` ops appear on tables with schema drift unrelated to this migration. Flag any
+  operation on a table not in scope for this migration.
+  `[RISK: spurious drop_index on <table>] — likely autogenerate drift, verify and remove if unrelated`
+- **`AutoString` type**: autogenerate may emit `sqlmodel.sql.sqltypes.AutoString()` without
+  importing sqlmodel. Flag any occurrence.
+  `[RISK: AutoString without import] — replace with sa.String()`
 
 ### 5. Python code writing to new DateTime columns
 - Search `backend/src/` for code that writes to any new DateTime column added in this migration

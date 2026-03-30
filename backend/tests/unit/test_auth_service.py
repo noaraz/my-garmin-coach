@@ -50,27 +50,28 @@ class TestRefreshToken:
     async def test_refresh_token_valid_returns_new_access_token(
         self, db_session: AsyncSession
     ) -> None:
-        # Arrange
+        # Arrange — create user and opaque refresh token
         user = await self._seed_user(db_session)
-        from src.auth.jwt import create_refresh_token
-        refresh_tok = create_refresh_token(user.id)
+        raw_token = await auth_service.create_refresh_token_record(user.id, db_session)
+        await db_session.commit()
 
-        # Act — lines 123-136
-        response = await auth_service.refresh_token(refresh_tok, db_session)
+        # Act
+        access_token, new_raw_token = await auth_service.refresh_token(raw_token, db_session)
 
         # Assert
-        assert response.access_token
-        assert response.token_type == "bearer"
+        assert access_token
+        assert new_raw_token
+        assert new_raw_token != raw_token  # Token was rotated
 
     async def test_refresh_token_with_access_token_raises_401(
         self, db_session: AsyncSession
     ) -> None:
-        # Arrange — pass an access token where a refresh token is expected
+        # Arrange — pass an access JWT where an opaque refresh token is expected
         user = await self._seed_user(db_session)
         from src.auth.jwt import create_access_token
         access_tok = create_access_token(user.id)
 
-        # Act & Assert — line 129: type != "refresh"
+        # Act & Assert — hash lookup fails for JWT
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.refresh_token(access_tok, db_session)
 
@@ -80,9 +81,9 @@ class TestRefreshToken:
         self, db_session: AsyncSession
     ) -> None:
         # Arrange — garbage token
-        bad_token = "not.a.valid.jwt"
+        bad_token = "not.a.valid.token"
 
-        # Act & Assert — lines 124-126: JWTError
+        # Act & Assert — hash not found in DB
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.refresh_token(bad_token, db_session)
 
@@ -93,16 +94,16 @@ class TestRefreshToken:
     ) -> None:
         # Arrange — deactivate the user
         user = await self._seed_user(db_session)
+        raw_token = await auth_service.create_refresh_token_record(user.id, db_session)
+        await db_session.commit()
+
         user.is_active = False
         db_session.add(user)
         await db_session.commit()
 
-        from src.auth.jwt import create_refresh_token
-        refresh_tok = create_refresh_token(user.id)
-
-        # Act & Assert — line 133-134: user.is_active is False
+        # Act & Assert — user.is_active is False
         with pytest.raises(HTTPException) as exc_info:
-            await auth_service.refresh_token(refresh_tok, db_session)
+            await auth_service.refresh_token(raw_token, db_session)
 
         assert exc_info.value.status_code == 401
 
@@ -110,12 +111,25 @@ class TestRefreshToken:
         self, db_session: AsyncSession
     ) -> None:
         # Arrange — create token for user 9999 who doesn't exist
-        from src.auth.jwt import create_refresh_token
-        refresh_tok = create_refresh_token(9999)
+        from src.auth.models import RefreshToken
+        from src.auth.jwt import hash_token
+        from datetime import datetime, timedelta, timezone
+        import secrets
 
-        # Act & Assert — line 133-134: user is None
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hash_token(raw_token)
+        expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7)
+        record = RefreshToken(
+            token_hash=token_hash,
+            user_id=9999,
+            expires_at=expires_at,
+        )
+        db_session.add(record)
+        await db_session.commit()
+
+        # Act & Assert — user 9999 doesn't exist
         with pytest.raises(HTTPException) as exc_info:
-            await auth_service.refresh_token(refresh_tok, db_session)
+            await auth_service.refresh_token(raw_token, db_session)
 
         assert exc_info.value.status_code == 401
 

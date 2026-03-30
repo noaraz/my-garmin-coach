@@ -124,7 +124,7 @@ export function BottomTabBar() {
             ))}
             <button
               style={{ ...moreItemStyle, color: 'var(--color-zone-5)', borderBottom: 'none' }}
-              onClick={() => { setMoreOpen(false); logout() }}
+              onClick={async () => { setMoreOpen(false); await logout() }}
             >
               Sign Out
             </button>

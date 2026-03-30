@@ -943,13 +943,6 @@ test_type: Optional[str] = None   # "lthr" | "threshold_pace" | "max_hr"
 
 ---
 
-### Playwright E2E Tests
-Full browser tests for the critical user journey: login → set zones → build workout → schedule it → sync to Garmin.
-
-**`webServer` config required**: `playwright.config.ts` must include a `webServer` block (`command: 'npm run dev'`, `url: 'http://localhost:5173'`, `reuseExistingServer: !process.env.CI`). Without it, `npx playwright test` fails with `ERR_CONNECTION_REFUSED` unless the dev server is already running manually.
-
----
-
 ### Mobile Responsive
 CSS polish pass — the app is built desktop-first. Key breakpoints needed for calendar, sidebar, and workout builder on small screens.
 
@@ -959,9 +952,6 @@ CSS polish pass — the app is built desktop-first. Key breakpoints needed for c
 Add `slowapi` (or similar) to limit `/api/v1/auth/login` and `/api/v1/auth/register` to e.g. 10 req/min per IP. Required before making the app publicly accessible.
 
 ---
-
-### Refresh Token Rotation
-Currently the refresh token is long-lived and static. Implement single-use rotation: each `/auth/refresh` call returns a new refresh token and invalidates the old one. Requires a `RefreshToken` DB table.
 
 ---
 
