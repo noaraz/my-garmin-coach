@@ -296,11 +296,59 @@ Design spec: `docs/superpowers/specs/2026-03-29-refresh-token-rotation-design.md
 - **`session.flush()` not `session.commit()` in `google_auth`** — flush gets `user.id` within the transaction; router does the single terminal commit
 - **`logout` is async** — must call `POST /auth/logout` to revoke DB record; all callers must `await logout()`
 - **Theft detection**: reused revoked token → revoke ALL sessions for that user + log warning
+- **Singleton `_refreshPromise`** — prevents concurrent 401s from each independently calling `/auth/refresh`. Second call sends the already-rotated (revoked) token → theft detection → all sessions nuked. `if (_refreshPromise) return _refreshPromise` before creating the promise.
 
 ### Theft detection cases in `/auth/refresh`
 1. Hash **not in DB** → plain 401
 2. Hash in DB, `revoked=True` → revoke all user tokens, 401
 3. Hash in DB, not revoked, `expires_at < now` → plain 401
+
+**Critical**: Case 2 must call `await session.commit()` **before** `raise HTTPException`. The router's
+`session.commit()` is never reached after a raised exception — without the explicit commit, all
+`revoke_all_refresh_tokens()` updates are rolled back and theft detection is silently a no-op.
+
+### `delete_cookie` must mirror `set_cookie` attributes
+
+`response.delete_cookie()` must include the same `httponly`, `samesite`, and `secure` attributes
+used in `set_cookie()`. Without them, browsers in production (strict mode / `Secure` flag) won't
+match the cookie and the delete is silently ignored:
+
+```python
+# ✅ Correct
+response.delete_cookie(
+    key="refresh_token",
+    path="/api/v1/auth",
+    httponly=True,
+    samesite="lax",
+    secure=settings.environment != "development",
+)
+
+# ❌ Wrong — browser won't clear the Secure cookie in production
+response.delete_cookie(key="refresh_token", path="/api/v1/auth")
+```
+
+### `setIsLoading(false)` must be in `.finally()` when async refresh happens
+
+If `AuthContext` mounts with an expired token and triggers `tryRefreshToken()`, `setIsLoading(false)`
+must be in the `.finally()` callback — not synchronously after the `.then()` chain. Firing it
+synchronously means `ProtectedRoute` sees `isLoading=false, user=null` and redirects to `/login`
+before the refresh promise resolves, breaking silent refresh on page load.
+
+### `handleSignOutAll` — always navigate in `finally`
+
+`logoutAll()` may fail (network error, 401). The `finally` block ensures `logout()` (clears local
+session) and `navigate('/login')` always run regardless:
+
+```typescript
+try {
+  await logoutAll()
+} catch (err) {
+  setError(...)
+} finally {
+  await logout()
+  navigate('/login')
+}
+```
 
 ### Logout callers (all must await)
 - `frontend/src/components/Sidebar.tsx`

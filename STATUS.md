@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30 — Refresh Token Rotation + Auto-Login
 
 ## v1.6.0 — Refresh Token Rotation + Auto-Login ✅
 
@@ -13,6 +13,7 @@ Last updated: 2026-03-29
 | Phase 3: Frontend TDD (client.ts, AuthContext, logout callers, SettingsPage) | ✅ |
 | Phase 4: Verification (564 backend + 309 frontend tests pass) | ✅ |
 | Phase 5: Docs wrap-up | ✅ |
+| Phase 6: Code review fixes (isLoading race, theft commit, delete_cookie attrs, handleSignOutAll nav) | ✅ |
 
 ---
 
@@ -44,7 +45,7 @@ Last updated: 2026-03-29
 
 ---
 
-## Current Focus: Garmin Auto-Reconnect + Exchange 429 Fix 🔧
+## Previous: Garmin Auto-Reconnect + Exchange 429 Fix ✅
 
 | Task | Status |
 |------|--------|
