@@ -291,6 +291,7 @@ class SyncSingleResponse(BaseModel):
 class SyncAllResponse(BaseModel):
     synced: int
     failed: int
+    reconciled: int = 0
     activities_fetched: int = 0
     activities_matched: int = 0
     fetch_error: str | None = None

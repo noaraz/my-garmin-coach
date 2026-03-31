@@ -120,6 +120,7 @@ export interface CalendarResponse {
 export interface SyncAllResponse {
   synced: number
   failed: number
+  reconciled: number
   activities_fetched: number
   activities_matched: number
   fetch_error: string | null
