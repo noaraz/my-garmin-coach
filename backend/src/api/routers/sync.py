@@ -546,6 +546,41 @@ async def sync_all(
         else:
             logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", type(exc).__name__)
 
+    # ── Reconciliation: detect synced workouts missing from Garmin ──────
+    reconciled = 0
+    if garmin_workouts is not None:
+        from src.garmin.dedup import find_missing_from_garmin
+
+        synced_with_ids = (
+            await session.exec(
+                select(ScheduledWorkout).where(
+                    ScheduledWorkout.user_id == current_user.id,
+                    ScheduledWorkout.sync_status == "synced",
+                    ScheduledWorkout.completed == False,  # noqa: E712
+                    ScheduledWorkout.garmin_workout_id.is_not(None),  # type: ignore[union-attr]
+                )
+            )
+        ).all()
+
+        if synced_with_ids:
+            db_garmin_ids = {sw.garmin_workout_id for sw in synced_with_ids}
+            missing_ids = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+
+            if missing_ids:
+                for sw in synced_with_ids:
+                    if sw.garmin_workout_id in missing_ids:
+                        sw.sync_status = "modified"
+                        sw.garmin_workout_id = None
+                        session.add(sw)
+                        reconciled += 1
+
+                await session.commit()
+                logger.info(
+                    "Reconciliation: %d workouts missing from Garmin — re-queuing for user %s",
+                    reconciled,
+                    current_user.id,
+                )
+
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     templates = await _preload_templates(session, workouts)
 
@@ -665,6 +700,7 @@ async def sync_all(
     return SyncAllResponse(
         synced=synced,
         failed=failed,
+        reconciled=reconciled,
         activities_fetched=activities_fetched,
         activities_matched=activities_matched,
         fetch_error=fetch_error,

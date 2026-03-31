@@ -492,6 +492,10 @@ class TestSyncAll:
             garmin_workout_id="active-garmin-id",
             completed=False,
         )
+        # Garmin list includes this workout — reconciliation should not touch it
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": "active-garmin-id", "workoutName": "Some Workout"}
+        ]
         mock_sync_service.sync_workout.return_value = ("garmin-skip", "sched-skip")
 
         # Act
@@ -714,6 +718,97 @@ class TestSyncAll:
 
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # synced workouts not re-pushed
+
+    async def test_sync_all_reconciles_synced_workouts_missing_from_garmin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Synced workout whose garmin_workout_id is NOT on Garmin gets re-pushed."""
+        stale_id = "stale-gone-from-garmin"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=stale_id
+        )
+        # Garmin returns an empty list — stale_id is not there
+        mock_sync_service.get_workouts.return_value = []
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reconciled"] == 1
+        assert data["synced"] == 1  # re-pushed after reconciliation (mock returns "garmin-abc-123")
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "garmin-abc-123"
+
+    async def test_sync_all_does_not_reconcile_when_garmin_id_exists_on_garmin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Synced workout whose garmin_workout_id IS on Garmin is not touched."""
+        valid_id = "valid-garmin-456"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=valid_id
+        )
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": valid_id, "workoutName": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reconciled"] == 0
+        assert data["synced"] == 0
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == valid_id
+
+    async def test_sync_all_reconciliation_skips_completed_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Completed workouts with stale garmin_workout_id are NOT reconciled.
+
+        Note: the paired-workout cleanup sweep (existing code) may still clear
+        garmin_workout_id on completed workouts — that's separate from reconciliation.
+        We only verify reconciled == 0 here.
+        """
+        await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="stale-completed",
+            completed=True,
+        )
+        mock_sync_service.get_workouts.return_value = []
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["reconciled"] == 0
+
+    async def test_sync_all_reconciliation_skipped_when_get_workouts_fails(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """When get_workouts() fails, reconciliation is safely skipped."""
+        await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id="stale-id"
+        )
+        mock_sync_service.get_workouts.side_effect = RuntimeError("429")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["reconciled"] == 0
 
 
 # ---------------------------------------------------------------------------
