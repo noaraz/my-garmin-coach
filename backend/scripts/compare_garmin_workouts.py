@@ -8,9 +8,28 @@ from our DB, then outputs a side-by-side comparison table showing:
   - ONLY DB (…)  — pending/modified/failed, expected not on Garmin yet
   - ONLY GARMIN  — exists on Garmin but not tracked in our DB
 
-Run with:
+Usage:
+    # Docker — local DB (default)
     docker compose exec backend python scripts/compare_garmin_workouts.py
+
+    # Docker — production DB (.env.prod must have current values from Render)
+    source .env.prod && docker compose exec \\
+      -e DATABASE_URL="$DATABASE_URL" \\
+      -e GARMINCOACH_SECRET_KEY="$GARMINCOACH_SECRET_KEY" \\
+      -e GARMIN_CREDENTIAL_KEY="${GARMIN_CREDENTIAL_KEY:-}" \\
+      backend python scripts/compare_garmin_workouts.py --user-id 3 --future-only
+
+    # Local venv (no Docker needed)
     cd backend && .venv/bin/python scripts/compare_garmin_workouts.py --future-only
+
+Options:
+    --user-id N     User ID to check (default: 1)
+    --future-only   Only show workouts dated today or later
+
+Notes:
+    - .env.prod is gitignored — update values from Render dashboard
+    - Script clears settings cache so container env vars don't override
+    - If token decryption fails (InvalidToken), GARMINCOACH_SECRET_KEY is stale
 """
 from __future__ import annotations
 
