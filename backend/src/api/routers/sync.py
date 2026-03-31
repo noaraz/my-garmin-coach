@@ -514,6 +514,7 @@ async def sync_all(
             fetch_error="Garmin sync temporarily paused (exchange rate limit). Will retry automatically.",
         )
 
+    logger.info("sync_all started for user %s", current_user.id)
     hr_zone_map, pace_zone_map = await _get_zone_maps(session, current_user)
 
     # Fetch Garmin workouts first — used for dedup.
@@ -702,6 +703,10 @@ async def sync_all(
     # Persist any OAuth2 token refresh that occurred during sync.
     await _persist_refreshed_token(sync_service, current_user.id, session)
 
+    logger.info(
+        "sync_all completed for user %s: synced=%d failed=%d reconciled=%d activities=%d matched=%d",
+        current_user.id, synced, failed, reconciled, activities_fetched, activities_matched,
+    )
     return SyncAllResponse(
         synced=synced,
         failed=failed,
