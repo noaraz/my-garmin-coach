@@ -57,3 +57,25 @@ def find_orphaned_garmin_workouts(
         if isinstance(gw_name, str) and gw_name.lower() in name_lower_set:
             orphans.append(gw_id)
     return orphans
+
+
+def find_missing_from_garmin(
+    db_garmin_ids: set[str],
+    garmin_workouts: list[dict[str, Any]],
+) -> set[str]:
+    """Return DB garmin_workout_ids that no longer exist on Garmin.
+
+    Compares the set of IDs our DB thinks are synced against the actual
+    Garmin workout list.  Any DB ID not found on Garmin is returned —
+    these workouts were externally deleted and need re-pushing.
+
+    Args:
+        db_garmin_ids: Set of garmin_workout_id values from ScheduledWorkouts
+            with sync_status="synced".
+        garmin_workouts: Raw list from Garmin ``get_workouts()`` API.
+
+    Returns:
+        Set of garmin_workout_id strings missing from Garmin.
+    """
+    garmin_ids = {str(gw.get("workoutId", "")) for gw in garmin_workouts}
+    return db_garmin_ids - garmin_ids

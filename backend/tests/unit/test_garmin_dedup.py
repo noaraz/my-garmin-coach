@@ -1,7 +1,7 @@
 """Tests for Garmin workout deduplication logic."""
 from __future__ import annotations
 
-from src.garmin.dedup import find_matching_garmin_workout, find_orphaned_garmin_workouts
+from src.garmin.dedup import find_matching_garmin_workout, find_missing_from_garmin, find_orphaned_garmin_workouts
 
 
 class TestFindMatchingGarminWorkout:
@@ -110,3 +110,54 @@ class TestFindOrphanedGarminWorkouts:
             garmin_workouts, known_garmin_ids, known_template_names
         )
         assert result == ["gw-111"]
+
+
+class TestFindMissingFromGarmin:
+    def test_returns_ids_not_on_garmin(self) -> None:
+        """DB IDs not found in Garmin workout list are returned."""
+        garmin_workouts = [
+            {"workoutId": "aaa", "workoutName": "Run 1"},
+            {"workoutId": "bbb", "workoutName": "Run 2"},
+        ]
+        db_garmin_ids = {"aaa", "bbb", "ccc", "ddd"}
+
+        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+
+        assert result == {"ccc", "ddd"}
+
+    def test_returns_empty_when_all_present(self) -> None:
+        """When every DB ID exists on Garmin, nothing is missing."""
+        garmin_workouts = [
+            {"workoutId": "aaa", "workoutName": "Run 1"},
+            {"workoutId": "bbb", "workoutName": "Run 2"},
+        ]
+        db_garmin_ids = {"aaa", "bbb"}
+
+        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+
+        assert result == set()
+
+    def test_returns_all_when_garmin_list_empty(self) -> None:
+        """When Garmin has no workouts, all DB IDs are missing."""
+        db_garmin_ids = {"aaa", "bbb"}
+
+        result = find_missing_from_garmin(db_garmin_ids, [])
+
+        assert result == {"aaa", "bbb"}
+
+    def test_returns_empty_when_db_ids_empty(self) -> None:
+        """When DB has no synced IDs, nothing is missing."""
+        garmin_workouts = [{"workoutId": "aaa", "workoutName": "Run 1"}]
+
+        result = find_missing_from_garmin(set(), garmin_workouts)
+
+        assert result == set()
+
+    def test_coerces_workout_id_to_string(self) -> None:
+        """Garmin workoutId may be int — must compare as string."""
+        garmin_workouts = [{"workoutId": 12345, "workoutName": "Run"}]
+        db_garmin_ids = {"12345", "99999"}
+
+        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+
+        assert result == {"99999"}
