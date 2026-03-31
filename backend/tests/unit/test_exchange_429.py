@@ -11,6 +11,7 @@ from src.api.routers.sync import (
     _exchange_on_cooldown,
     _is_exchange_429,
     _set_exchange_cooldown,
+    clear_exchange_cooldown,
 )
 
 
@@ -199,6 +200,29 @@ class TestExchangeCooldown:
 
         # Assert
         assert result is True
+
+    def test_clear_exchange_cooldown_removes_active_cooldown(self):
+        # Arrange
+        user_id = 1
+        _set_exchange_cooldown(user_id)
+        assert _exchange_on_cooldown(user_id) is True
+
+        # Act
+        clear_exchange_cooldown(user_id)
+
+        # Assert
+        assert _exchange_on_cooldown(user_id) is False
+        assert user_id not in _exchange_cooldowns
+
+    def test_clear_exchange_cooldown_noop_when_no_cooldown(self):
+        # Arrange — no cooldown set
+        user_id = 99
+
+        # Act — should not raise
+        clear_exchange_cooldown(user_id)
+
+        # Assert
+        assert _exchange_on_cooldown(user_id) is False
 
     def test_multiple_users_cooldowns_are_independent(self):
         # Arrange

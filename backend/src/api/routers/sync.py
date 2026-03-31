@@ -90,6 +90,11 @@ def _exchange_on_cooldown(user_id: int) -> bool:
     return True
 
 
+def clear_exchange_cooldown(user_id: int) -> None:
+    """Clear exchange cooldown for a user (e.g. after successful reconnect)."""
+    _exchange_cooldowns.pop(user_id, None)
+
+
 # ---------------------------------------------------------------------------
 # Garmin sync service dependency (auth-aware, avoids circular import)
 # ---------------------------------------------------------------------------

@@ -126,6 +126,10 @@ async def attempt_auto_reconnect(
         adapter = create_api_client(token_json)
         client_cache.put(user_id, adapter)
 
+        # Clear exchange cooldown — fresh tokens don't need the 30-min pause
+        from src.api.routers.sync import clear_exchange_cooldown
+        clear_exchange_cooldown(user_id)
+
         logger.info("Auto-reconnect succeeded for user %s", user_id)
         return adapter
     except GarthHTTPError:
