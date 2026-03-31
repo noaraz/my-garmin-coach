@@ -154,10 +154,10 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
 ### Sync-All Reconciliation (2026-03-31)
-- [ ] `find_missing_from_garmin()` in `dedup.py` — pure function, TDD
-- [ ] `reconciled` field in `SyncAllResponse` + frontend `types.ts`
-- [ ] Reconciliation block in `sync_all` between garmin fetch and push loop
-- [ ] 4 integration tests in `test_api_sync.py`
+- [x] `find_missing_from_garmin()` in `dedup.py` — pure function, TDD
+- [x] `reconciled` field in `SyncAllResponse` + frontend `types.ts`
+- [x] Reconciliation block in `sync_all` between garmin fetch and push loop
+- [x] 4 integration tests in `test_api_sync.py`
 
 **Plan**: `docs/superpowers/plans/2026-03-30-sync-all-reconciliation.md`
 
