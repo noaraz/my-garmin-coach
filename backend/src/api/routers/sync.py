@@ -523,6 +523,7 @@ async def sync_all(
     garmin_workouts: list[dict[str, Any]] | None = None
     try:
         garmin_workouts = sync_service.get_workouts()
+        logger.info("Fetched %d Garmin workouts for user %s", len(garmin_workouts), current_user.id)
     except Exception as exc:  # noqa: BLE001
         if _is_exchange_429(exc):
             logger.warning("Exchange 429 on get_workouts — attempting auto-reconnect for user %s", current_user.id)
@@ -568,9 +569,21 @@ async def sync_all(
             )
         ).all()
 
+        logger.info(
+            "Reconciliation check: %d synced workouts with garmin_workout_id for user %s",
+            len(synced_with_ids),
+            current_user.id,
+        )
+
         if synced_with_ids:
             db_garmin_ids = {sw.garmin_workout_id for sw in synced_with_ids}
             missing_ids = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+            logger.info(
+                "Reconciliation: %d missing from Garmin out of %d checked for user %s",
+                len(missing_ids),
+                len(db_garmin_ids),
+                current_user.id,
+            )
 
             if missing_ids:
                 for sw in synced_with_ids:
@@ -588,6 +601,7 @@ async def sync_all(
                 )
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
+    logger.info("Push loop: %d workouts in pending/modified/failed for user %s", len(workouts), current_user.id)
     templates = await _preload_templates(session, workouts)
 
     results = [
