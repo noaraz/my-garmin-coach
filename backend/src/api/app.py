@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -50,6 +52,12 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        force=True,
+    )
     settings = get_settings()
     application = FastAPI(title="GarminCoach", lifespan=lifespan)
 
