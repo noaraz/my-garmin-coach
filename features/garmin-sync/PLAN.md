@@ -153,6 +153,14 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
+### Sync-All Reconciliation (2026-03-31)
+- [ ] `find_missing_from_garmin()` in `dedup.py` — pure function, TDD
+- [ ] `reconciled` field in `SyncAllResponse` + frontend `types.ts`
+- [ ] Reconciliation block in `sync_all` between garmin fetch and push loop
+- [ ] 4 integration tests in `test_api_sync.py`
+
+**Plan**: `docs/superpowers/plans/2026-03-30-sync-all-reconciliation.md`
+
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks
 - [x] Zone/profile endpoints (`PUT /zones/hr`, `POST /zones/hr/recalculate`, `POST /zones/pace/recalculate`, `PUT /profile`) use `background_tasks.add_task(background_sync, ...)` — response returns in <100ms

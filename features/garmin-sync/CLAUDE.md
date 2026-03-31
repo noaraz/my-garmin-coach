@@ -340,6 +340,22 @@ Existing users who connected to Garmin before the auto-reconnect feature was dep
 
 **GarminStatusContext**: Extended with `credentialsStored: boolean | null` alongside `garminConnected`.
 
+## Sync-All Reconciliation (added 2026-03-31)
+
+**Problem**: Workouts marked `sync_status="synced"` are never re-checked. If a Garmin workout is externally deleted (e.g. Garmin Connect UI, app glitch, API failure that clears the ID without our knowledge), Sync All has no effect — the workout is stuck as "synced" forever. Force-syncing each workout individually works because `sync_single` ignores status.
+
+**Fix**: After fetching `garmin_workouts` in `sync_all` (already done for dedup), cross-reference all `sync_status="synced"` + `completed=False` + `garmin_workout_id IS NOT NULL` workouts against the Garmin list. Any whose `garmin_workout_id` is NOT found on Garmin get `sync_status="modified"` + `garmin_workout_id=None` — the existing push loop picks them up in the same sync.
+
+**Implementation**:
+- Pure function: `find_missing_from_garmin(db_garmin_ids, garmin_workouts)` in `dedup.py` — set difference
+- Placement: between `garmin_workouts` fetch and `get_by_status` push loop in `sync_all`
+- Guard: only runs when `garmin_workouts is not None` (skip if Garmin API failed)
+- Completed workouts excluded — they don't need re-push (already paired with activity)
+- `reconciled: int = 0` field added to `SyncAllResponse`
+- Log: `"Reconciliation: %d workouts missing from Garmin — re-queuing for user %s"`
+
+**Zero extra Garmin API calls** — reuses the already-fetched workout list.
+
 ## Gotchas
 
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new

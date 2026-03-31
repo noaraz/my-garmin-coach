@@ -718,6 +718,7 @@ async def _make_activity(self, session: AsyncSession) -> Any:
 - **SyncOrchestrator is the public API**: Never call `sync_service.adapter.method()` directly. Expose new Garmin API methods on `SyncOrchestrator` (delegates to `GarminSyncService` → `GarminAdapter`). Pattern: `sync_service.get_workouts()`, `sync_service.delete_workout()`. The `.adapter` property exists for backward compat but new code should not use it.
 - **Layer propagation test mocks**: when a new method is added through all three layers, update integration test mocks from `mock_sync_service.adapter.X` to `mock_sync_service.X`. MagicMock auto-creates `.adapter.X` so the wrong mock path silently returns a new MagicMock — tests pass but the real call path is untested.
 - **Safety**: Only Garmin workouts whose name matches a `WorkoutTemplate.name` in our DB are ever deleted. User-created Garmin workouts are never touched.
+- **sync_all reconciliation**: After fetching `garmin_workouts`, queries all `sync_status="synced"` + `garmin_workout_id IS NOT NULL` + `completed=False` workouts. Cross-references against the Garmin list via `find_missing_from_garmin()`. Missing ones get `sync_status="modified"` + `garmin_workout_id=None` — picked up by the existing push loop. Logged as `"Reconciliation: N workouts missing from Garmin — re-queuing"`.
 
 ---
 

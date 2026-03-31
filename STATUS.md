@@ -1,6 +1,19 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-30 — Refresh Token Rotation + Auto-Login
+Last updated: 2026-03-31 — Sync-All Reconciliation
+
+## Sync-All Reconciliation — In Progress
+
+| Task | Status |
+|------|--------|
+| Phase 0: Docs + skill update | 🔄 |
+| Phase 1: `find_missing_from_garmin` in `dedup.py` (TDD) | ⬜ |
+| Phase 2: `reconciled` field in `SyncAllResponse` | ⬜ |
+| Phase 3: Wire reconciliation into `sync_all` + integration tests | ⬜ |
+| Phase 4: Full test suite + cleanup | ⬜ |
+| Phase 5: Docs wrap-up | ⬜ |
+
+---
 
 ## v1.6.0 — Refresh Token Rotation + Auto-Login ✅
 
