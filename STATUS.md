@@ -2,16 +2,16 @@
 
 Last updated: 2026-03-31 — Sync-All Reconciliation
 
-## Sync-All Reconciliation — In Progress
+## Sync-All Reconciliation ✅
 
 | Task | Status |
 |------|--------|
-| Phase 0: Docs + skill update | 🔄 |
-| Phase 1: `find_missing_from_garmin` in `dedup.py` (TDD) | ⬜ |
-| Phase 2: `reconciled` field in `SyncAllResponse` | ⬜ |
-| Phase 3: Wire reconciliation into `sync_all` + integration tests | ⬜ |
-| Phase 4: Full test suite + cleanup | ⬜ |
-| Phase 5: Docs wrap-up | ⬜ |
+| Phase 0: Docs + skill update | ✅ |
+| Phase 1: `find_missing_from_garmin` in `dedup.py` (TDD) | ✅ |
+| Phase 2: `reconciled` field in `SyncAllResponse` | ✅ |
+| Phase 3: Wire reconciliation into `sync_all` + integration tests | ✅ |
+| Phase 4: Full test suite (573 backend + 310 frontend pass, 82.76% coverage) | ✅ |
+| Phase 5: Docs wrap-up | ✅ |
 
 ---
 
