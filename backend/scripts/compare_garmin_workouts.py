@@ -97,9 +97,7 @@ def main() -> None:
         sync_service = GarminSyncService(adapter)
         garmin_workouts = sync_service.get_workouts()
     except Exception as exc:
-        import traceback
-        print(f"{RED}Failed to fetch Garmin workouts: {exc}{RESET}")
-        traceback.print_exc()
+        print(f"{RED}Failed to fetch Garmin workouts: {type(exc).__name__}: {exc}{RESET}")
         return
 
     # ── 4. Build lookup maps ─────────────────────────────────────────────
