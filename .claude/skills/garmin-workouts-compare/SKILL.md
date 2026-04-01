@@ -46,6 +46,17 @@ cd backend && .venv/bin/python scripts/compare_garmin_workouts.py
 | **ONLY DB (pending/…)** | Not yet synced | Expected — run Sync All |
 | **ONLY GARMIN** | On Garmin, not tracked in DB | Orphan — cleaned by sweep |
 
+### Calendar Column (CAL)
+
+The script also shows a `CAL` column indicating whether the workout is scheduled on the Garmin calendar:
+
+| Value | Meaning |
+|-------|---------|
+| **CAL ✓** | Workout is scheduled on the Garmin calendar (appears in `/calendar-service/year/{year}/month/{month}` response) |
+| **CAL ✗** | Workout template exists on Garmin but is NOT scheduled on the calendar — reconciliation will reschedule it |
+
+This column helps diagnose cases where a workout template exists on Garmin (`BOTH ✓`) but is missing from the Garmin calendar — the user won't see it on their watch until it's rescheduled.
+
 ## If You See ONLY DB ✗
 
 Root cause: `sync_all` only queries `sync_status in ("pending", "modified", "failed")`. Once "synced", never re-checked. Fix: reconciliation in `sync_all` via `find_missing_from_garmin()` in `dedup.py`.

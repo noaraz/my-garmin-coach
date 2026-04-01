@@ -153,13 +153,17 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
-### Sync-All Reconciliation (2026-03-31)
-- [x] `find_missing_from_garmin()` in `dedup.py` — pure function, TDD
+### Sync-All Reconciliation — Calendar-Based (2026-03-31 → 2026-04-01)
+- [x] `find_missing_from_garmin()` in `dedup.py` — pure function, TDD (superseded by `find_unscheduled_workouts()`)
 - [x] `reconciled` field in `SyncAllResponse` + frontend `types.ts`
 - [x] Reconciliation block in `sync_all` between garmin fetch and push loop
 - [x] 4 integration tests in `test_api_sync.py`
+- [x] Calendar-based reconciliation via `GET /calendar-service/year/{year}/month/{month}`
+- [x] `find_unscheduled_workouts()` in `dedup.py` — replaces `find_missing_from_garmin()`
+- [x] Two-path reconciliation: reschedule (cheap) vs full re-push
+- [x] `rescheduled` field in `SyncAllResponse`
 
-**Plan**: `docs/superpowers/plans/2026-03-30-sync-all-reconciliation.md`
+**Original plan**: `docs/superpowers/plans/2026-03-30-sync-all-reconciliation.md` (superseded by `2026-03-31-calendar-based-reconciliation.md`)
 
 ### Performance: Fire-and-Forget + Parallelization (2026-03-20)
 - [x] `background_sync(user_id)` — standalone async function for BackgroundTasks

@@ -1,3 +1,9 @@
+> **Superseded** by `docs/superpowers/plans/2026-03-31-calendar-based-reconciliation.md`.
+> This plan implemented template-list-based reconciliation (`find_missing_from_garmin()`).
+> It was replaced by calendar-based reconciliation (`find_unscheduled_workouts()`) which
+> uses `GET /calendar-service/year/{year}/month/{month}` to compare `(workoutId, date)` pairs
+> and supports two paths: reschedule (cheap) vs full re-push.
+
 # Sync-All Reconciliation Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
