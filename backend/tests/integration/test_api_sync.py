@@ -836,6 +836,62 @@ class TestSyncAll:
         assert response.json()["reconciled"] == 0
         assert response.json()["rescheduled"] == 0
 
+    async def test_sync_all_reschedule_fallback_to_repush_on_error(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """When reschedule_workout raises, fall back to re-push."""
+        gid = "reschedule-fails-123"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=gid
+        )
+        # Template exists on Garmin
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": gid, "workoutName": "My Workout"}
+        ]
+        # NOT on calendar
+        mock_sync_service.get_calendar_items.return_value = []
+        # Reschedule fails
+        mock_sync_service.reschedule_workout.side_effect = RuntimeError("Garmin error")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reconciled"] == 1  # fell back to re-push path
+        assert data["synced"] == 1  # re-pushed by the push loop
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "garmin-abc-123"
+
+    async def test_sync_all_removes_duplicate_calendar_entries(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Duplicate (workoutId, date) calendar entries → extras removed."""
+        gid = "dup-workout-123"
+        await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=gid
+        )
+        # Calendar has the workout scheduled TWICE (same workoutId + date)
+        mock_sync_service.get_calendar_items.return_value = [
+            {"id": 1000, "workoutId": gid, "date": "2026-03-10"},
+            {"id": 2000, "workoutId": gid, "date": "2026-03-10"},
+        ]
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": gid, "workoutName": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        # Should have called unschedule_workout with the extra entry's id
+        mock_sync_service.unschedule_workout.assert_called_once_with("2000")
+
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/sync/status

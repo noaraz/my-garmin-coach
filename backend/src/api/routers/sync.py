@@ -581,7 +581,12 @@ async def sync_all(
         )
 
         if synced_with_ids:
-            # Determine which months to fetch from Garmin calendar
+            # Determine which months to fetch from Garmin calendar.
+            # NOTE: Each Garmin "month" spans ~5 weeks (includes partial
+            # weeks from adjacent months), so items may appear in multiple
+            # month responses.  This is fine — find_unscheduled_workouts
+            # uses set membership, and find_duplicate_calendar_entries
+            # deduplicates by entry ID.
             dates = [sw.date for sw in synced_with_ids if sw.date]
             if dates:
                 min_date = min(dates)
@@ -652,6 +657,12 @@ async def sync_all(
                 )
 
                 if unscheduled:
+                    # NOTE: reschedule_workout is additive — it creates a new
+                    # calendar entry.  If the original entry was actually there
+                    # (e.g. on a month boundary we didn't fetch), this creates
+                    # a duplicate.  The duplicate cleanup runs BEFORE this loop,
+                    # so any new duplicates will be cleaned up on the next
+                    # sync_all invocation (idempotent).
                     unscheduled_ids = {u["garmin_workout_id"] for u in unscheduled}
                     for sw in synced_with_ids:
                         if sw.garmin_workout_id not in unscheduled_ids:
