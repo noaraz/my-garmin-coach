@@ -58,8 +58,13 @@ class GarminAdapter:
         Calls ``/calendar-service/year/{year}/month/{month}`` and returns
         the ``calendarItems`` list.  Each item has at minimum ``workoutId``,
         ``date`` (YYYY-MM-DD), and ``title``.
+
+        **Important**: Garmin uses 0-indexed months (Jan=0, Dec=11).
+        Callers pass 1-indexed months (Python ``date.month``); this method
+        converts internally.
         """
-        path = f"/calendar-service/year/{year}/month/{month}"
+        garmin_month = month - 1  # Garmin calendar API uses 0-indexed months
+        path = f"/calendar-service/year/{year}/month/{garmin_month}"
         result = self._client.connectapi(path)
         return result.get("calendarItems", []) if isinstance(result, dict) else []
 
