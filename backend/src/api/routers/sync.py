@@ -297,6 +297,7 @@ class SyncAllResponse(BaseModel):
     synced: int
     failed: int
     reconciled: int = 0
+    rescheduled: int = 0
     activities_fetched: int = 0
     activities_matched: int = 0
     fetch_error: str | None = None
@@ -553,11 +554,15 @@ async def sync_all(
         else:
             logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", type(exc).__name__)
 
-    # ── Reconciliation: detect synced workouts missing from Garmin ──────
+    # ── Reconciliation: detect synced workouts not on Garmin calendar ────
     reconciled = 0
-    if garmin_workouts is not None:
-        from src.garmin.dedup import find_missing_from_garmin
+    rescheduled = 0
+    garmin_id_set = (
+        {str(gw.get("workoutId", "")) for gw in garmin_workouts}
+        if garmin_workouts else set()
+    )
 
+    try:
         synced_with_ids = (
             await session.exec(
                 select(ScheduledWorkout).where(
@@ -576,29 +581,98 @@ async def sync_all(
         )
 
         if synced_with_ids:
-            db_garmin_ids = {sw.garmin_workout_id for sw in synced_with_ids}
-            missing_ids = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
-            logger.info(
-                "Reconciliation: %d missing from Garmin out of %d checked for user %s",
-                len(missing_ids),
-                len(db_garmin_ids),
-                current_user.id,
-            )
+            # Determine which months to fetch from Garmin calendar
+            dates = [sw.date for sw in synced_with_ids if sw.date]
+            if dates:
+                min_date = min(dates)
+                max_date = max(dates)
+                months_to_fetch: set[tuple[int, int]] = set()
+                current_month = min_date.replace(day=1)
+                while current_month <= max_date:
+                    months_to_fetch.add((current_month.year, current_month.month))
+                    if current_month.month == 12:
+                        current_month = current_month.replace(year=current_month.year + 1, month=1)
+                    else:
+                        current_month = current_month.replace(month=current_month.month + 1)
 
-            if missing_ids:
-                for sw in synced_with_ids:
-                    if sw.garmin_workout_id in missing_ids:
-                        sw.sync_status = "modified"
-                        sw.garmin_workout_id = None
-                        session.add(sw)
-                        reconciled += 1
+                calendar_items: list[dict[str, Any]] = []
+                for year, month in months_to_fetch:
+                    try:
+                        items = sync_service.get_calendar_items(year, month)
+                        calendar_items.extend(items)
+                    except Exception as cal_exc:  # noqa: BLE001
+                        logger.warning(
+                            "Could not fetch Garmin calendar for %d-%02d: %s",
+                            year, month, type(cal_exc).__name__,
+                        )
 
-                await session.commit()
                 logger.info(
-                    "Reconciliation: %d workouts missing from Garmin — re-queuing for user %s",
-                    reconciled,
+                    "Fetched %d Garmin calendar items across %d months for user %s",
+                    len(calendar_items),
+                    len(months_to_fetch),
                     current_user.id,
                 )
+
+                from src.garmin.dedup import find_unscheduled_workouts
+
+                db_workouts_for_check = [
+                    {"garmin_workout_id": sw.garmin_workout_id, "date": str(sw.date)}
+                    for sw in synced_with_ids
+                    if sw.garmin_workout_id and sw.date
+                ]
+                unscheduled = find_unscheduled_workouts(db_workouts_for_check, calendar_items)
+
+                logger.info(
+                    "Reconciliation: %d unscheduled out of %d checked for user %s",
+                    len(unscheduled),
+                    len(db_workouts_for_check),
+                    current_user.id,
+                )
+
+                if unscheduled:
+                    unscheduled_ids = {u["garmin_workout_id"] for u in unscheduled}
+                    for sw in synced_with_ids:
+                        if sw.garmin_workout_id not in unscheduled_ids:
+                            continue
+                        # Template still on Garmin? → just re-schedule (cheap)
+                        if sw.garmin_workout_id in garmin_id_set:
+                            try:
+                                sync_service.reschedule_workout(
+                                    sw.garmin_workout_id, str(sw.date)
+                                )
+                                rescheduled += 1
+                                logger.info(
+                                    "Re-scheduled workout %s on %s (template existed)",
+                                    sw.garmin_workout_id,
+                                    sw.date,
+                                )
+                            except Exception as sched_exc:  # noqa: BLE001
+                                logger.warning(
+                                    "Re-schedule failed for %s: %s — falling back to re-push",
+                                    sw.garmin_workout_id,
+                                    type(sched_exc).__name__,
+                                )
+                                sw.sync_status = "modified"
+                                sw.garmin_workout_id = None
+                                session.add(sw)
+                                reconciled += 1
+                        else:
+                            # Template also gone → full re-push
+                            sw.sync_status = "modified"
+                            sw.garmin_workout_id = None
+                            session.add(sw)
+                            reconciled += 1
+
+                    if rescheduled or reconciled:
+                        await session.commit()
+                        logger.info(
+                            "Reconciliation for user %s: %d re-scheduled, %d queued for re-push",
+                            current_user.id,
+                            rescheduled,
+                            reconciled,
+                        )
+    except Exception as recon_exc:  # noqa: BLE001
+        logger.warning("Reconciliation failed (continuing): %s", type(recon_exc).__name__)
 
     workouts = await scheduled_workout_repository.get_by_status(session, _PENDING_STATUSES, current_user.id)
     logger.info("Push loop: %d workouts in pending/modified/failed for user %s", len(workouts), current_user.id)
@@ -718,13 +792,14 @@ async def sync_all(
     await _persist_refreshed_token(sync_service, current_user.id, session)
 
     logger.info(
-        "sync_all completed for user %s: synced=%d failed=%d reconciled=%d activities=%d matched=%d",
-        current_user.id, synced, failed, reconciled, activities_fetched, activities_matched,
+        "sync_all completed for user %s: synced=%d failed=%d reconciled=%d rescheduled=%d activities=%d matched=%d",
+        current_user.id, synced, failed, reconciled, rescheduled, activities_fetched, activities_matched,
     )
     return SyncAllResponse(
         synced=synced,
         failed=failed,
         reconciled=reconciled,
+        rescheduled=rescheduled,
         activities_fetched=activities_fetched,
         activities_matched=activities_matched,
         fetch_error=fetch_error,
