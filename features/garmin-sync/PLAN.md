@@ -162,6 +162,10 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] `find_unscheduled_workouts()` in `dedup.py` — replaces `find_missing_from_garmin()`
 - [x] Two-path reconciliation: reschedule (cheap) vs full re-push
 - [x] `rescheduled` field in `SyncAllResponse`
+- [x] Fix: Garmin calendar API uses 0-indexed months (Jan=0, Dec=11)
+- [x] `unschedule_workout(schedule_id)` through adapter → sync_service → orchestrator
+- [x] `find_duplicate_calendar_entries()` in `dedup.py` (TDD, 7 unit tests)
+- [x] Duplicate calendar entry cleanup in `sync_all` (runs before reconciliation)
 
 **Original plan**: `docs/superpowers/plans/2026-03-30-sync-all-reconciliation.md` (superseded by `2026-03-31-calendar-based-reconciliation.md`)
 

@@ -359,7 +359,11 @@ Existing users who connected to Garmin before the auto-reconnect feature was dep
 - `rescheduled: int` field added to `SyncAllResponse`
 - Log: `"Reconciliation: %d workouts rescheduled, %d re-queued for user %s"`
 
-**Calendar endpoint**: `/calendar-service/year/{year}/month/{month}` works reliably. The old `/workout-service/schedule/{id}` always returns 404 — do not use.
+**Calendar endpoint**: `/calendar-service/year/{year}/month/{month}` works reliably. **Garmin uses 0-indexed months** (Jan=0, Dec=11) — the adapter converts from Python's 1-indexed `date.month` internally. The old `/workout-service/schedule/{id}` GET always returns 404 — do not use for reads.
+
+**Duplicate calendar cleanup**: `sync_all` detects duplicate `(workoutId, date)` pairs on the Garmin calendar (caused by double-scheduling) and removes extras via `DELETE /workout-service/schedule/{schedule_id}`. Each calendar item has a unique `id` (the schedule entry ID). Pure function: `find_duplicate_calendar_entries()` in `dedup.py`. Runs before the unscheduled check.
+
+**`unschedule_workout(schedule_id)`**: Propagated through all 3 layers (adapter → sync_service → orchestrator). Calls `DELETE /workout-service/schedule/{id}` to remove a single calendar entry without deleting the workout template.
 
 ## Gotchas
 

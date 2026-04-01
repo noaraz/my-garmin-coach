@@ -59,10 +59,14 @@ This column helps diagnose cases where a workout template exists on Garmin (`BOT
 
 ## If You See ONLY DB ✗
 
-Root cause: `sync_all` only queries `sync_status in ("pending", "modified", "failed")`. Once "synced", never re-checked. Fix: reconciliation in `sync_all` via `find_missing_from_garmin()` in `dedup.py`.
+Root cause: workout was synced once but later removed from Garmin calendar. Calendar-based reconciliation in `sync_all` now detects this via `find_unscheduled_workouts()` and either re-schedules (cheap) or re-pushes (full).
 
-**Manual fix** — force-sync each workout via UI, or:
+**If reconciliation is not fixing it**, force-sync each workout via UI, or:
 ```sql
 UPDATE scheduled_workout SET sync_status = 'modified', garmin_workout_id = NULL
 WHERE id IN (...);
 ```
+
+## Gotcha: Garmin Calendar 0-Indexed Months
+
+The `/calendar-service/year/{year}/month/{month}` endpoint uses **0-indexed months** (Jan=0, Dec=11). The adapter converts internally — callers pass Python's 1-indexed `date.month`. If adding new calendar API calls, always account for this.
