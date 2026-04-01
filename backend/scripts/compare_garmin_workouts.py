@@ -7,6 +7,7 @@ from our DB, then outputs a side-by-side comparison table showing:
   - ONLY DB ✗    — DB says "synced" but Garmin doesn't have it (the bug)
   - ONLY DB (…)  — pending/modified/failed, expected not on Garmin yet
   - ONLY GARMIN  — exists on Garmin but not tracked in our DB
+  - CAL ✓ / CAL ✗ — whether the (workoutId, date) pair is on the Garmin calendar
 
 Usage:
     # Docker — local DB (default)
@@ -119,6 +120,28 @@ def main() -> None:
         print(f"{RED}Failed to fetch Garmin workouts: {type(exc).__name__}: {exc}{RESET}")
         return
 
+    # ── 3b. Fetch Garmin calendar items ───────────────────────────────────
+    # Collect all months referenced by DB workouts
+    months_to_fetch: set[tuple[int, int]] = set()
+    for sw, _ in db_rows:
+        months_to_fetch.add((sw.date.year, sw.date.month))
+    if not months_to_fetch:
+        months_to_fetch.add((today.year, today.month))
+
+    calendar_scheduled: set[tuple[str, str]] = set()  # (workoutId, date)
+    for year, month in sorted(months_to_fetch):
+        try:
+            items = sync_service.get_calendar_items(year, month)
+            for item in items:
+                wid = str(item.get("workoutId", ""))
+                cal_date = item.get("date", "")
+                if wid and cal_date:
+                    calendar_scheduled.add((wid, cal_date))
+        except Exception as exc:
+            print(f"{YELLOW}Warning: could not fetch calendar for {year}-{month:02d}: {exc}{RESET}")
+
+    print(f"{DIM}Fetched calendar items for {len(months_to_fetch)} month(s): {len(calendar_scheduled)} scheduled entries{RESET}")
+
     # ── 4. Build lookup maps ─────────────────────────────────────────────
     garmin_by_id: dict[str, dict] = {}
     for gw in garmin_workouts:
@@ -130,7 +153,8 @@ def main() -> None:
     matched_garmin_ids: set[str] = set()
 
     # ── 5. Build output rows ─────────────────────────────────────────────
-    rows: list[tuple[str, str, str, str, str, str]] = []  # name, date, status, garmin_id, where, colour
+    # (name, date, status, garmin_id, where, cal, colour)
+    rows: list[tuple[str, str, str, str, str, str, str]] = []
 
     for sw, template in db_rows:
         name = template.name if template else "(no template)"
@@ -149,14 +173,22 @@ def main() -> None:
             where = f"ONLY DB ({status})"
             colour = YELLOW
 
-        rows.append((name, date_str, status, gid, where, colour))
+        # Calendar check: is (workoutId, date) on the Garmin calendar?
+        if sw.garmin_workout_id and (sw.garmin_workout_id, date_str) in calendar_scheduled:
+            cal = f"{GREEN}CAL ✓{RESET}"
+        elif sw.garmin_workout_id:
+            cal = f"{RED}CAL ✗{RESET}"
+        else:
+            cal = f"{DIM}—{RESET}"
+
+        rows.append((name, date_str, status, gid, where, cal, colour))
 
     # Garmin-only workouts (not tracked in our DB)
     db_garmin_ids = {sw.garmin_workout_id for sw, _ in db_rows if sw.garmin_workout_id}
     for gw_id, gw in garmin_by_id.items():
         if gw_id not in db_garmin_ids:
             name = gw.get("workoutName", "(unknown)")
-            rows.append((name, "—", "—", gw_id, "ONLY GARMIN", CYAN))
+            rows.append((name, "—", "—", gw_id, "ONLY GARMIN", f"{DIM}—{RESET}", CYAN))
 
     # ── 6. Print table ───────────────────────────────────────────────────
     if not rows:
@@ -164,7 +196,7 @@ def main() -> None:
         return
 
     print(f"\n{BOLD}Garmin vs DB Comparison — user {args.user_id} ({len(rows)} workouts){RESET}\n")
-    header = f"{'Name':<30} {'Date':<12} {'Status':<10} {'Garmin ID':<14} {'Where'}"
+    header = f"{'Name':<30} {'Date':<12} {'Status':<10} {'Garmin ID':<14} {'Cal':<8} {'Where'}"
     print(header)
     print("─" * len(header.expandtabs()))
 
@@ -176,7 +208,7 @@ def main() -> None:
         p = priority.get(where, 2)
         return (p, row[1])  # then by date
 
-    for name, date_str, status, gid, where, colour in sorted(rows, key=sort_key):
+    for name, date_str, status, gid, where, cal, colour in sorted(rows, key=sort_key):
         truncated_name = name[:28] + ".." if len(name) > 30 else name
         truncated_gid = gid[:12] + ".." if len(gid) > 14 else gid
         print(
@@ -184,12 +216,14 @@ def main() -> None:
             f"{date_str:<12} "
             f"{status:<10} "
             f"{truncated_gid:<14} "
+            f"{cal:<8} "
             f"{colour}{where}{RESET}"
         )
 
     # ── 7. Summary ───────────────────────────────────────────────────────
     counts: dict[str, int] = {}
-    for *_, where, _ in rows:
+    for row in rows:
+        where = row[4]
         base = where.split(" (")[0] if "(" in where else where
         counts[base] = counts.get(base, 0) + 1
 
