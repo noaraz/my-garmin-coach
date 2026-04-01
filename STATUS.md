@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-01 — Calendar-Based Sync Reconciliation + Duplicate Cleanup
+Last updated: 2026-04-01 — v1.6.0 Release
+
+## v1.6.0 Release ✅
+
+| Task | Status |
+|------|--------|
+| Pre-flight checks (main, clean, Neon alembic at head) | ✅ |
+| Full test suite (585 backend + 310 frontend, 82% coverage) | ✅ |
+| Version bump (frontend/package.json → 1.6.0) | ✅ |
+| Tag + push | ⬜ |
+
+---
 
 ## Calendar-Based Sync Reconciliation ✅
 
