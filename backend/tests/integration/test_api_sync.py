@@ -492,6 +492,14 @@ class TestSyncAll:
             garmin_workout_id="active-garmin-id",
             completed=False,
         )
+        # Garmin list includes this workout — reconciliation should not touch it
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": "active-garmin-id", "workoutName": "Some Workout"}
+        ]
+        # Calendar shows the workout as scheduled
+        mock_sync_service.get_calendar_items.return_value = [
+            {"workoutId": "active-garmin-id", "date": "2026-03-10"}
+        ]
         mock_sync_service.sync_workout.return_value = ("garmin-skip", "sched-skip")
 
         # Act
@@ -709,11 +717,180 @@ class TestSyncAll:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.get_workouts.side_effect = RuntimeError("429")
+        # Calendar shows the workout as scheduled — reconciliation won't touch it
+        mock_sync_service.get_calendar_items.return_value = [
+            {"workoutId": "stale-id", "date": "2026-03-10"}
+        ]
 
         response = await client.post("/api/v1/sync/all")
 
         assert response.status_code == 200
         assert response.json()["synced"] == 0  # synced workouts not re-pushed
+
+    async def test_sync_all_reschedules_when_template_exists_but_not_on_calendar(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workout template on Garmin but not scheduled → re-schedule only."""
+        gid = "template-exists-123"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=gid
+        )
+        # Template exists on Garmin
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": gid, "workoutName": "My Workout"}
+        ]
+        # But NOT on the calendar
+        mock_sync_service.get_calendar_items.return_value = []
+        mock_sync_service.reschedule_workout.return_value = "sched-new"
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["rescheduled"] == 1
+        assert data["reconciled"] == 0  # re-scheduled, not re-pushed
+        assert data["synced"] == 0
+        mock_sync_service.reschedule_workout.assert_called_once_with(gid, str(sw.date))
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"  # stays synced
+        assert sw.garmin_workout_id == gid  # ID unchanged
+
+    async def test_sync_all_repushes_when_template_also_missing(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Template gone + not on calendar → full re-push."""
+        stale_id = "gone-from-garmin"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=stale_id
+        )
+        # Template NOT on Garmin
+        mock_sync_service.get_workouts.return_value = []
+        # NOT on calendar either
+        mock_sync_service.get_calendar_items.return_value = []
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reconciled"] == 1
+        assert data["synced"] == 1  # re-pushed (mock returns "garmin-abc-123")
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "garmin-abc-123"
+
+    async def test_sync_all_no_reconciliation_when_on_calendar(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Workout on Garmin calendar → no action."""
+        valid_id = "valid-garmin-456"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=valid_id
+        )
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": valid_id, "workoutName": "My Workout"}
+        ]
+        # ON the calendar with matching workoutId + date
+        mock_sync_service.get_calendar_items.return_value = [
+            {"workoutId": valid_id, "date": str(sw.date), "title": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["rescheduled"] == 0
+        assert data["reconciled"] == 0
+        assert data["synced"] == 0
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == valid_id
+
+    async def test_sync_all_reconciliation_skips_completed_workouts(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Completed workouts are excluded from reconciliation."""
+        await _make_scheduled_workout(
+            session,
+            sync_status="synced",
+            garmin_workout_id="stale-completed",
+            completed=True,
+        )
+        mock_sync_service.get_workouts.return_value = []
+        mock_sync_service.get_calendar_items.return_value = []
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        assert response.json()["reconciled"] == 0
+        assert response.json()["rescheduled"] == 0
+
+    async def test_sync_all_reschedule_fallback_to_repush_on_error(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """When reschedule_workout raises, fall back to re-push."""
+        gid = "reschedule-fails-123"
+        sw = await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=gid
+        )
+        # Template exists on Garmin
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": gid, "workoutName": "My Workout"}
+        ]
+        # NOT on calendar
+        mock_sync_service.get_calendar_items.return_value = []
+        # Reschedule fails
+        mock_sync_service.reschedule_workout.side_effect = RuntimeError("Garmin error")
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reconciled"] == 1  # fell back to re-push path
+        assert data["synced"] == 1  # re-pushed by the push loop
+        await session.refresh(sw)
+        assert sw.sync_status == "synced"
+        assert sw.garmin_workout_id == "garmin-abc-123"
+
+    async def test_sync_all_removes_duplicate_calendar_entries(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        mock_sync_service: MagicMock,
+    ) -> None:
+        """Duplicate (workoutId, date) calendar entries → extras removed."""
+        gid = "dup-workout-123"
+        await _make_scheduled_workout(
+            session, sync_status="synced", garmin_workout_id=gid
+        )
+        # Calendar has the workout scheduled TWICE (same workoutId + date)
+        mock_sync_service.get_calendar_items.return_value = [
+            {"id": 1000, "workoutId": gid, "date": "2026-03-10"},
+            {"id": 2000, "workoutId": gid, "date": "2026-03-10"},
+        ]
+        mock_sync_service.get_workouts.return_value = [
+            {"workoutId": gid, "workoutName": "My Workout"}
+        ]
+
+        response = await client.post("/api/v1/sync/all")
+
+        assert response.status_code == 200
+        # Should have called unschedule_workout with the extra entry's id
+        mock_sync_service.unschedule_workout.assert_called_once_with("2000")
 
 
 # ---------------------------------------------------------------------------

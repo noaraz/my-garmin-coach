@@ -171,6 +171,10 @@ async def connect_garmin(
     cache.invalidate(f"profile:{current_user.id}")
     client_cache.invalidate(current_user.id)
 
+    # Clear exchange cooldown — fresh tokens don't need the 30-min pause
+    from src.api.routers.sync import clear_exchange_cooldown
+    clear_exchange_cooldown(current_user.id)
+
     logger.info("Garmin connected successfully for user_id=%s", current_user.id)
     return GarminStatusResponse(connected=True, credentials_stored=True)
 

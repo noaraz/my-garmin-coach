@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -50,6 +52,18 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    # Configure app-level logging.  logging.basicConfig(force=True) is
+    # unreliable because uvicorn reconfigures the root logger *after*
+    # create_app() runs (at import time).  Instead, attach a handler
+    # directly to the "src" logger so all src.* loggers propagate to it.
+    _app_logger = logging.getLogger("src")
+    if not _app_logger.handlers:
+        _handler = logging.StreamHandler(sys.stdout)
+        _handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+        )
+        _app_logger.addHandler(_handler)
+    _app_logger.setLevel(logging.INFO)
     settings = get_settings()
     application = FastAPI(title="GarminCoach", lifespan=lifespan)
 

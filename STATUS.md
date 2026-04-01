@@ -1,6 +1,28 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-03-30 — Refresh Token Rotation + Auto-Login
+Last updated: 2026-04-01 — Calendar-Based Sync Reconciliation + Duplicate Cleanup
+
+## Calendar-Based Sync Reconciliation ✅
+
+| Task | Status |
+|------|--------|
+| Fix Render logging (app logger not visible) | ✅ |
+| `get_calendar_items` through adapter → sync_service → orchestrator | ✅ |
+| `find_unscheduled_workouts` in `dedup.py` (TDD, 6 unit tests) | ✅ |
+| Calendar-based reconciliation with re-schedule path in `sync_all` | ✅ |
+| `rescheduled` field in `SyncAllResponse` + frontend `types.ts` | ✅ |
+| Integration tests updated (38/38 pass) | ✅ |
+| Calendar column (`CAL ✓` / `CAL ✗`) in compare script | ✅ |
+| Fix: Garmin calendar API uses 0-indexed months | ✅ |
+| `unschedule_workout` through all 3 layers | ✅ |
+| `find_duplicate_calendar_entries` in `dedup.py` (TDD, 7 unit tests) | ✅ |
+| Duplicate calendar entry cleanup in `sync_all` | ✅ |
+| Full test suite: 576 backend + 310 frontend pass, 82% coverage | ✅ |
+| Docs wrap-up | ✅ |
+
+Supersedes template-based reconciliation from 2026-03-31.
+
+---
 
 ## v1.6.0 — Refresh Token Rotation + Auto-Login ✅
 

@@ -340,8 +340,34 @@ Existing users who connected to Garmin before the auto-reconnect feature was dep
 
 **GarminStatusContext**: Extended with `credentialsStored: boolean | null` alongside `garminConnected`.
 
+## Sync-All Reconciliation — Calendar-Based (updated 2026-04-01)
+
+**Problem**: Workouts marked `sync_status="synced"` are never re-checked. If a Garmin workout is externally deleted or unscheduled (e.g. Garmin Connect UI, app glitch, API failure), Sync All has no effect — the workout is stuck as "synced" forever.
+
+**Fix**: Calendar-based reconciliation using `GET /calendar-service/year/{year}/month/{month}`, which returns `calendarItems` with `{workoutId, date, title}`. Compares `(workoutId, date)` pairs from DB vs Garmin calendar.
+
+**Two reconciliation paths**:
+1. **Template exists on Garmin but not scheduled on correct date** → `reschedule_workout()` (cheap API call, no full re-push needed)
+2. **Template also gone from Garmin** → mark as `sync_status="modified"` for full re-push by the existing push loop
+
+**Implementation**:
+- Pure function: `find_unscheduled_workouts()` in `dedup.py` — compares DB `(garmin_workout_id, date)` pairs against calendar items
+- `find_missing_from_garmin()` was removed (superseded by calendar-based approach)
+- Placement: between `garmin_workouts` fetch and `get_by_status` push loop in `sync_all`
+- Guard: only runs when calendar fetch succeeds (skip on API failure)
+- Completed workouts excluded — they don't need re-push (already paired with activity)
+- `rescheduled: int` field added to `SyncAllResponse`
+- Log: `"Reconciliation: %d workouts rescheduled, %d re-queued for user %s"`
+
+**Calendar endpoint**: `/calendar-service/year/{year}/month/{month}` works reliably. **Garmin uses 0-indexed months** (Jan=0, Dec=11) — the adapter converts from Python's 1-indexed `date.month` internally. The old `/workout-service/schedule/{id}` GET always returns 404 — do not use for reads.
+
+**Duplicate calendar cleanup**: `sync_all` detects duplicate `(workoutId, date)` pairs on the Garmin calendar (caused by double-scheduling) and removes extras via `DELETE /workout-service/schedule/{schedule_id}`. Each calendar item has a unique `id` (the schedule entry ID). Pure function: `find_duplicate_calendar_entries()` in `dedup.py`. Runs before the unscheduled check.
+
+**`unschedule_workout(schedule_id)`**: Propagated through all 3 layers (adapter → sync_service → orchestrator). Calls `DELETE /workout-service/schedule/{id}` to remove a single calendar entry without deleting the workout template.
+
 ## Gotchas
 
+- **New facade methods need explicit integration test mocks**: When adding a method to the 3-layer facade (adapter → sync_service → orchestrator), `MagicMock` auto-creates it as a new `MagicMock` (truthy, iterable as empty). Tests that don't explicitly mock the new method silently pass with wrong behavior. Grep for `mock_sync_service` and add `.return_value` for every test that exercises `sync_all`.
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new
   OAuth2 token in memory only (`_garth_home` unset). Without persisting it, every sync loads the
   same expired token from DB and triggers a new exchange at
@@ -353,9 +379,9 @@ Existing users who connected to Garmin before the auto-reconnect feature was dep
   When exchange FAILS (429), auto-reconnect is needed — see above.
 - `GarminAdapter.dump_token() -> str` — returns `garth.dumps()` JSON. Use after any sync to
   capture the in-memory (potentially refreshed) token state for DB persistence.
-- **Calendar reconciliation is not feasible**: Garmin's `GET /workout-service/schedule/{id}` always
-  returns 404 for schedule entry IDs. Do not add reconciliation logic that reads back calendar entries —
-  use the orphan-prevention approach in `_sync_and_persist` instead.
+- **Calendar read-back via calendar-service**: `GET /calendar-service/year/{year}/month/{month}` returns
+  `calendarItems` with `{workoutId, date, title}` — used for reconciliation. The old
+  `GET /workout-service/schedule/{id}` always returns 404 — do not use that endpoint.
 - **Pace format**: Garmin uses m/s, not sec/km. Always convert.
 - **Repeat nesting**: One level only. No repeats inside repeats.
 - **50-step limit**: Max ~50 steps including expanded repeats. Validate.

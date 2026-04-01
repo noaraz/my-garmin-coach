@@ -64,6 +64,10 @@ class SyncOrchestrator:
         """Fetch all planned workouts from Garmin Connect."""
         return self._sync_service.get_workouts()
 
+    def get_calendar_items(self, year: int, month: int) -> list[dict[str, Any]]:
+        """Fetch scheduled calendar items for a given month."""
+        return self._sync_service.get_calendar_items(year, month)
+
     def dump_token(self) -> str:
         """Return the current garth token state as a JSON string."""
         return self._sync_service.dump_token()
@@ -71,6 +75,10 @@ class SyncOrchestrator:
     def delete_workout(self, garmin_workout_id: str) -> None:
         """Permanently remove a workout from Garmin Connect."""
         self._sync_service.delete_workout(garmin_workout_id)
+
+    def unschedule_workout(self, schedule_id: str) -> None:
+        """Remove a single calendar schedule entry without deleting the template."""
+        self._sync_service.unschedule_workout(schedule_id)
 
     def reschedule_workout(self, garmin_workout_id: str, date: str) -> str | None:
         """Schedule an existing Garmin workout template on a new date.

@@ -40,6 +40,15 @@ class GarminAdapter:
         url = f"/workout-service/workout/{workout_id}"
         self._client.garth.delete("connectapi", url, api=True)
 
+    def unschedule_workout(self, schedule_id: str) -> None:
+        """Remove a single calendar schedule entry from Garmin Connect.
+
+        Uses ``DELETE /workout-service/schedule/{schedule_id}`` to remove
+        one calendar entry without deleting the workout template itself.
+        """
+        url = f"/workout-service/schedule/{schedule_id}"
+        self._client.garth.delete("connectapi", url, api=True)
+
     def get_activities_by_date(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """Fetch activities from Garmin within a date range."""
         return self._client.get_activities_by_date(start_date, end_date)
@@ -51,6 +60,22 @@ class GarminAdapter:
         ``workoutId`` and ``workoutName``.
         """
         return self._client.get_workouts()
+
+    def get_calendar_items(self, year: int, month: int) -> list[dict[str, Any]]:
+        """Fetch scheduled calendar items for a given month from Garmin.
+
+        Calls ``/calendar-service/year/{year}/month/{month}`` and returns
+        the ``calendarItems`` list.  Each item has at minimum ``workoutId``,
+        ``date`` (YYYY-MM-DD), and ``title``.
+
+        **Important**: Garmin uses 0-indexed months (Jan=0, Dec=11).
+        Callers pass 1-indexed months (Python ``date.month``); this method
+        converts internally.
+        """
+        garmin_month = month - 1  # Garmin calendar API uses 0-indexed months
+        path = f"/calendar-service/year/{year}/month/{garmin_month}"
+        result = self._client.connectapi(path)
+        return result.get("calendarItems", []) if isinstance(result, dict) else []
 
     def dump_token(self) -> str:
         """Return the current garth token state as JSON.
