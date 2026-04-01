@@ -59,23 +59,34 @@ def find_orphaned_garmin_workouts(
     return orphans
 
 
-def find_missing_from_garmin(
-    db_garmin_ids: set[str],
-    garmin_workouts: list[dict[str, Any]],
-) -> set[str]:
-    """Return DB garmin_workout_ids that no longer exist on Garmin.
+def find_unscheduled_workouts(
+    db_workouts: list[dict[str, str]],
+    calendar_items: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Return DB workouts not scheduled on the Garmin calendar.
 
-    Compares the set of IDs our DB thinks are synced against the actual
-    Garmin workout list.  Any DB ID not found on Garmin is returned —
-    these workouts were externally deleted and need re-pushing.
+    Compares ``(garmin_workout_id, date)`` pairs from our DB against
+    ``(workoutId, date)`` pairs from the Garmin calendar endpoint.
+    A workout is "unscheduled" if its (ID, date) pair is not on the calendar.
 
     Args:
-        db_garmin_ids: Set of garmin_workout_id values from ScheduledWorkouts
-            with sync_status="synced".
-        garmin_workouts: Raw list from Garmin ``get_workouts()`` API.
+        db_workouts: List of dicts with ``garmin_workout_id`` (str) and
+            ``date`` (str YYYY-MM-DD) from ScheduledWorkouts with
+            sync_status="synced".
+        calendar_items: Raw list from Garmin
+            ``/calendar-service/year/{y}/month/{m}`` ``calendarItems``.
 
     Returns:
-        Set of garmin_workout_id strings missing from Garmin.
+        Subset of *db_workouts* not found on the Garmin calendar.
     """
-    garmin_ids = {str(gw.get("workoutId", "")) for gw in garmin_workouts}
-    return db_garmin_ids - garmin_ids
+    scheduled: set[tuple[str, str]] = set()
+    for item in calendar_items:
+        wid = str(item.get("workoutId", ""))
+        date = item.get("date", "")
+        if wid and date:
+            scheduled.add((wid, date))
+
+    return [
+        w for w in db_workouts
+        if (w["garmin_workout_id"], w["date"]) not in scheduled
+    ]

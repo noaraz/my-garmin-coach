@@ -1,7 +1,11 @@
 """Tests for Garmin workout deduplication logic."""
 from __future__ import annotations
 
-from src.garmin.dedup import find_matching_garmin_workout, find_missing_from_garmin, find_orphaned_garmin_workouts
+from src.garmin.dedup import (
+    find_matching_garmin_workout,
+    find_orphaned_garmin_workouts,
+    find_unscheduled_workouts,
+)
 
 
 class TestFindMatchingGarminWorkout:
@@ -112,52 +116,66 @@ class TestFindOrphanedGarminWorkouts:
         assert result == ["gw-111"]
 
 
-class TestFindMissingFromGarmin:
-    def test_returns_ids_not_on_garmin(self) -> None:
-        """DB IDs not found in Garmin workout list are returned."""
-        garmin_workouts = [
-            {"workoutId": "aaa", "workoutName": "Run 1"},
-            {"workoutId": "bbb", "workoutName": "Run 2"},
+class TestFindUnscheduledWorkouts:
+    """Tests for find_unscheduled_workouts — calendar-based reconciliation."""
+
+    def test_all_scheduled_returns_empty(self) -> None:
+        db_workouts = [
+            {"garmin_workout_id": "100", "date": "2026-04-01"},
+            {"garmin_workout_id": "200", "date": "2026-04-03"},
         ]
-        db_garmin_ids = {"aaa", "bbb", "ccc", "ddd"}
-
-        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
-
-        assert result == {"ccc", "ddd"}
-
-    def test_returns_empty_when_all_present(self) -> None:
-        """When every DB ID exists on Garmin, nothing is missing."""
-        garmin_workouts = [
-            {"workoutId": "aaa", "workoutName": "Run 1"},
-            {"workoutId": "bbb", "workoutName": "Run 2"},
+        calendar_items = [
+            {"workoutId": 100, "date": "2026-04-01"},
+            {"workoutId": 200, "date": "2026-04-03"},
         ]
-        db_garmin_ids = {"aaa", "bbb"}
+        result = find_unscheduled_workouts(db_workouts, calendar_items)
+        assert result == []
 
-        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
+    def test_missing_from_calendar_returns_unscheduled(self) -> None:
+        db_workouts = [
+            {"garmin_workout_id": "100", "date": "2026-04-01"},
+            {"garmin_workout_id": "200", "date": "2026-04-03"},
+        ]
+        calendar_items = [
+            {"workoutId": 100, "date": "2026-04-01"},
+        ]
+        result = find_unscheduled_workouts(db_workouts, calendar_items)
+        assert len(result) == 1
+        assert result[0]["garmin_workout_id"] == "200"
+        assert result[0]["date"] == "2026-04-03"
 
-        assert result == set()
+    def test_different_date_counts_as_unscheduled(self) -> None:
+        """Same workoutId but different date = not a match."""
+        db_workouts = [
+            {"garmin_workout_id": "100", "date": "2026-04-01"},
+        ]
+        calendar_items = [
+            {"workoutId": 100, "date": "2026-04-05"},
+        ]
+        result = find_unscheduled_workouts(db_workouts, calendar_items)
+        assert len(result) == 1
 
-    def test_returns_all_when_garmin_list_empty(self) -> None:
-        """When Garmin has no workouts, all DB IDs are missing."""
-        db_garmin_ids = {"aaa", "bbb"}
+    def test_empty_calendar_returns_all(self) -> None:
+        db_workouts = [
+            {"garmin_workout_id": "100", "date": "2026-04-01"},
+        ]
+        result = find_unscheduled_workouts(db_workouts, [])
+        assert len(result) == 1
 
-        result = find_missing_from_garmin(db_garmin_ids, [])
+    def test_empty_db_returns_empty(self) -> None:
+        calendar_items = [
+            {"workoutId": 100, "date": "2026-04-01"},
+        ]
+        result = find_unscheduled_workouts([], calendar_items)
+        assert result == []
 
-        assert result == {"aaa", "bbb"}
-
-    def test_returns_empty_when_db_ids_empty(self) -> None:
-        """When DB has no synced IDs, nothing is missing."""
-        garmin_workouts = [{"workoutId": "aaa", "workoutName": "Run 1"}]
-
-        result = find_missing_from_garmin(set(), garmin_workouts)
-
-        assert result == set()
-
-    def test_coerces_workout_id_to_string(self) -> None:
-        """Garmin workoutId may be int — must compare as string."""
-        garmin_workouts = [{"workoutId": 12345, "workoutName": "Run"}]
-        db_garmin_ids = {"12345", "99999"}
-
-        result = find_missing_from_garmin(db_garmin_ids, garmin_workouts)
-
-        assert result == {"99999"}
+    def test_workoutId_string_vs_int_handled(self) -> None:
+        """Garmin returns workoutId as int, DB stores as string."""
+        db_workouts = [
+            {"garmin_workout_id": "100", "date": "2026-04-01"},
+        ]
+        calendar_items = [
+            {"workoutId": 100, "date": "2026-04-01"},
+        ]
+        result = find_unscheduled_workouts(db_workouts, calendar_items)
+        assert result == []
