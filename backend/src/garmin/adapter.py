@@ -52,6 +52,17 @@ class GarminAdapter:
         """
         return self._client.get_workouts()
 
+    def get_calendar_items(self, year: int, month: int) -> list[dict[str, Any]]:
+        """Fetch scheduled calendar items for a given month from Garmin.
+
+        Calls ``/calendar-service/year/{year}/month/{month}`` and returns
+        the ``calendarItems`` list.  Each item has at minimum ``workoutId``,
+        ``date`` (YYYY-MM-DD), and ``title``.
+        """
+        path = f"/calendar-service/year/{year}/month/{month}"
+        result = self._client.connectapi(path)
+        return result.get("calendarItems", []) if isinstance(result, dict) else []
+
     def dump_token(self) -> str:
         """Return the current garth token state as JSON.
 

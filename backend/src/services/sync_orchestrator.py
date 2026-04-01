@@ -64,6 +64,10 @@ class SyncOrchestrator:
         """Fetch all planned workouts from Garmin Connect."""
         return self._sync_service.get_workouts()
 
+    def get_calendar_items(self, year: int, month: int) -> list[dict[str, Any]]:
+        """Fetch scheduled calendar items for a given month."""
+        return self._sync_service.get_calendar_items(year, month)
+
     def dump_token(self) -> str:
         """Return the current garth token state as a JSON string."""
         return self._sync_service.dump_token()
