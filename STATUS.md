@@ -9,7 +9,7 @@ Last updated: 2026-04-01 — v1.6.0 Release
 | Pre-flight checks (main, clean, Neon alembic at head) | ✅ |
 | Full test suite (585 backend + 310 frontend, 82% coverage) | ✅ |
 | Version bump (frontend/package.json → 1.6.0) | ✅ |
-| Tag + push | ⬜ |
+| Tag + push | ✅ |
 
 ---
 
