@@ -367,6 +367,7 @@ Existing users who connected to Garmin before the auto-reconnect feature was dep
 
 ## Gotchas
 
+- **New facade methods need explicit integration test mocks**: When adding a method to the 3-layer facade (adapter → sync_service → orchestrator), `MagicMock` auto-creates it as a new `MagicMock` (truthy, iterable as empty). Tests that don't explicitly mock the new method silently pass with wrong behavior. Grep for `mock_sync_service` and add `.return_value` for every test that exercises `sync_all`.
 - **OAuth2 token refresh not persisted → 429 storm**: garth's `refresh_oauth2()` stores the new
   OAuth2 token in memory only (`_garth_home` unset). Without persisting it, every sync loads the
   same expired token from DB and triggers a new exchange at
