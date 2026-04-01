@@ -40,6 +40,15 @@ class GarminAdapter:
         url = f"/workout-service/workout/{workout_id}"
         self._client.garth.delete("connectapi", url, api=True)
 
+    def unschedule_workout(self, schedule_id: str) -> None:
+        """Remove a single calendar schedule entry from Garmin Connect.
+
+        Uses ``DELETE /workout-service/schedule/{schedule_id}`` to remove
+        one calendar entry without deleting the workout template itself.
+        """
+        url = f"/workout-service/schedule/{schedule_id}"
+        self._client.garth.delete("connectapi", url, api=True)
+
     def get_activities_by_date(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """Fetch activities from Garmin within a date range."""
         return self._client.get_activities_by_date(start_date, end_date)

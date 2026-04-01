@@ -90,3 +90,42 @@ def find_unscheduled_workouts(
         w for w in db_workouts
         if (w["garmin_workout_id"], w["date"]) not in scheduled
     ]
+
+
+def find_duplicate_calendar_entries(
+    calendar_items: list[dict[str, Any]],
+) -> list[str]:
+    """Find extra schedule entry IDs for duplicated (workoutId, date) pairs.
+
+    When the same workout is scheduled multiple times on the same date,
+    keeps the entry with the lowest ``id`` (the original) and returns
+    the ``id`` values of the extras to be unscheduled.
+
+    Args:
+        calendar_items: Raw list from Garmin calendar endpoint.  Each item
+            must have ``id``, ``workoutId``, and ``date``.
+
+    Returns:
+        List of schedule entry ID strings safe to delete via
+        ``DELETE /workout-service/schedule/{id}``.
+    """
+    # Group by (workoutId, date)
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in calendar_items:
+        wid = str(item.get("workoutId", ""))
+        date = item.get("date", "")
+        entry_id = item.get("id")
+        if not wid or not date or entry_id is None:
+            continue
+        key = (wid, date)
+        groups.setdefault(key, []).append(item)
+
+    extras: list[str] = []
+    for entries in groups.values():
+        if len(entries) <= 1:
+            continue
+        # Sort by id ascending — keep the lowest, delete the rest
+        entries.sort(key=lambda e: e["id"])
+        for entry in entries[1:]:
+            extras.append(str(entry["id"]))
+    return extras

@@ -91,6 +91,10 @@ class GarminSyncService:
         """Permanently remove a workout from Garmin Connect."""
         self._client.delete_workout(garmin_workout_id)
 
+    def unschedule_workout(self, schedule_id: str) -> None:
+        """Remove a single calendar schedule entry without deleting the template."""
+        self._client.unschedule_workout(schedule_id)
+
     def get_workouts(self) -> list[dict[str, Any]]:
         """Fetch all planned workouts from Garmin Connect."""
         return self._client.get_workouts()

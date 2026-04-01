@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from src.garmin.dedup import (
+    find_duplicate_calendar_entries,
     find_matching_garmin_workout,
     find_orphaned_garmin_workouts,
     find_unscheduled_workouts,
@@ -179,3 +180,55 @@ class TestFindUnscheduledWorkouts:
         ]
         result = find_unscheduled_workouts(db_workouts, calendar_items)
         assert result == []
+
+
+class TestFindDuplicateCalendarEntries:
+    """Tests for find_duplicate_calendar_entries — calendar dedup cleanup."""
+
+    def test_no_duplicates_returns_empty(self) -> None:
+        items = [
+            {"id": 100, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 200, "workoutId": "w2", "date": "2026-04-03"},
+        ]
+        assert find_duplicate_calendar_entries(items) == []
+
+    def test_duplicate_pair_returns_extra_id(self) -> None:
+        items = [
+            {"id": 100, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 200, "workoutId": "w1", "date": "2026-04-01"},
+        ]
+        result = find_duplicate_calendar_entries(items)
+        assert result == ["200"]
+
+    def test_keeps_lowest_id(self) -> None:
+        items = [
+            {"id": 300, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 100, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 200, "workoutId": "w1", "date": "2026-04-01"},
+        ]
+        result = find_duplicate_calendar_entries(items)
+        assert sorted(result) == ["200", "300"]
+
+    def test_different_dates_not_duplicates(self) -> None:
+        items = [
+            {"id": 100, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 200, "workoutId": "w1", "date": "2026-04-03"},
+        ]
+        assert find_duplicate_calendar_entries(items) == []
+
+    def test_different_workouts_same_date_not_duplicates(self) -> None:
+        items = [
+            {"id": 100, "workoutId": "w1", "date": "2026-04-01"},
+            {"id": 200, "workoutId": "w2", "date": "2026-04-01"},
+        ]
+        assert find_duplicate_calendar_entries(items) == []
+
+    def test_empty_list_returns_empty(self) -> None:
+        assert find_duplicate_calendar_entries([]) == []
+
+    def test_items_without_workoutId_are_skipped(self) -> None:
+        items = [
+            {"id": 100, "date": "2026-04-01"},  # no workoutId (e.g. activity)
+            {"id": 200, "date": "2026-04-01"},
+        ]
+        assert find_duplicate_calendar_entries(items) == []

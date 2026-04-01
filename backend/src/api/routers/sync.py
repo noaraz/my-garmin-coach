@@ -613,7 +613,29 @@ async def sync_all(
                     current_user.id,
                 )
 
-                from src.garmin.dedup import find_unscheduled_workouts
+                # ── Duplicate cleanup: remove extra calendar entries ──
+                from src.garmin.dedup import (
+                    find_duplicate_calendar_entries,
+                    find_unscheduled_workouts,
+                )
+
+                duplicate_schedule_ids = find_duplicate_calendar_entries(calendar_items)
+                if duplicate_schedule_ids:
+                    logger.info(
+                        "Found %d duplicate calendar entries for user %s — cleaning up",
+                        len(duplicate_schedule_ids),
+                        current_user.id,
+                    )
+                    for sched_id in duplicate_schedule_ids:
+                        try:
+                            sync_service.unschedule_workout(sched_id)
+                            logger.info("Removed duplicate calendar entry %s", sched_id)
+                        except Exception as dup_exc:  # noqa: BLE001
+                            logger.warning(
+                                "Failed to remove duplicate calendar entry %s: %s",
+                                sched_id,
+                                type(dup_exc).__name__,
+                            )
 
                 db_workouts_for_check = [
                     {"garmin_workout_id": sw.garmin_workout_id, "date": str(sw.date)}

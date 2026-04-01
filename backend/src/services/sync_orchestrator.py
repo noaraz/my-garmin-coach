@@ -76,6 +76,10 @@ class SyncOrchestrator:
         """Permanently remove a workout from Garmin Connect."""
         self._sync_service.delete_workout(garmin_workout_id)
 
+    def unschedule_workout(self, schedule_id: str) -> None:
+        """Remove a single calendar schedule entry without deleting the template."""
+        self._sync_service.unschedule_workout(schedule_id)
+
     def reschedule_workout(self, garmin_workout_id: str, date: str) -> str | None:
         """Schedule an existing Garmin workout template on a new date.
 
