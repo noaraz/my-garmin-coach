@@ -187,11 +187,9 @@ describe('AuthContext', () => {
       </AuthProvider>
     )
 
-    // Should call tryRefreshToken
-    await waitFor(() => expect(mockTryRefreshToken).toHaveBeenCalled())
-
-    // Should show "no user" after failed refresh
-    expect(screen.getByText('no user')).toBeInTheDocument()
+    // Should show "no user" after failed refresh (waitFor covers both the call and the re-render)
+    await waitFor(() => expect(screen.getByText('no user')).toBeInTheDocument())
+    expect(mockTryRefreshToken).toHaveBeenCalled()
     expect(localStorage.getItem('access_token')).toBeNull()
   })
 })
