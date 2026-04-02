@@ -3,8 +3,8 @@ import { generateDescription, generateWorkoutDetails } from '../utils/generateDe
 import type { WorkoutStep, PaceZone } from '../api/types'
 
 const PACE_ZONES: PaceZone[] = [
-  { id: 1, zone_number: 1, lower_pace: 480, upper_pace: 540, user_id: 1 },
-  { id: 2, zone_number: 4, lower_pace: 300, upper_pace: 330, user_id: 1 },
+  { id: 1, profile_id: 1, zone_number: 1, name: 'Recovery', lower_pace: 480, upper_pace: 540, calculation_method: 'daniels', pct_lower: 0, pct_upper: 0 },
+  { id: 2, profile_id: 1, zone_number: 4, name: 'Threshold', lower_pace: 300, upper_pace: 330, calculation_method: 'daniels', pct_lower: 0, pct_upper: 0 },
 ]
 
 describe('generateDescription', () => {
