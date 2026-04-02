@@ -23,6 +23,7 @@ function fmtDur(step: WorkoutStep & { duration_distance_m?: number }): string {
 
 // Zone label for description
 function zoneLabel(step: WorkoutStep): string {
+  if (step.target_type === 'open') return ''
   if (step.zone != null) {
     // HR zone gets a suffix; pace zone (or legacy CSV steps without target_type) just @ZN
     return step.target_type === 'hr_zone' ? `@Z${step.zone}(HR)` : `@Z${step.zone}`
@@ -106,9 +107,12 @@ function fmtDurVerbose(step: WorkoutStep): string {
 function stepDetails(step: WorkoutStep, paceZones: PaceZone[], indent = '  '): string {
   const name = STEP_NAMES[step.type] ?? step.type
   const dur = fmtDurVerbose(step)
-  const effectiveZone = step.zone ?? DEFAULT_ZONE[step.type] ?? 1
-  const paceRange = getPaceRange(effectiveZone, paceZones)
-  const paceStr = paceRange ? ` @ ${paceRange}` : ''
+  let paceStr = ''
+  if (step.target_type !== 'open') {
+    const effectiveZone = step.zone ?? DEFAULT_ZONE[step.type] ?? 1
+    const paceRange = getPaceRange(effectiveZone, paceZones)
+    paceStr = paceRange ? ` @ ${paceRange}` : ''
+  }
   let line = `${indent}${name}\n${indent}  ${dur}${paceStr}`
   if (step.target_type !== 'open' && step.zone != null) {
     line += `\n${indent}  Zone ${step.zone}`
