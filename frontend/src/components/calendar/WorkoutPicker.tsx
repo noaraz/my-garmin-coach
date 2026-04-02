@@ -10,6 +10,11 @@ interface WorkoutPickerProps {
 
 export function WorkoutPicker({ templates, onSchedule, onClose }: WorkoutPickerProps) {
   const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
+
+  const filtered = templates.filter(t =>
+    t.name.toLowerCase().includes(search.toLowerCase())
+  )
 
   return createPortal(
     <div
@@ -65,43 +70,77 @@ export function WorkoutPicker({ templates, onSchedule, onClose }: WorkoutPickerP
             ✕
           </button>
         </div>
+        <input
+          type="text"
+          aria-label="Search workouts"
+          placeholder="Search workouts…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          autoFocus
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            marginBottom: '12px',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            border: '1px solid var(--input-border)',
+            background: 'var(--input-bg)',
+            color: 'var(--text-primary)',
+            fontSize: '13px',
+            fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+            minHeight: '44px',
+            outline: 'none',
+          }}
+        />
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {templates.map(template => (
-            <li key={template.id}>
-              <button
-                onClick={() => { onSchedule(template.id); onClose() }}
-                onMouseEnter={() => setHoveredId(template.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '12px 16px',
-                  borderRadius: '6px',
-                  background: hoveredId === template.id ? 'var(--bg-surface-2)' : 'transparent',
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer',
-                  transition: 'background 0.1s',
-                }}
-              >
-                <div style={{
-                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  color: 'var(--text-primary)',
-                }}>{template.name}</div>
-                {template.sport_type && (
-                  <div style={{
-                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-                    fontSize: '11px',
-                    color: 'var(--text-muted)',
-                    marginTop: '2px',
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                  }}>{template.sport_type}</div>
-                )}
-              </button>
+          {filtered.length === 0 && search !== '' ? (
+            <li style={{
+              textAlign: 'center',
+              padding: '24px 0',
+              color: 'var(--text-muted)',
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              fontSize: '13px',
+            }}>
+              No workouts match your search
             </li>
-          ))}
+          ) : (
+            filtered.map(template => (
+              <li key={template.id}>
+                <button
+                  onClick={() => { onSchedule(template.id); onClose() }}
+                  onMouseEnter={() => setHoveredId(template.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    borderRadius: '6px',
+                    background: hoveredId === template.id ? 'var(--bg-surface-2)' : 'transparent',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  <div style={{
+                    fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    color: 'var(--text-primary)',
+                  }}>{template.name}</div>
+                  {template.sport_type && (
+                    <div style={{
+                      fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      marginTop: '2px',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                    }}>{template.sport_type}</div>
+                  )}
+                </button>
+              </li>
+            ))
+          )}
         </ul>
       </div>
     </div>,
