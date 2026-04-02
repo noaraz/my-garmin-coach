@@ -1,10 +1,19 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-02 — Calendar UX improvements in progress
+Last updated: 2026-04-02 — Calendar UX improvements complete
 
 ## In Progress
 
-- Calendar UX: persist view preference in localStorage; search bar in WorkoutPicker
+_(nothing)_
+
+---
+
+## Calendar UX Improvements ✅
+
+| Task | Status |
+|------|--------|
+| Persist month/week view preference in localStorage | ✅ |
+| Search bar in WorkoutPicker modal (name filter) | ✅ |
 
 ---
 
