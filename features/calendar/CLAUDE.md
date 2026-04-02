@@ -79,6 +79,20 @@ Design spec: `docs/superpowers/specs/2026-03-20-workout-detail-panel-design.md`
 - `weekStartsOn: 0` in `date-fns` = Sunday start. `1` = Monday.
 - The day-header array in `MonthView.tsx` is hardcoded — must be reordered alongside the `weekStartsOn` change.
 
+## View Preference Persistence (added 2026-04-02)
+
+- `view` state in `CalendarPage` (`'week' | 'month'`, default `'week'`) is persisted to `localStorage` under key `'calendar_view_preference'`.
+- On mount, read initial value from `localStorage.getItem('calendar_view_preference')` (fall back to `'week'` if absent or invalid).
+- On every toggle, write the new value with `localStorage.setItem('calendar_view_preference', newView)`.
+
+## WorkoutPicker Search Bar (added 2026-04-02)
+
+- `WorkoutPicker` modal has a name search bar (text input) at the top of the template list.
+- Filters the displayed templates client-side by case-insensitive substring match on `template.name`.
+- Search state is local to `WorkoutPicker` — reset to `''` each time the modal opens.
+
+Design spec: `docs/superpowers/specs/2026-04-02-calendar-ux-improvements-design.md`
+
 ## Reschedule & Sync (added 2026-03-24)
 
 - **Reschedule must mark sync_status=modified**: `CalendarService.reschedule()` sets `sync_status = "modified"` when `new_date != scheduled.date` and the workout was `"synced"`. Without this, `sync_all` (filters on `pending/modified/failed`) silently skips rescheduled workouts and returns `{synced:0}`. Notes-only and same-date reschedules leave status unchanged.

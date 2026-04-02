@@ -86,7 +86,7 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | 3 | Workout Resolver | `features/workout-resolver/` | zone-engine | ✅ |
 | 4 | Garmin Sync | `features/garmin-sync/` | workout-resolver | ✅ |
 | 5 | Database + API | `features/database-api/` | all above | ✅ |
-| 6 | Calendar | `features/calendar/` | database-api | ✅ |
+| 6 | Calendar | `features/calendar/` | database-api | ✅ (UX improvements: view persistence + WorkoutPicker search 🟡) |
 | 7 | Workout Builder | `features/workout-builder/` | database-api, calendar | ✅ |
 | 8 | Auth | `features/auth/` | database-api | ✅ |
 | — | Polish + Deploy | in infrastructure/ | all above | ✅ |
