@@ -87,6 +87,7 @@ beforeEach(() => {
   mockGetGarminStatus.mockReset()
   mockGetGarminStatus.mockResolvedValue({ connected: false, credentials_stored: false })
   sessionStorage.clear()
+  localStorage.clear()
   mockGetActivePlan.mockReset()
   mockGetActivePlan.mockResolvedValue(null)
   mockNavigate.mockReset()
@@ -401,5 +402,35 @@ describe('test_mobile_garmin_button_layout_stability', () => {
     const btn = await screen.findByRole('button', { name: /Garmin Connected/i })
     expect(btn).toBeInTheDocument()
     expect(btn).toHaveStyle({ visibility: 'visible' })
+  })
+})
+
+describe('view preference localStorage', () => {
+  it('test_defaults_to_week_when_storage_empty', async () => {
+    renderPage()
+    const weekBtn = screen.getByRole('button', { name: 'Week' })
+    expect(weekBtn).toBeInTheDocument()
+    expect(weekBtn.style.background).toBe('var(--text-primary)')
+  })
+
+  it('test_reads_month_preference_from_storage_on_mount', async () => {
+    localStorage.setItem('calendar_view_preference', 'month')
+    renderPage()
+    const monthBtn = screen.getByRole('button', { name: 'Month' })
+    expect(monthBtn.style.background).toBe('var(--text-primary)')
+  })
+
+  it('test_writes_preference_to_storage_on_toggle', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Month' }))
+    expect(localStorage.getItem('calendar_view_preference')).toBe('month')
+  })
+
+  it('test_falls_back_to_week_on_unknown_storage_value', async () => {
+    localStorage.setItem('calendar_view_preference', 'bogus')
+    renderPage()
+    const weekBtn = screen.getByRole('button', { name: 'Week' })
+    expect(weekBtn.style.background).toBe('var(--text-primary)')
   })
 })

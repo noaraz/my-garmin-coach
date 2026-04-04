@@ -22,7 +22,12 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { garminConnected, credentialsStored } = useGarminStatus()
-  const [view, setView] = useState<'week' | 'month'>('week')
+  const [view, setView] = useState<'week' | 'month'>(
+    () => {
+      const stored = localStorage.getItem('calendar_view_preference')
+      return stored === 'month' ? 'month' : 'week'
+    }
+  )
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date())
   const [templates, setTemplates] = useState<WorkoutTemplate[]>(propTemplates ?? [])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
@@ -394,7 +399,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
             {(['week', 'month'] as const).map((v, i) => (
               <button
                 key={v}
-                onClick={() => setView(v)}
+                onClick={() => {
+                  setView(v)
+                  localStorage.setItem('calendar_view_preference', v)
+                }}
                 aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
                 style={{
                   padding: '5px 11px', fontSize: '10px',

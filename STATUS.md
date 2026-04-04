@@ -1,6 +1,21 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-01 — v1.6.0 Release
+Last updated: 2026-04-02 — Calendar UX improvements complete
+
+## In Progress
+
+_(nothing)_
+
+---
+
+## Calendar UX Improvements ✅
+
+| Task | Status |
+|------|--------|
+| Persist month/week view preference in localStorage | ✅ |
+| Search bar in WorkoutPicker modal (name filter) | ✅ |
+
+---
 
 ## v1.6.0 Release ✅
 
