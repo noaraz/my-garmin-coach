@@ -25,6 +25,8 @@ def _fmt_dur(step: dict) -> str:
 
 
 def _zone_label(step: dict) -> str:
+    if step.get("target_type") == "open":
+        return ""
     zone = step.get("zone")
     if zone is not None:
         # HR zone gets a suffix; pace zone (or legacy CSV steps without target_type) just @ZN
