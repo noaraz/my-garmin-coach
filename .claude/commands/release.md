@@ -87,16 +87,23 @@ Wait for their selection.
 
 ---
 
-## 5. Bump `frontend/package.json`, Update STATUS.md, and Commit
+## 5. Bump `frontend/package.json`, Update STATUS.md, and Open a PR
 
-Update the version in `frontend/package.json` to match the release tag (strips the leading `v`):
+**main is protected — never push directly. Always use a PR.**
+
+Create a release branch, bump the version, update STATUS.md, and open a PR:
 
 ```bash
+git checkout main && git pull
+git checkout -b release/<VERSION>
+
 # Check current value
 node -e "const p = require('./frontend/package.json'); console.log('current:', p.version)"
 ```
 
-Also update `STATUS.md` now — add a release entry at the top and update `Last updated:`. This must be in the **same commit** as the version bump so the tag points to a commit with both changes already present.
+Update `frontend/package.json` version to match the release tag (strip the leading `v`).
+
+Also update `STATUS.md` — add a release entry at the top and update `Last updated:`. Both changes must be in the **same commit**.
 
 ```
 # STATUS.md changes:
@@ -104,27 +111,28 @@ Also update `STATUS.md` now — add a release entry at the top and update `Last 
 # - Add a ## vX.Y.Z Release ✅ section at the top with the release tasks table
 ```
 
-Then commit and push **both files together**:
+Then commit, push the branch, and open a PR:
 
 ```bash
 git add frontend/package.json STATUS.md
 git commit -m "chore: bump version to <VERSION>"
-git push origin main
+git push -u origin release/<VERSION>
+gh pr create --title "chore: bump version to <VERSION>" --base main --head release/<VERSION> --body "..."
 ```
 
-This commit is what gets tagged. The sidebar reads `package.json` at build time and STATUS.md reflects the release immediately — tagging alone does **not** update either. **Push before tagging** so the tag points to a commit that exists on the remote.
+This commit is what gets tagged. The sidebar reads `package.json` at build time and STATUS.md reflects the release immediately — tagging alone does **not** update either.
 
 ---
 
 ## 6. Pre-Release Checklist
 
-Verify each item automatically before presenting to the user:
+Run these checks on the **release branch** (before the PR is merged) to catch issues early.
 
 ```bash
 # 1. Verify frontend/package.json version matches the release tag
 node -e "const p = require('./frontend/package.json'); console.log(p.version)"
 
-# 2. Verify no uncommitted changes remain
+# 2. Verify no uncommitted changes remain on the release branch
 git status
 
 # 3. Check for any secrets accidentally staged (gitleaks-style quick check)
@@ -145,6 +153,13 @@ Present verified results, then ask the user to confirm any items you could not a
 > - [auto] Alembic migrations in this release: yes/no
 > - [auto] `RENDER_DEPLOY_HOOK_URL` secret: present / NOT FOUND
 > - [ ] All features for this release are merged to `main` — please confirm
+
+**Wait for the user to confirm all checks pass and the PR CI is green before asking them to merge.**
+
+After merge, pull main:
+```bash
+git checkout main && git pull
+```
 
 ---
 
@@ -172,11 +187,14 @@ Wait for their notes.
 ## 9. Tag and Push
 
 ```bash
+# Ensure on main and up to date (PR must be merged first)
+git checkout main && git pull
+
 # Create annotated tag — summary on first -m, notes on second -m
 git tag -a <VERSION> -m "<one-line summary>" -m "<bullet notes>"
 
-# Push main (safety net — ensures version bump commit is on remote) then tag
-git push origin main && git push origin <VERSION>
+# Push the tag (main is already on remote via the merged PR)
+git push origin <VERSION>
 ```
 
 After pushing, print:
