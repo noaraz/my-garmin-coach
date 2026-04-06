@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from src.services.workout_description import generate_description, generate_description_from_steps
 
 
