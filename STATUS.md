@@ -1,10 +1,23 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-02 — Calendar UX improvements complete
+Last updated: 2026-04-06 — v1.6.1 release in progress
 
 ## In Progress
 
 _(nothing)_
+
+---
+
+## v1.6.1 Release ✅
+
+| Task | Status |
+|------|--------|
+| Pre-flight checks (main, clean, Neon alembic at head) | ✅ |
+| Full test suite (585 backend + 325 frontend, 81.58% coverage) | ✅ |
+| Security review (no findings ≥ 80) | ✅ |
+| Fix: backend _zone_label open target_type guard | ✅ |
+| Version bump (frontend/package.json → 1.6.1) | ✅ |
+| Tag + push | ⏳ |
 
 ---
 
