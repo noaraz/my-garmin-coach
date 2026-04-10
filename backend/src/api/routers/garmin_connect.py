@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from datetime import datetime, timezone
 
 import requests
@@ -19,7 +20,7 @@ from src.core import cache
 from src.core.config import get_settings
 from src.db.models import AthleteProfile
 from src.garmin import client_cache
-from src.garmin.client_factory import CHROME_VERSION, create_login_client
+from src.garmin.client_factory import FINGERPRINT_SEQUENCE, create_login_client
 from src.garmin.encryption import encrypt_credential, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -63,57 +64,46 @@ async def connect_garmin(
 
     logger.info("Garmin connect requested for user_id=%s", current_user.id)
 
+    n = len(FINGERPRINT_SEQUENCE)
     last_exc: Exception | None = None
-    for attempt in range(2):
+    for attempt in range(n):
+        fingerprint = FINGERPRINT_SEQUENCE[attempt]
         if attempt > 0:
-            await asyncio.sleep(3)
-        try:
-            use_proxy = attempt > 0 and bool(settings.fixie_url)
-            client = create_login_client(
-                proxy_url=settings.fixie_url if use_proxy else None
+            delay = random.uniform(30, 45)
+            logger.info(
+                "Garmin login attempt %d/%d: waiting %.0fs before retry (Akamai delay)",
+                attempt + 1, n, delay,
             )
-            if use_proxy:
-                logger.info(
-                    "Garmin login attempt %d/2: %s TLS + Fixie proxy (429 retry)",
-                    attempt + 1,
-                    CHROME_VERSION,
-                )
-            else:
-                logger.info(
-                    "Garmin login attempt %d/2: %s TLS, no proxy",
-                    attempt + 1,
-                    CHROME_VERSION,
-                )
+            await asyncio.sleep(delay)
+        use_proxy = (attempt == n - 1) and bool(settings.fixie_url)
+        client = create_login_client(fingerprint=fingerprint, proxy_url=settings.fixie_url if use_proxy else None)
+        logger.info(
+            "Garmin login attempt %d/%d: %s TLS%s",
+            attempt + 1, n, fingerprint, " + Fixie proxy" if use_proxy else ", no proxy",
+        )
+        try:
             client.login(email, password)
             token_json: str = client.dumps()
             logger.info(
-                "Garmin login succeeded on attempt %d/2 (proxy=%s) for user_id=%s",
-                attempt + 1,
-                use_proxy,
-                current_user.id,
+                "Garmin login succeeded on attempt %d/%d (fingerprint=%s proxy=%s) for user_id=%s",
+                attempt + 1, n, fingerprint, use_proxy, current_user.id,
             )
             break
         except (requests.exceptions.HTTPError, cffi_requests.exceptions.HTTPError, GarthHTTPError) as exc:
             last_exc = exc
-            # GarthHTTPError wraps requests.HTTPError — get response from either
             response = getattr(exc, "response", None)
             if response is None:
                 response = getattr(getattr(exc, "__cause__", None), "response", None)
             if response is not None and response.status_code == 429:
                 logger.warning(
-                    "Garmin SSO rate-limited (429) on attempt %d/2 — "
-                    "Akamai blocked this request (proxy=%s)",
-                    attempt + 1,
-                    use_proxy,
+                    "Garmin SSO rate-limited (429) on attempt %d/%d — "
+                    "Akamai blocked %s (proxy=%s)",
+                    attempt + 1, n, fingerprint, use_proxy,
                 )
                 continue
-            # Don't log exc — garth embeds the PreparedRequest (incl. form body
-            # with plaintext credentials) in the exception chain. Log only the
-            # exception type, not the object or traceback.
             logger.error(
-                "Garmin login rejected (non-429) on attempt %d/2: %s",
-                attempt + 1,
-                type(exc).__name__,
+                "Garmin login rejected (non-429) on attempt %d/%d: %s",
+                attempt + 1, n, type(exc).__name__,
             )
             raise HTTPException(
                 status_code=400,
@@ -121,10 +111,9 @@ async def connect_garmin(
             ) from exc
         except cffi_requests.exceptions.ProxyError as exc:
             last_exc = exc
-            # Don't log exc — it contains the proxy URL with credentials
             logger.error(
-                "Garmin proxy unreachable on attempt %d/2 — check FIXIE_URL config",
-                attempt + 1,
+                "Garmin proxy unreachable on attempt %d/%d — check FIXIE_URL config",
+                attempt + 1, n,
             )
             raise HTTPException(
                 status_code=503,
@@ -132,11 +121,9 @@ async def connect_garmin(
             ) from exc
         except Exception as exc:
             last_exc = exc
-            # Don't log exc — may contain credentials in the exception chain
             logger.error(
-                "Garmin login unexpected error on attempt %d/2: %s",
-                attempt + 1,
-                type(exc).__name__,
+                "Garmin login unexpected error on attempt %d/%d: %s",
+                attempt + 1, n, type(exc).__name__,
             )
             raise HTTPException(
                 status_code=400,
@@ -144,9 +131,9 @@ async def connect_garmin(
             ) from exc
     else:
         logger.error(
-            "Garmin login failed after all retries for user_id=%s — "
-            "Akamai may have updated detection. Check test_garmin_login.py.",
-            current_user.id,
+            "Garmin login failed after all %d retries for user_id=%s — "
+            "all fingerprints blocked. Check test_garmin_login.py.",
+            n, current_user.id,
         )
         raise HTTPException(
             status_code=503,
