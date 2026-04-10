@@ -93,7 +93,7 @@ async def connect_garmin(
                 current_user.id,
             )
             break
-        except (requests.exceptions.HTTPError, GarthHTTPError) as exc:
+        except (requests.exceptions.HTTPError, cffi_requests.exceptions.HTTPError, GarthHTTPError) as exc:
             last_exc = exc
             # GarthHTTPError wraps requests.HTTPError — get response from either
             response = getattr(exc, "response", None)
