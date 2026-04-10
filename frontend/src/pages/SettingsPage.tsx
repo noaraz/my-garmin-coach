@@ -28,6 +28,7 @@ export function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [showSlowMsg, setShowSlowMsg] = useState(false)
 
   const { isAdmin, logout } = useAuth()
   const { credentialsStored, refresh } = useGarminStatus()
@@ -50,6 +51,7 @@ export function SettingsPage() {
     setError(null)
     setSuccessMsg(null)
     setIsSubmitting(true)
+    const slowTimer = setTimeout(() => setShowSlowMsg(true), 5000)
     try {
       const res = await connectGarmin(garminEmail, garminPassword)
       if (res.connected) {
@@ -62,6 +64,8 @@ export function SettingsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed')
     } finally {
+      clearTimeout(slowTimer)
+      setShowSlowMsg(false)
       setIsSubmitting(false)
     }
   }
@@ -322,6 +326,16 @@ export function SettingsPage() {
               >
                 {isSubmitting ? 'Connecting…' : 'Connect Garmin'}
               </button>
+              {isSubmitting && showSlowMsg && (
+                <p style={{
+                  marginTop: '8px',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+                }}>
+                  Still connecting — trying alternative approaches. This can take 1–2 minutes if Garmin is rate-limiting.
+                </p>
+              )}
             </form>
           )}
 
@@ -329,7 +343,7 @@ export function SettingsPage() {
           {connectionState === 'connected' && (
             <div>
               {/* Reconnect prompt — shown when connected but credentials not yet stored */}
-              {!credentialsStored && (
+              {credentialsStored === false && (
                 <div style={{
                   marginBottom: '16px',
                   padding: '12px 14px',

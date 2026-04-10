@@ -1,7 +1,7 @@
 """Centralized Garmin client creation with Chrome TLS impersonation.
 
 All Garmin API calls (login, sync, activity fetch) go through clients created
-here, ensuring Chrome 124 TLS fingerprint bypasses Akamai Bot Manager on
+here, ensuring Chrome 136 TLS fingerprint bypasses Akamai Bot Manager on
 SSO login (sso.garmin.com) and regular API calls (connectapi.garmin.com).
 
 garth's native sso.exchange() creates a GarminOAuth1Session that inherits
@@ -20,7 +20,15 @@ from curl_cffi import requests as cffi_requests
 
 from src.garmin.adapter import GarminAdapter
 
-CHROME_VERSION = "chrome124"
+CHROME_VERSION = "chrome136"
+
+FINGERPRINT_SEQUENCE: list[str] = [
+    "chrome136",
+    "safari15_5",
+    "edge101",
+    "chrome120",
+    "chrome99",
+]
 
 
 class ChromeTLSSession(cffi_requests.Session):
@@ -50,13 +58,18 @@ def create_api_client(token_json: str) -> GarminAdapter:
     return GarminAdapter(client)
 
 
-def create_login_client(proxy_url: str | None = None) -> garth.Client:
+def create_login_client(
+    fingerprint: str = CHROME_VERSION,
+    proxy_url: str | None = None,
+) -> garth.Client:
     """Create a garth.Client with Chrome TLS for SSO login.
 
     Used by garmin_connect.py for the initial Garmin authentication.
+    The fingerprint param selects which TLS impersonation to use — rotate
+    through FINGERPRINT_SEQUENCE to avoid Akamai bot detection.
     """
     client = garth.Client()
-    client.sess = ChromeTLSSession(impersonate=CHROME_VERSION)
+    client.sess = ChromeTLSSession(impersonate=fingerprint)
     if proxy_url:
         client.sess.proxies = {"https": proxy_url}
     return client

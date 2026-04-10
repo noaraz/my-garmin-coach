@@ -108,3 +108,9 @@ class TestCreateLoginClient:
 
         client = create_login_client(proxy_url="https://proxy.example.com")
         assert client.sess.proxies == {"https": "https://proxy.example.com"}
+
+    def test_create_login_client_when_fingerprint_provided_uses_it(self) -> None:
+        from src.garmin.client_factory import create_login_client
+
+        client = create_login_client(fingerprint="safari15_5")
+        assert client.sess.impersonate == "safari15_5"

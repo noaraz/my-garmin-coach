@@ -95,11 +95,11 @@ async def _make_scheduled_workout(
     sync_status: str = "pending",
     garmin_workout_id: str | None = None,
     completed: bool = False,
-    workout_date: date = date(2026, 3, 10),
+    workout_date: date | None = None,
 ) -> ScheduledWorkout:
     """Helper: insert a ScheduledWorkout row and return it."""
     sw = ScheduledWorkout(
-        date=workout_date,
+        date=workout_date or (date.today() - timedelta(days=5)),
         sync_status=sync_status,
         garmin_workout_id=garmin_workout_id,
         completed=completed,
@@ -387,7 +387,6 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="garmin-paired-id",
             completed=True,
-            workout_date=date(2026, 3, 10),
         )
 
         # Act
@@ -414,14 +413,14 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="old-garmin-1",
             completed=True,
-            workout_date=date(2026, 3, 8),
+            workout_date=date.today() - timedelta(days=7),
         )
         sw2 = await _make_scheduled_workout(
             session,
             sync_status="synced",
             garmin_workout_id="old-garmin-2",
             completed=True,
-            workout_date=date(2026, 3, 9),
+            workout_date=date.today() - timedelta(days=6),
         )
 
         # Act
@@ -553,14 +552,14 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="garmin-fail",
             completed=True,
-            workout_date=date(2026, 3, 8),
+            workout_date=date.today() - timedelta(days=7),
         )
         sw2 = await _make_scheduled_workout(
             session,
             sync_status="synced",
             garmin_workout_id="garmin-ok",
             completed=True,
-            workout_date=date(2026, 3, 9),
+            workout_date=date.today() - timedelta(days=6),
         )
 
         def _delete_side_effect(garmin_id: str) -> None:
@@ -717,9 +716,9 @@ class TestSyncAll:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.get_workouts.side_effect = RuntimeError("429")
-        # Calendar shows the workout as scheduled — reconciliation won't touch it
+        # Calendar shows the workout as scheduled on the same date — reconciliation won't touch it
         mock_sync_service.get_calendar_items.return_value = [
-            {"workoutId": "stale-id", "date": "2026-03-10"}
+            {"workoutId": "stale-id", "date": str(date.today() - timedelta(days=5))}
         ]
 
         response = await client.post("/api/v1/sync/all")

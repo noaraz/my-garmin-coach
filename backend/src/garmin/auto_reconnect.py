@@ -4,6 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
+from curl_cffi import requests as cffi_requests
 from garth.exc import GarthHTTPError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -111,6 +112,8 @@ async def attempt_auto_reconnect(
 
     email, password = creds["email"], creds["password"]
     try:
+        # Best-effort single attempt — fingerprint rotation not applied here.
+        # If chrome136 fails, caller catches the exception and schedules a manual reconnect.
         client = create_login_client()
         client.login(email, password)
         token_json = client.dumps()
@@ -132,8 +135,8 @@ async def attempt_auto_reconnect(
 
         logger.info("Auto-reconnect succeeded for user %s", user_id)
         return adapter
-    except GarthHTTPError:
-        # Bad credentials or Garmin blocked
+    except (GarthHTTPError, cffi_requests.exceptions.HTTPError):
+        # Bad credentials or Garmin blocked (curl_cffi may raise its own HTTPError)
         logger.warning(
             "Auto-reconnect login failed for user %s (clearing credentials)", user_id
         )

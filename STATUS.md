@@ -772,6 +772,7 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 
 - **Rate limiting on bootstrap + reset-admins** (security, moderate effort): `POST /api/v1/auth/bootstrap` and `POST /api/v1/auth/reset-admins` have no rate limiter — only a static setup token. Requires adding `slowapi` package, a `Limiter` instance in `app.py`, and `@limiter.limit("10/minute")` on both endpoints. Low exploitability today (invite-only app, endpoints require `BOOTSTRAP_SECRET`), but required before any public deployment. See "Nice to Have — Rate Limiting on Auth Routes" in CLAUDE.md.
 
+
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path
 - Docker binary at `/Applications/Docker.app/Contents/Resources/bin/docker` (not in default PATH — add to ~/.zshrc)

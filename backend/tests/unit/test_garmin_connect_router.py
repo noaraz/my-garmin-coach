@@ -139,7 +139,7 @@ class TestConnectGarmin:
         assert exc_info.value.status_code == 400
         assert "Garmin authentication failed" in exc_info.value.detail
 
-    async def test_connect_retries_once_on_429_then_succeeds(self) -> None:
+    async def test_connect_succeeds_on_second_attempt_after_429(self) -> None:
         # Arrange — first attempt raises 429, second succeeds
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
@@ -161,6 +161,7 @@ class TestConnectGarmin:
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep, \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=35.0) as mock_uniform, \
              patch("src.api.routers.garmin_connect.cache"), \
              patch("src.api.routers.garmin_connect.client_cache"):
             mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
@@ -175,10 +176,12 @@ class TestConnectGarmin:
             )
 
         assert result.connected is True
-        mock_sleep.assert_awaited_once_with(3)
+        mock_uniform.assert_called_once_with(30, 45)
+        mock_sleep.assert_awaited_once_with(35.0)
+        assert mock_factory.call_count == 2
 
     async def test_connect_raises_503_when_both_attempts_rate_limited(self) -> None:
-        # Arrange — both attempts get 429
+        # Arrange — all 5 fingerprint attempts get 429
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
         mock_session = _make_session()
@@ -192,7 +195,8 @@ class TestConnectGarmin:
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
-             patch("src.api.routers.garmin_connect.asyncio.sleep"):
+             patch("src.api.routers.garmin_connect.asyncio.sleep"), \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=35.0):
             mock_factory.return_value = mock_garth_client
             mock_settings.return_value.fixie_url = ""  # no proxy in tests
 
@@ -205,6 +209,7 @@ class TestConnectGarmin:
 
         assert exc_info.value.status_code == 503
         assert "rate-limiting" in exc_info.value.detail
+        assert mock_factory.call_count == 5  # all 5 fingerprints attempted
 
     async def test_connect_stores_encrypted_token_on_profile(self) -> None:
         # Arrange
@@ -247,8 +252,8 @@ class TestConnectGarmin:
         assert profile.garmin_credential_stored_at is not None
 
     async def test_connect_sets_proxy_on_retry_when_fixie_url_configured(self) -> None:
-        # New retry flow: attempt 1 = no proxy, attempt 2 (on 429) = proxy.
-        # Simulate 429 on first attempt to trigger the proxy fallback.
+        # New retry flow: proxy is only applied on the LAST attempt (attempt 5).
+        # Simulate 429 on attempts 1-4, succeed on attempt 5 with proxy.
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
         mock_session = _make_session()
@@ -256,7 +261,7 @@ class TestConnectGarmin:
         mock_exec_result.first.return_value = None
         mock_session.exec = AsyncMock(return_value=mock_exec_result)
 
-        # Build a 429 response to trigger the retry
+        # Build a 429 response to trigger retries
         mock_429_response = MagicMock()
         mock_429_response.status_code = 429
         http_429 = requests.exceptions.HTTPError(response=mock_429_response)
@@ -267,25 +272,34 @@ class TestConnectGarmin:
         mock_garth_client_ok = MagicMock()
         mock_garth_client_ok.dumps.return_value = '{"oauth_token": "tok"}'
 
+        from src.garmin.client_factory import FINGERPRINT_SEQUENCE
+
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
              patch("src.api.routers.garmin_connect.asyncio.sleep", new_callable=AsyncMock), \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=35.0), \
              patch("src.api.routers.garmin_connect.cache"), \
              patch("src.api.routers.garmin_connect.client_cache"):
-            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
+            # 4 failures then 1 success
+            mock_factory.side_effect = [mock_garth_client_fail] * 4 + [mock_garth_client_ok]
             mock_settings.return_value.garmincoach_secret_key = "test-key"
             mock_settings.return_value.garmin_credential_key = "test-cred-key"
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
 
-        # Verify create_login_client was called with proxy_url on retry
-        assert mock_factory.call_count == 2
-        assert mock_factory.call_args_list[0] == ((), {"proxy_url": None})
-        assert mock_factory.call_args_list[1] == ((), {"proxy_url": "http://token@proxy.fixie.io:1234"})
+        # Verify 5 calls total; only the last one uses the proxy
+        assert mock_factory.call_count == 5
+        for i, fp in enumerate(FINGERPRINT_SEQUENCE):
+            call_kwargs = mock_factory.call_args_list[i][1]
+            assert call_kwargs["fingerprint"] == fp
+        # First 4: no proxy; last one: proxy
+        for i in range(4):
+            assert mock_factory.call_args_list[i][1]["proxy_url"] is None
+        assert mock_factory.call_args_list[4][1]["proxy_url"] == "http://token@proxy.fixie.io:1234"
 
     async def test_connect_does_not_set_proxy_when_fixie_url_empty(self) -> None:
-        # Arrange
+        # Arrange — no proxy configured, first attempt succeeds
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
         mock_session = _make_session()
@@ -307,12 +321,12 @@ class TestConnectGarmin:
 
             await connect_garmin(request=request, current_user=user, session=mock_session)
 
-        # Assert create_login_client was called with no proxy
-        mock_factory.assert_called_once_with(proxy_url=None)
+        # Assert create_login_client was called with first fingerprint and no proxy
+        mock_factory.assert_called_once_with(fingerprint="chrome136", proxy_url=None)
 
     async def test_connect_raises_503_on_proxy_error(self) -> None:
-        # Arrange — attempt 1 gets 429 (triggers retry), attempt 2 proxy is unreachable.
-        # This matches the realistic flow: proxy is only applied on attempt 2.
+        # Arrange — attempts 1-4 get 429, attempt 5 (last, with proxy) gets ProxyError.
+        # The proxy is only applied on the last attempt.
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
         mock_session = _make_session()
@@ -321,16 +335,17 @@ class TestConnectGarmin:
         mock_429_response.status_code = 429
         http_429 = requests.exceptions.HTTPError(response=mock_429_response)
 
-        mock_garth_client_fail = MagicMock()
-        mock_garth_client_fail.login.side_effect = http_429
+        mock_garth_client_429 = MagicMock()
+        mock_garth_client_429.login.side_effect = http_429
 
         mock_garth_client_proxy_fail = MagicMock()
         mock_garth_client_proxy_fail.login.side_effect = cffi_requests.exceptions.ProxyError("proxy down")
 
         with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
              patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
-             patch("src.api.routers.garmin_connect.asyncio.sleep"):
-            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_proxy_fail]
+             patch("src.api.routers.garmin_connect.asyncio.sleep"), \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=35.0):
+            mock_factory.side_effect = [mock_garth_client_429] * 4 + [mock_garth_client_proxy_fail]
             mock_settings.return_value.fixie_url = "http://token@proxy.fixie.io:1234"
 
             with pytest.raises(HTTPException) as exc_info:
@@ -338,6 +353,70 @@ class TestConnectGarmin:
 
         assert exc_info.value.status_code == 503
         assert "unavailable" in exc_info.value.detail
+
+    async def test_connect_uses_different_fingerprint_per_attempt(self) -> None:
+        # All 5 attempts fail with 429; verify each attempt used the correct fingerprint.
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        http_429 = requests.exceptions.HTTPError(response=resp_429)
+
+        mock_garth_client = MagicMock()
+        mock_garth_client.login.side_effect = http_429
+
+        from src.garmin.client_factory import FINGERPRINT_SEQUENCE
+
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.asyncio.sleep"), \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=35.0):
+            mock_factory.return_value = mock_garth_client
+            mock_settings.return_value.fixie_url = ""
+
+            with pytest.raises(HTTPException):
+                await connect_garmin(request=request, current_user=user, session=mock_session)
+
+        assert mock_factory.call_count == 5
+        for i, fp in enumerate(FINGERPRINT_SEQUENCE):
+            assert mock_factory.call_args_list[i][1]["fingerprint"] == fp
+
+    async def test_connect_delay_is_30_to_45_seconds_on_retry(self) -> None:
+        # First attempt fails with 429; verify the delay before the retry is from random.uniform(30, 45).
+        user = _make_user()
+        request = GarminConnectRequest(email="g@example.com", password="pass")
+        mock_session = _make_session()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None
+        mock_session.exec = AsyncMock(return_value=mock_exec_result)
+
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        http_429 = requests.exceptions.HTTPError(response=resp_429)
+
+        mock_garth_client_fail = MagicMock()
+        mock_garth_client_fail.login.side_effect = http_429
+
+        mock_garth_client_ok = MagicMock()
+        mock_garth_client_ok.dumps.return_value = '{"oauth_token": "tok"}'
+
+        with patch("src.api.routers.garmin_connect.create_login_client") as mock_factory, \
+             patch("src.api.routers.garmin_connect.get_settings") as mock_settings, \
+             patch("src.api.routers.garmin_connect.asyncio.sleep") as mock_sleep, \
+             patch("src.api.routers.garmin_connect.random.uniform", return_value=42.5) as mock_uniform, \
+             patch("src.api.routers.garmin_connect.cache"), \
+             patch("src.api.routers.garmin_connect.client_cache"):
+            mock_factory.side_effect = [mock_garth_client_fail, mock_garth_client_ok]
+            mock_settings.return_value.garmincoach_secret_key = "test-key"
+            mock_settings.return_value.garmin_credential_key = "test-cred-key"
+            mock_settings.return_value.fixie_url = ""
+
+            await connect_garmin(request=request, current_user=user, session=mock_session)
+
+        mock_uniform.assert_called_once_with(30, 45)
+        mock_sleep.assert_awaited_once_with(42.5)
 
 
 # ---------------------------------------------------------------------------
