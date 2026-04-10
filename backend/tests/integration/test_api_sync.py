@@ -716,9 +716,9 @@ class TestSyncAll:
             session, sync_status="synced", garmin_workout_id="stale-id"
         )
         mock_sync_service.get_workouts.side_effect = RuntimeError("429")
-        # Calendar shows the workout as scheduled — reconciliation won't touch it
+        # Calendar shows the workout as scheduled on the same date — reconciliation won't touch it
         mock_sync_service.get_calendar_items.return_value = [
-            {"workoutId": "stale-id", "date": "2026-03-10"}
+            {"workoutId": "stale-id", "date": str(date.today() - timedelta(days=5))}
         ]
 
         response = await client.post("/api/v1/sync/all")
