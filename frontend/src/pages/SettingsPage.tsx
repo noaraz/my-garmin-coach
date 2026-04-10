@@ -343,7 +343,7 @@ export function SettingsPage() {
           {connectionState === 'connected' && (
             <div>
               {/* Reconnect prompt — shown when connected but credentials not yet stored */}
-              {!credentialsStored && (
+              {credentialsStored === false && (
                 <div style={{
                   marginBottom: '16px',
                   padding: '12px 14px',
