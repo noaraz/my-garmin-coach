@@ -108,9 +108,20 @@ Garmin uses Akamai Bot Manager with **different configs per subdomain**:
 
 **Retry flow** (login only): attempt 1 = chrome124 no proxy; attempt 2 (on 429) = chrome124 + Fixie proxy.
 
+**Fingerprint rotation + timing delay (added 2026-04-10)**: `FINGERPRINT_SEQUENCE` in
+`client_factory.py` tries `chrome136 → safari15_5 → edge101 → chrome120 → chrome99`.
+Attempt 2+ waits `random.uniform(30, 45)` s before calling `client.login()` — a
+preventative delay borrowed from
+[garmin-health-data](https://github.com/diegoscarabelli/garmin-health-data) that mimics
+human form-fill time and avoids Akamai's rapid-submission detection. Proxy (Fixie)
+applied only on the last attempt. `auto_reconnect.py` uses only the default fingerprint
+(best-effort, no rotation — acceptable since auto-reconnect failure falls back to manual
+reconnect).
+
 - `curl_cffi.requests.Session` lacks `adapters` and `hooks` that garth needs — subclass pre-populates both. Never replace `client.sess` with a bare curl_cffi session.
-- `FIXIE_URL` wired as optional fallback — only consumed on 429 retry, saves proxy quota.
+- `FIXIE_URL` wired as optional fallback — only consumed on last-attempt retry, saves proxy quota.
 - **Re-diagnose with `test_garmin_login.py`** (repo root) if 429s return — Akamai periodically updates fingerprint detection.
+- **`FINGERPRINT_SEQUENCE` bumps**: When changing fingerprints in `client_factory.py`, grep all docs for stale references: `grep -r "chrome1[0-9][0-9]\|safari15\|edge101" features/ .claude/skills/ CLAUDE.md`. Update every stale reference.
 
 ## Bidirectional Sync
 

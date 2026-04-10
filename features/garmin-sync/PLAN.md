@@ -151,6 +151,9 @@ All Garmin calls isolated in `src/garmin/` — swappable if lib breaks.
 - [x] Phase 5: Post-implementation docs + skill update
 - [x] Phase 6: Reconnect prompt for existing users — `GarminStatusResponse.credentials_stored`, CalendarPage session banner, SettingsPage warning card
 
+### Fingerprint Rotation + SSO 429 Hardening (2026-04-10)
+- [x] Fingerprint rotation + 30-45s delay (2026-04-10) — `FINGERPRINT_SEQUENCE` in `client_factory.py`, random delay before each retry, proxy on last attempt only. Ref: garmin-health-data
+
 **Design spec**: `docs/superpowers/specs/2026-03-28-garmin-auto-reconnect-design.md`
 
 ### Sync-All Reconciliation — Calendar-Based (2026-03-31 → 2026-04-01)

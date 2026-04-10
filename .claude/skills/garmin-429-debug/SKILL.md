@@ -24,10 +24,12 @@ Garmin uses **Akamai Bot Manager** which blocks based on:
 | `connectapi.garmin.com` (API calls) | ✅ Allowed | ❌ Blocked | Regular API via `client.sess` |
 | `connectapi.garmin.com` (OAuth exchange) | ❌ Blocked | ✅ Allowed | Token refresh via `GarminOAuth1Session` |
 
-**Current fix**: `ChromeTLSSession(impersonate="chrome124")` in
-`backend/src/garmin/client_factory.py` — single source of truth for all Garmin client creation.
-Token exchange is intentionally NOT overridden — garth's native `sso.exchange()` uses standard
-Python TLS via `GarminOAuth1Session`, which Akamai allows on the exchange endpoint.
+**Current fix**: `FINGERPRINT_SEQUENCE` in `backend/src/garmin/client_factory.py` — tries
+`chrome136 → safari15_5 → edge101 → chrome120 → chrome99`. Attempt 2+ waits
+`random.uniform(30, 45)` s before calling `client.login()` to mimic human form-fill time.
+Proxy (Fixie) applied only on the last attempt. Token exchange is intentionally NOT overridden —
+garth's native `sso.exchange()` uses standard Python TLS via `GarminOAuth1Session`, which
+Akamai allows on the exchange endpoint.
 
 ---
 
@@ -71,9 +73,10 @@ Check Render logs for the error. Three distinct 429 types:
 
 | Log line | Meaning |
 |----------|---------|
-| `Garmin login attempt 1/2: chrome124 TLS, no proxy` | Fix is active |
-| `Garmin SSO rate-limited (429) ... proxy=False` | chrome124 blocked — Akamai updated detection |
-| `Garmin SSO rate-limited (429) ... proxy=True` | Both chrome124 AND Fixie blocked |
+| `Garmin login attempt 1/5: chrome136 TLS, no proxy` | Fix is active (5-fingerprint rotation) |
+| `Garmin login attempt N/5: <fingerprint> TLS, ...` | Rotation in progress |
+| `Garmin SSO rate-limited (429) ... proxy=False` | Fingerprint blocked — Akamai updated detection |
+| `Garmin SSO rate-limited (429) ... proxy=True` | All fingerprints AND Fixie blocked |
 | `'Session' object has no attribute 'hooks'` | garth version mismatch — shim needs update |
 | `Garmin login failed: Error in request: 429` (no attempt log) | Old code without the fix deployed |
 | `Garmin proxy unreachable` | FIXIE_URL misconfigured |
@@ -110,20 +113,16 @@ python test_garmin_login.py
 FIXIE_URL=http://fixie:password@... python test_garmin_login.py
 ```
 
-The script tests 4 approaches side-by-side:
-1. Default `requests` — baseline (expect fail from Render IP, may pass locally)
-2. `curl_cffi chrome110` no proxy
-3. `curl_cffi chrome110` + Fixie proxy
-4. `curl_cffi chrome124` no proxy — **this is what production uses**
+The script tests multiple approaches side-by-side. Update it to test the current `FINGERPRINT_SEQUENCE` entries when Akamai updates detection.
 
 ### Interpreting results
 
 | Result | Diagnosis | Fix |
 |--------|-----------|-----|
-| Test 4 passes locally, fails on Render | Render IP blocked on SSO | Add Fixie proxy fallback |
-| Test 4 fails locally too | Akamai updated chrome124 detection | Bump to newer Chrome version |
-| Test 4 passes but Render still fails | Code not deployed / wrong branch | Check deploy |
-| All fail locally | Account rate-limited — stop retrying, wait 30–60 min | Wait |
+| First fingerprint passes locally, fails on Render | Render IP blocked on SSO | Fixie proxy fallback on last attempt |
+| First fingerprint fails locally too | Akamai updated detection for that fingerprint | Rotation will try next fingerprint automatically |
+| All fingerprints fail locally | Account rate-limited — stop retrying, wait 30–60 min | Wait; then add new fingerprints to `FINGERPRINT_SEQUENCE` |
+| Passes locally but Render still fails | Code not deployed / wrong branch | Check deploy |
 
 ---
 
@@ -135,9 +134,10 @@ The facade lives in `backend/src/garmin/client_factory.py`:
 from src.garmin.client_factory import ChromeTLSSession, CHROME_VERSION, create_api_client, create_login_client
 ```
 
-**`CHROME_VERSION`** — single constant for the Chrome impersonation version:
+**`FINGERPRINT_SEQUENCE`** — ordered list of TLS fingerprints tried on each login attempt:
 ```python
-CHROME_VERSION = "chrome124"  # bump here — affects both login AND API
+FINGERPRINT_SEQUENCE = ["chrome136", "safari15_5", "edge101", "chrome120", "chrome99"]
+# Add new fingerprints at the front — affects login retry only, not API
 ```
 
 **`ChromeTLSSession`** — curl_cffi session with requests.Session compatibility:
@@ -150,15 +150,16 @@ class ChromeTLSSession(cffi_requests.Session):
         self.hooks = _rs.hooks
 ```
 
-**`create_login_client(proxy_url=None)`** — for SSO login in `garmin_connect.py`:
+**`create_login_client(fingerprint, proxy_url=None)`** — for SSO login in `garmin_connect.py`:
 ```python
-client = create_login_client(proxy_url=settings.fixie_url if retry else None)
+# Called in a loop over FINGERPRINT_SEQUENCE with random 30-45s delay before attempt 2+
+client = create_login_client(fingerprint, proxy_url=settings.fixie_url if last_attempt else None)
 client.login(email, password)
 ```
 
 **`create_api_client(token_json)`** — for all API calls in `sync.py`:
 ```python
-adapter = create_api_client(token_json)  # Returns GarminAdapter with chrome124 TLS
+adapter = create_api_client(token_json)  # Returns GarminAdapter with first fingerprint TLS
 ```
 
 ### How token exchange works (DO NOT OVERRIDE)
@@ -187,8 +188,9 @@ def _patched_refresh_oauth2():
 garth_client.refresh_oauth2 = _patched_refresh_oauth2
 ```
 
-Available Chrome versions in curl_cffi 0.14+: `chrome99`, `chrome101`, `chrome104`, `chrome107`,
-`chrome110`, `chrome116`, `chrome119`, `chrome120`, `chrome123`, `chrome124`. Try the newest.
+Available fingerprints in curl_cffi 0.14+: `chrome99`, `chrome101`, `chrome104`, `chrome107`,
+`chrome110`, `chrome116`, `chrome119`, `chrome120`, `chrome123`, `chrome124`, `chrome136`,
+`safari15_5`, `edge101`. Add new ones to the front of `FINGERPRINT_SEQUENCE`.
 
 **If garth adds a new internal attribute** (e.g., `'Session' object has no attribute 'X'`),
 add it to `ChromeTLSSession.__init__`:
@@ -201,20 +203,26 @@ self.X = requests.Session().X
 ## Step 4 — Retry flow
 
 ```
-Login:
-  Attempt 1: chrome124 TLS, no proxy
+Login (5-fingerprint rotation):
+  Attempt 1: chrome136 TLS, no proxy, no delay
       ↓ 429
-  Attempt 2: chrome124 TLS + Fixie proxy (if FIXIE_URL set)
+  Attempt 2: safari15_5 TLS, no proxy, wait 30-45s
+      ↓ 429
+  Attempt 3: edge101 TLS, no proxy, wait 30-45s
+      ↓ 429
+  Attempt 4: chrome120 TLS, no proxy, wait 30-45s
+      ↓ 429
+  Attempt 5: chrome99 TLS + Fixie proxy (if FIXIE_URL set), wait 30-45s
       ↓ 429
   → HTTP 503 returned to user: "Garmin is temporarily rate-limiting this server"
 
 API calls (sync/fetch):
-  Regular API: chrome124 TLS via ChromeTLSSession (client.garth.sess)
+  Regular API: chrome136 TLS via ChromeTLSSession (client.garth.sess)
   Token exchange: standard Python TLS via GarminOAuth1Session (garth native)
   Retry logic: GarminSyncService._call_with_retry() (exponential backoff)
 ```
 
-If both login attempts fail, Akamai has updated its detection. Fix: bump Chrome version (Step 3).
+If all 5 login attempts fail, Akamai has updated its detection. Fix: add new fingerprints to `FINGERPRINT_SEQUENCE` in `client_factory.py` (Step 3).
 
 ---
 
@@ -229,15 +237,15 @@ If no CONNECT logs, `FIXIE_URL` env var is wrong or not set in Render.
 ## Quick checklist
 
 - [ ] `curl-cffi>=0.6` in `backend/pyproject.toml`
-- [ ] `CHROME_VERSION` constant in `client_factory.py` — bump if Akamai starts blocking
+- [ ] `FINGERPRINT_SEQUENCE` in `client_factory.py` — add new fingerprints at front if Akamai starts blocking all current ones
 - [ ] `ChromeTLSSession` in `client_factory.py`, used by both login and sync
 - [ ] `garmin_connect.py` uses `create_login_client()` (not inline session creation)
 - [ ] `sync.py` uses `create_api_client()` (not bare `garminconnect.Garmin()`)
 - [ ] `refresh_oauth2` is NOT overridden (garth native exchange uses standard Python TLS)
-- [ ] Render logs show `Garmin login attempt 1/2: chrome124 TLS, no proxy`
-- [ ] `FIXIE_URL` set in Render (optional fallback for SSO login only)
+- [ ] Render logs show `Garmin login attempt 1/5: chrome136 TLS, no proxy`
+- [ ] `FIXIE_URL` set in Render (optional fallback for last SSO login attempt only)
 - [ ] Check stack trace library (Step 0) before assuming curl_cffi is the fix
-- [ ] After bumping `CHROME_VERSION`, grep docs for old version: `grep -r "chrome1[0-9][0-9]" features/ .claude/skills/ CLAUDE.md`
+- [ ] After updating `FINGERPRINT_SEQUENCE`, grep docs for stale fingerprint refs: `grep -r "chrome1[0-9][0-9]\|safari15\|edge101" features/ .claude/skills/ CLAUDE.md`
 - [ ] `auto_reconnect.py` exists in `backend/src/garmin/`
 - [ ] `GARMIN_CREDENTIAL_KEY` set to a **production-unique value** in Render (NOT the `.env.example` placeholder)
 - [ ] Credentials stored after connect (`garmin_credential_encrypted` populated in DB)
