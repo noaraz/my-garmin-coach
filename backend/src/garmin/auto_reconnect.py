@@ -111,6 +111,8 @@ async def attempt_auto_reconnect(
 
     email, password = creds["email"], creds["password"]
     try:
+        # Best-effort single attempt — fingerprint rotation not applied here.
+        # If chrome136 fails, caller catches the exception and schedules a manual reconnect.
         client = create_login_client()
         client.login(email, password)
         token_json = client.dumps()

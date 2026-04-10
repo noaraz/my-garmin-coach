@@ -139,7 +139,7 @@ class TestConnectGarmin:
         assert exc_info.value.status_code == 400
         assert "Garmin authentication failed" in exc_info.value.detail
 
-    async def test_connect_retries_once_on_429_then_succeeds(self) -> None:
+    async def test_connect_succeeds_on_second_attempt_after_429(self) -> None:
         # Arrange — first attempt raises 429, second succeeds
         user = _make_user()
         request = GarminConnectRequest(email="g@example.com", password="pass")
