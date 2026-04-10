@@ -58,7 +58,8 @@ async def connect_garmin(
 
     # Authenticate with Garmin via garth.
     # Garmin rate-limits OAuth requests from cloud/datacenter IPs (429).
-    # One retry after a short wait resolves most transient 429s.
+    # Rotate through FINGERPRINT_SEQUENCE with 30-45s delays between attempts to
+    # bypass Akamai bot detection. Proxy (Fixie) applied only on the last attempt.
     email, password = request.email, request.password
     del request  # Discard credentials as early as possible
 
