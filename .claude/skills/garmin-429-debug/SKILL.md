@@ -58,7 +58,7 @@ Check that `create_api_client()` sets `client.garth.sess = ChromeTLSSession(...)
 
 | Log message | Cause | Operator action |
 |-------------|-------|----------------|
-| `Auto-reconnect login failed for user X (clearing credentials)` | Bad password or Garmin account locked (`GarthHTTPError`). Credentials cleared, 1-hour cooldown. | User must reconnect in Settings with correct password |
+| `Auto-reconnect login failed for user X (clearing credentials)` | Bad password or Garmin account locked (`GarthHTTPError` or `cffi_requests.HTTPError`). Credentials cleared, 1-hour cooldown. | User must reconnect in Settings with correct password |
 | `Auto-reconnect failed for user X: <ExcType>` | Transient network error. Credentials kept, 15-min cooldown, will retry. | Check network/Render status, wait for retry |
 | `Garmin credentials expired (30-day policy) for user X` | Credentials older than 30 days, auto-cleared. | User reconnects in Settings (normal flow) |
 | `Auto-reconnect on cooldown for user X` | A previous reconnect attempt failed recently. | Wait for cooldown to expire (15 min or 1 hour) |
