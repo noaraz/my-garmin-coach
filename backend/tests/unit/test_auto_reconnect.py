@@ -193,6 +193,49 @@ class TestAttemptAutoReconnect:
         # Cleanup
         auto_reconnect._cooldowns.clear()
 
+    async def test_clears_credentials_on_cffi_http_error(self):
+        # Arrange — curl_cffi raises its own HTTPError (not wrapped by garth)
+        user_id = 1
+        session = AsyncMock()
+        session.add = MagicMock()
+        stored_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+        profile = AthleteProfile(
+            user_id=user_id,
+            garmin_credential_encrypted="encrypted-blob",
+            garmin_credential_stored_at=stored_at,
+        )
+        mock_result = MagicMock()
+        mock_result.first.return_value = profile
+        session.exec.return_value = mock_result
+
+        mock_settings = MagicMock()
+        mock_settings.garmin_credential_key = "test-credential-key-32-chars!!"
+        mock_settings.garmincoach_secret_key = "test-secret-key-32-chars-long!"
+
+        from curl_cffi import requests as cffi_requests
+
+        mock_client = MagicMock()
+        mock_client.login.side_effect = cffi_requests.exceptions.HTTPError("401 Unauthorized")
+
+        with (
+            patch("src.garmin.auto_reconnect.get_settings", return_value=mock_settings),
+            patch("src.garmin.auto_reconnect.decrypt_credential", return_value={"email": "test@example.com", "password": "bad-password"}),
+            patch("src.garmin.auto_reconnect.create_login_client", return_value=mock_client),
+        ):
+            # Act
+            result = await auto_reconnect.attempt_auto_reconnect(user_id, session)
+
+        # Assert — same behavior as GarthHTTPError: credentials cleared, 1hr cooldown
+        assert result is None
+        assert profile.garmin_credential_encrypted is None
+        assert profile.garmin_credential_stored_at is None
+        session.add.assert_called()
+        session.commit.assert_awaited_once()
+        assert user_id in auto_reconnect._cooldowns
+
+        # Cleanup
+        auto_reconnect._cooldowns.clear()
+
     async def test_keeps_credentials_on_generic_exception(self):
         # Arrange
         user_id = 1
