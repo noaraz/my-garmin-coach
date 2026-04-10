@@ -772,10 +772,6 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 
 - **Rate limiting on bootstrap + reset-admins** (security, moderate effort): `POST /api/v1/auth/bootstrap` and `POST /api/v1/auth/reset-admins` have no rate limiter — only a static setup token. Requires adding `slowapi` package, a `Limiter` instance in `app.py`, and `@limiter.limit("10/minute")` on both endpoints. Low exploitability today (invite-only app, endpoints require `BOOTSTRAP_SECRET`), but required before any public deployment. See "Nice to Have — Rate Limiting on Auth Routes" in CLAUDE.md.
 
-- **2 failing integration tests in `test_api_sync.py`** (pre-existing as of 2026-04-10):
-  - `TestSyncAll::test_sync_all_deletes_garmin_workout_for_completed_workouts`
-  - `TestSyncAll::test_sync_all_clears_garmin_id_of_past_paired_workouts`
-  - Both fail because the sync mock path changed (`mock_sync_service.X` vs `mock_sync_service.adapter.X`) — see CLAUDE.md "Layer propagation test mocks". Fix: update mock assertions to use the correct layer.
 
 ## Notes
 - Features dir is `features/` (not `docs/features/`) — agent prompts should reference this path
