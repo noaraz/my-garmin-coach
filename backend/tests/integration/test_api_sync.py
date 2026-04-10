@@ -95,11 +95,11 @@ async def _make_scheduled_workout(
     sync_status: str = "pending",
     garmin_workout_id: str | None = None,
     completed: bool = False,
-    workout_date: date = date(2026, 3, 10),
+    workout_date: date | None = None,
 ) -> ScheduledWorkout:
     """Helper: insert a ScheduledWorkout row and return it."""
     sw = ScheduledWorkout(
-        date=workout_date,
+        date=workout_date or (date.today() - timedelta(days=5)),
         sync_status=sync_status,
         garmin_workout_id=garmin_workout_id,
         completed=completed,
@@ -387,7 +387,6 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="garmin-paired-id",
             completed=True,
-            workout_date=date(2026, 3, 10),
         )
 
         # Act
@@ -414,14 +413,14 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="old-garmin-1",
             completed=True,
-            workout_date=date(2026, 3, 8),
+            workout_date=date.today() - timedelta(days=7),
         )
         sw2 = await _make_scheduled_workout(
             session,
             sync_status="synced",
             garmin_workout_id="old-garmin-2",
             completed=True,
-            workout_date=date(2026, 3, 9),
+            workout_date=date.today() - timedelta(days=6),
         )
 
         # Act
@@ -553,14 +552,14 @@ class TestSyncAll:
             sync_status="synced",
             garmin_workout_id="garmin-fail",
             completed=True,
-            workout_date=date(2026, 3, 8),
+            workout_date=date.today() - timedelta(days=7),
         )
         sw2 = await _make_scheduled_workout(
             session,
             sync_status="synced",
             garmin_workout_id="garmin-ok",
             completed=True,
-            workout_date=date(2026, 3, 9),
+            workout_date=date.today() - timedelta(days=6),
         )
 
         def _delete_side_effect(garmin_id: str) -> None:
