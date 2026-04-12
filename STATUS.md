@@ -1,12 +1,15 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-12 — preserve past workouts on plan update
+Last updated: 2026-04-12 — v1.6.3 released
 
-## In Progress
+## v1.6.3 Release ✅
 
 | Task | Status |
 |------|--------|
-| Preserve past workouts on plan update — `past_locked` diff bucket | ✅ PR open |
+| Full test suite (603 backend + 330 frontend, 82.22% coverage) | ✅ |
+| Security review (no findings) | ✅ |
+| Version bump (frontend/package.json → 1.6.3) | ✅ |
+| Tag + push | ⏳ |
 
 ---
 
