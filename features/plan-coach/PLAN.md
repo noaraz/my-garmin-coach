@@ -168,18 +168,18 @@ Design spec: `docs/superpowers/specs/2026-04-12-plan-update-preserve-past-workou
 Re-importing a shorter/revised plan deletes all past workouts absent from the new CSV — wiping training history. The diff screen incorrectly showed them as red "−" removals.
 
 ### Backend (`plan_import_service.py`)
-- [ ] Add `past_locked: list[WorkoutDiff] = []` to `DiffResult`
-- [ ] `_compute_diff()`: workouts in active plan, absent from new plan, with `date < today` → `past_locked` (not `removed`). `completed_locked` takes priority.
-- [ ] `commit_plan()`: workouts with `date < today` in the "Removed" loop → `kept_sw_ids` (re-associated, never deleted)
+- [x] Add `past_locked: list[WorkoutDiff] = []` to `DiffResult`
+- [x] `_compute_diff()`: workouts in active plan, absent from new plan, with `date < today` → `past_locked` (not `removed`). `completed_locked` takes priority.
+- [x] `commit_plan()`: workouts with `date < today` in the "Removed" loop → `kept_sw_ids` (re-associated, never deleted)
 
 ### Frontend
-- [ ] `types.ts`: add `past_locked?: WorkoutDiff[]` to `DiffResult`
-- [ ] `DiffTable.tsx`: new `past_locked` row kind with `↩` symbol, `(kept)` label, muted color; summary shows `↩N past (kept)`; table renders when only past_locked rows exist
-- [ ] `DiffTable.test.tsx`: new test file covering past_locked rendering, summary counts, render gate
+- [x] `types.ts`: add `past_locked?: WorkoutDiff[]` to `DiffResult`
+- [x] `DiffTable.tsx`: new `past_locked` row kind with `↩` symbol, `(kept)` label, muted color; summary shows `↩N past (kept)`; table renders when only past_locked rows exist
+- [x] `DiffTable.test.tsx`: new test file covering past_locked rendering, summary counts, render gate
 
 ### Tests
-- [ ] Backend: 4 new unit tests in `test_plan_import_service.py`
-- [ ] Frontend: `DiffTable.test.tsx`
+- [x] Backend: 5 new unit tests in `test_plan_import_service.py`
+- [x] Frontend: `DiffTable.test.tsx`
 
 ---
 

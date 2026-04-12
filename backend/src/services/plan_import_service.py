@@ -105,12 +105,20 @@ def _compute_diff(
     incoming: list[ParsedWorkout],
     active_parsed: list[dict],
     completed_dates: set[str] | None = None,
+    reference_date: date_type | None = None,
 ) -> DiffResult:
-    """Compute added/removed/changed/unchanged/completed_locked/past_locked vs the active plan."""
+    """Compute added/removed/changed/unchanged/completed_locked/past_locked vs the active plan.
+
+    Priority: completed_locked takes precedence over past_locked — a workout that is both
+    past-dated and has a matched activity is classified as completed_locked.
+
+    reference_date: the cutoff for "past" (defaults to UTC today). Inject in tests for
+    deterministic results.
+    """
     completed_dates = completed_dates or set()
     active_by_date = {w["date"]: w for w in active_parsed}
     incoming_by_date = {w.date: w for w in incoming}
-    today = datetime.now(timezone.utc).date()
+    today = reference_date or datetime.now(timezone.utc).date()
 
     added: list[WorkoutDiff] = []
     removed: list[WorkoutDiff] = []
@@ -332,14 +340,21 @@ async def commit_plan(
     user_id: int,
     plan_id: int,
     garmin: Any | None = None,
+    reference_date: date_type | None = None,
 ) -> CommitResult:
     """Commit a draft plan with smart merge.
 
     - Unchanged workouts (same date, name, steps_spec): kept as-is.
     - Completed workouts (matched_activity_id IS NOT NULL): never touched.
+    - Past workouts (date < today, not in incoming, not completed): re-associated to new plan.
     - Changed workouts: old SW deleted (Garmin cleanup), new SW created.
     - Added workouts: new SW created.
-    - Removed workouts (not in incoming, not completed): old SW deleted.
+    - Removed workouts (date >= today, not in incoming, not completed): old SW deleted.
+
+    reference_date: the cutoff for "past" (defaults to UTC today). Inject in tests for
+    deterministic results. Note: validate and commit each compute "today" independently —
+    a workout dated exactly today at validate time may be classified differently if commit
+    runs after midnight (it will be preserved rather than deleted, which is safe).
     """
 
     plan = await session.get(TrainingPlan, plan_id)
@@ -426,7 +441,7 @@ async def commit_plan(
 
     # Removed: in active plan, not in incoming, not completed
     # Past workouts (date < today) are re-associated instead of deleted
-    today = datetime.now(timezone.utc).date()
+    today = reference_date or datetime.now(timezone.utc).date()
     for date_str, sw in sw_by_date.items():
         if date_str not in incoming_dates and date_str not in completed_dates:
             if date_type.fromisoformat(date_str) < today:
@@ -455,7 +470,7 @@ async def commit_plan(
             delete(ScheduledWorkout).where(ScheduledWorkout.id.in_(ids_to_delete))
         )
 
-    # Re-associate kept SWs (unchanged + completed_locked) to the new plan
+    # Re-associate kept SWs (unchanged + completed_locked + past_locked) to the new plan
     if kept_sw_ids:
         await session.execute(
             update(ScheduledWorkout)
@@ -532,7 +547,7 @@ async def commit_plan(
         session.add(sw)
         new_sw_count += 1
 
-    # Total = kept (unchanged + completed_locked) + newly created
+    # Total = kept (unchanged + completed_locked + past_locked) + newly created
     kept_count = len(sw_by_date) - len(ids_to_delete)
     total_workout_count = max(0, kept_count) + new_sw_count
 
