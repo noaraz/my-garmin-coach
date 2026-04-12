@@ -191,6 +191,7 @@ export interface DiffResult {
   changed: WorkoutDiff[]
   unchanged: WorkoutDiff[]
   completed_locked: WorkoutDiff[]
+  past_locked?: WorkoutDiff[]
 }
 
 export interface ValidateResult {

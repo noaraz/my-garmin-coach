@@ -63,6 +63,7 @@ class DiffResult(BaseModel):
     changed: list[WorkoutDiff]
     unchanged: list[WorkoutDiff] = []
     completed_locked: list[WorkoutDiff] = []
+    past_locked: list[WorkoutDiff] = []
 
 
 class ValidateResult(BaseModel):
@@ -105,16 +106,18 @@ def _compute_diff(
     active_parsed: list[dict],
     completed_dates: set[str] | None = None,
 ) -> DiffResult:
-    """Compute added/removed/changed/unchanged/completed_locked vs the active plan."""
+    """Compute added/removed/changed/unchanged/completed_locked/past_locked vs the active plan."""
     completed_dates = completed_dates or set()
     active_by_date = {w["date"]: w for w in active_parsed}
     incoming_by_date = {w.date: w for w in incoming}
+    today = datetime.now(timezone.utc).date()
 
     added: list[WorkoutDiff] = []
     removed: list[WorkoutDiff] = []
     changed: list[WorkoutDiff] = []
     unchanged: list[WorkoutDiff] = []
     completed_locked: list[WorkoutDiff] = []
+    past_locked: list[WorkoutDiff] = []
 
     for date_str, workout in incoming_by_date.items():
         if date_str in completed_dates:
@@ -138,7 +141,10 @@ def _compute_diff(
 
     for date_str, active in active_by_date.items():
         if date_str not in incoming_by_date and date_str not in completed_dates:
-            removed.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
+            if date_type.fromisoformat(date_str) < today:
+                past_locked.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
+            else:
+                removed.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
 
     return DiffResult(
         added=added,
@@ -146,6 +152,7 @@ def _compute_diff(
         changed=changed,
         unchanged=unchanged,
         completed_locked=completed_locked,
+        past_locked=past_locked,
     )
 
 
@@ -418,11 +425,16 @@ async def commit_plan(
         sws_to_create.append(pw_dict)
 
     # Removed: in active plan, not in incoming, not completed
+    # Past workouts (date < today) are re-associated instead of deleted
+    today = datetime.now(timezone.utc).date()
     for date_str, sw in sw_by_date.items():
         if date_str not in incoming_dates and date_str not in completed_dates:
-            ids_to_delete.append(sw.id)  # type: ignore[arg-type]
-            if sw.garmin_workout_id:
-                garmin_ids_to_delete.append(sw.garmin_workout_id)
+            if date_type.fromisoformat(date_str) < today:
+                kept_sw_ids.append(sw.id)  # type: ignore[arg-type]
+            else:
+                ids_to_delete.append(sw.id)  # type: ignore[arg-type]
+                if sw.garmin_workout_id:
+                    garmin_ids_to_delete.append(sw.garmin_workout_id)
 
     # -----------------------------------------------------------------------
     # Garmin cleanup (must happen before DB delete — one API call per workout)

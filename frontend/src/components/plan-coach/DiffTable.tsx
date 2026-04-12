@@ -4,7 +4,7 @@ interface DiffTableProps {
   diff: DiffResult
 }
 
-type RowKind = 'added' | 'removed' | 'changed' | 'unchanged' | 'completed_locked'
+type RowKind = 'added' | 'removed' | 'changed' | 'unchanged' | 'completed_locked' | 'past_locked'
 
 const ROW_CONFIG: Record<RowKind, { symbol: string; color: string; bgVar: string }> = {
   added:            { symbol: '+',  color: 'var(--color-success)',  bgVar: 'var(--color-success-bg)' },
@@ -12,12 +12,13 @@ const ROW_CONFIG: Record<RowKind, { symbol: string; color: string; bgVar: string
   changed:          { symbol: '~',  color: 'var(--color-warning)',  bgVar: 'var(--color-warning-bg)' },
   unchanged:        { symbol: '=',  color: 'var(--text-muted)',     bgVar: 'transparent' },
   completed_locked: { symbol: '⊘',  color: 'var(--text-muted)',     bgVar: 'transparent' },
+  past_locked:      { symbol: '↩',  color: 'var(--text-muted)',     bgVar: 'transparent' },
 }
 
 function DiffRow({ item, kind }: { item: WorkoutDiff; kind: RowKind }) {
   const c = ROW_CONFIG[kind]
   const isChanged = kind === 'changed' && (item.old_steps_spec || item.new_steps_spec)
-  const isLocked = kind === 'completed_locked'
+  const isLocked = kind === 'completed_locked' || kind === 'past_locked'
   const nameChanged = isChanged && item.old_name && item.old_name !== item.name
 
   return (
@@ -53,7 +54,7 @@ function DiffRow({ item, kind }: { item: WorkoutDiff; kind: RowKind }) {
             : item.name}
           {isLocked && (
             <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--text-muted)' }}>
-              (completed)
+              {kind === 'past_locked' ? '(kept)' : '(completed)'}
             </span>
           )}
         </td>
@@ -84,9 +85,11 @@ export function DiffTable({ diff }: DiffTableProps) {
   const totalChanged = diff.changed.length
   const totalUnchanged = (diff.unchanged ?? []).length
   const totalLocked = (diff.completed_locked ?? []).length
+  const totalPastLocked = (diff.past_locked ?? []).length
   const hasActionable = totalAdded + totalRemoved + totalChanged > 0
+  const hasPastLocked = totalPastLocked > 0
 
-  if (!hasActionable) return null
+  if (!hasActionable && !hasPastLocked) return null
 
   return (
     <div
@@ -143,6 +146,11 @@ export function DiffTable({ diff }: DiffTableProps) {
               ⊘{totalLocked} locked
             </span>
           )}
+          {totalPastLocked > 0 && (
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--text-muted)' }}>
+              ↩{totalPastLocked} past (kept)
+            </span>
+          )}
         </div>
       </div>
 
@@ -163,6 +171,9 @@ export function DiffTable({ diff }: DiffTableProps) {
           ))}
           {(diff.completed_locked ?? []).map((item, i) => (
             <DiffRow key={`locked-${i}`} item={item} kind="completed_locked" />
+          ))}
+          {(diff.past_locked ?? []).map((item, i) => (
+            <DiffRow key={`past-${i}`} item={item} kind="past_locked" />
           ))}
         </tbody>
       </table>

@@ -50,3 +50,38 @@ class TestComputeDiff:
         assert result.completed_locked[0].date == "2026-04-07"
         assert len(result.changed) == 0
         assert len(result.unchanged) == 0
+
+    def test_past_workout_not_in_new_plan_goes_to_past_locked(self) -> None:
+        # A workout from the past that's absent from the new plan should be preserved
+        incoming: list[ParsedWorkout] = []
+        active = [_active("2020-01-01", "Old Run", "30m@Z2")]
+
+        result = _compute_diff(incoming, active)
+
+        assert len(result.past_locked) == 1
+        assert result.past_locked[0].date == "2020-01-01"
+        assert result.past_locked[0].name == "Old Run"
+        assert len(result.removed) == 0
+
+    def test_future_workout_not_in_new_plan_goes_to_removed(self) -> None:
+        # A workout in the future that's absent from the new plan should be removed
+        incoming: list[ParsedWorkout] = []
+        active = [_active("2099-12-31", "Future Run", "30m@Z2")]
+
+        result = _compute_diff(incoming, active)
+
+        assert len(result.removed) == 1
+        assert result.removed[0].date == "2099-12-31"
+        assert len(result.past_locked) == 0
+
+    def test_past_completed_workout_not_in_new_plan_is_silently_preserved(self) -> None:
+        # A workout that is both past and completed, absent from the new plan,
+        # is silently kept (not in any diff bucket) — completed_dates gate prevents deletion
+        incoming: list[ParsedWorkout] = []
+        active = [_active("2020-01-01", "Old Run", "30m@Z2")]
+
+        result = _compute_diff(incoming, active, completed_dates={"2020-01-01"})
+
+        assert len(result.completed_locked) == 0
+        assert len(result.past_locked) == 0
+        assert len(result.removed) == 0

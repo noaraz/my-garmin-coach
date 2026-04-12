@@ -77,9 +77,9 @@ No re-parsing at commit time — `parsed_workouts` JSON is the source of truth.
 
 Frontend renders `DiffTable` when `diff != null`. "Apply Changes" calls commit.
 
-### Re-import Diff — Smart Merge (Phase 5)
+### Re-import Diff — Smart Merge (Phase 5 + Phase 8)
 
-`DiffResult` now has 5 buckets. `WorkoutDiff` carries optional before/after fields:
+`DiffResult` now has 6 buckets. `WorkoutDiff` carries optional before/after fields:
 
 ```python
 class WorkoutDiff(BaseModel):
@@ -95,7 +95,10 @@ class DiffResult(BaseModel):
     changed: list[WorkoutDiff]
     unchanged: list[WorkoutDiff]        # kept as-is (no DB change)
     completed_locked: list[WorkoutDiff] # matched_activity_id IS NOT NULL — never touched
+    past_locked: list[WorkoutDiff]      # date < today, absent from new plan — re-associated, never deleted
 ```
+
+**Priority rule**: `completed_locked` takes precedence over `past_locked`. A workout that is both past-dated and has a matched activity is classified as `completed_locked`.
 
 `_compute_diff` signature (third arg defaults to `None`, resolved to `set()` inside):
 
