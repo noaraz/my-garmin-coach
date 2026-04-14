@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from src.api.routers.admin import router as admin_router
 from src.api.routers.auth import router as auth_router
 from src.api.routers.calendar import router as calendar_router
 from src.api.routers.garmin_connect import router as garmin_connect_router
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok"}
 
+    application.include_router(admin_router)
     application.include_router(auth_router)
     application.include_router(garmin_connect_router)
     application.include_router(profile_router)
