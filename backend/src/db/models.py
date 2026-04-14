@@ -25,6 +25,7 @@ class AthleteProfile(SQLModel, table=True):
     # Garmin credential storage for auto-reconnect (Fernet encrypted)
     garmin_credential_encrypted: Optional[str] = Field(default=None)
     garmin_credential_stored_at: Optional[datetime] = Field(default=None)
+    garmin_auth_version: Optional[str] = Field(default="v1")  # "v1" or "v2"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -163,3 +164,13 @@ class GarminActivity(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
+
+
+class SystemConfig(SQLModel, table=True):
+    """Key-value store for runtime feature flags."""
+
+    __tablename__ = "systemconfig"
+
+    key: str = Field(primary_key=True)
+    value: str
+    updated_at: Optional[datetime] = Field(default=None)
