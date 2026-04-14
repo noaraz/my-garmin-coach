@@ -312,32 +312,33 @@ Exchange 429 detected
 
 **Important**: Token persistence is only useful when exchange SUCCEEDS. When exchange FAILS (429), garth still has the OLD expired token — persisting it saves stale data. Auto-reconnect is the fix for the failed-exchange case.
 
-## Garth Deprecation (added 2026-03-29)
+## Garth Deprecation + garminconnect 0.3.x Migration (updated 2026-04-14)
 
-### What happened (March 2026)
+### Background (March 2026)
 
-- March 17: Garmin deployed Cloudflare protection blocking `/mobile/api/login` globally (429 for all IPs)
-- March 27: garth maintainer (matin) officially deprecated garth — https://github.com/matin/garth/discussions/222
-- Root cause: Garmin changed auth flow, broke mobile auth approach used by garth 0.7.x
-- References: garth#217, python-garminconnect#332
+- March 17: Garmin deployed Cloudflare protection blocking `/mobile/api/login` globally
+- March 27: garth maintainer (matin) officially deprecated garth
+- April 2: python-garminconnect 0.3.0 released — replaces garth with native DI OAuth
 
-### Why we're safe (garth 0.5.21)
+### Migration: Feature-Flagged Dual Adapter
 
-- We use garth 0.5.21 which uses the **old SSO form flow** (`/sso/embed` + `/sso/signin`)
-- The blocked endpoint is `/mobile/api/login` (garth 0.7.x only) — we don't use it
-- Our exchange endpoint (`/oauth-service/oauth/exchange/user/2.0`) still works
-- **DO NOT upgrade garth** past 0.5.x — newer versions use the dead mobile endpoint
+Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
 
-### When this will break
+- **Runtime feature flag**: `SystemConfig` table + `POST /api/v1/admin/garmin-auth-version` (v1 or v2)
+- **GarminAdapterProtocol**: Shared interface in `adapter_protocol.py`
+- **GarminAdapterV1** (`adapter_v1.py`): Current garth-based code, exception wrapping added
+- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.x native — `client.connectapi()` replaces `client.garth.post/put/delete()`
+- **Unified exceptions**: `GarminAdapterError` hierarchy in `adapter_protocol.py`. Consumers catch these, not `GarthHTTPError`.
+- **WorkoutFacade** (`workout_facade.py`): Version-aware formatter bridge injected into SyncOrchestrator
+- **Token format**: V1 (garth.dumps) and V2 (json.dumps of garmin_tokens) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format. Mismatch triggers auto-reconnect.
+- **Rollback**: Switch flag to v1 via admin endpoint — instant, no restart needed
 
-- If Garmin blocks `/sso/signin` (the old web form flow) — no signs of this yet
-- If Garmin changes the consumer key for `/oauth-service/oauth/preauthorized` (some users seeing 401 already)
-- garth will receive no more maintenance fixes
+### V1 path (garth 0.5.21) — retained as fallback
 
-### When it breaks — what to do
-
-- Evaluate the Garmin auth ecosystem at that time — multiple replacement approaches are emerging and the landscape will stabilize
-- Track: https://github.com/matin/garth/discussions/222 and https://github.com/cyberjunky/python-garminconnect/issues/332
+- Uses old SSO form flow (`/sso/embed` + `/sso/signin`)
+- `ChromeTLSSession` + fingerprint rotation for Akamai bypass
+- **DO NOT upgrade garth** past 0.5.x
+- Will be removed in a follow-up PR after V2 is stable
 
 ## Reconnect Prompt for Existing Users (added 2026-03-29)
 

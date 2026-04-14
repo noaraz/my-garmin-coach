@@ -744,6 +744,18 @@ Garmin's own calendar shows BOTH the scheduled planned workout AND the completed
 
 See `features/garmin-sync/CLAUDE.md` for Akamai bot detection, fingerprint rotation, auto-reconnect, and garth deprecation notes.
 
+## Garmin Auth Version Feature Flag (added 2026-04-14)
+
+- **Runtime toggle**: `SystemConfig` table stores `garmin_auth_version` ("v1" | "v2")
+- **Admin endpoint**: `POST /api/v1/admin/garmin-auth-version` to switch at runtime
+- **V1**: garth 0.5.x (SSO form flow) — `GarminAdapterV1` in `adapter_v1.py`
+- **V2**: garminconnect 0.3.x (native DI OAuth) — `GarminAdapterV2` in `adapter_v2.py`
+- **Factory**: `client_factory.py` branches on version, returns `GarminAdapterProtocol`
+- **Unified exceptions**: All consumer code catches `GarminAdapterError` subtypes (not `GarthHTTPError`)
+- **Token format**: Incompatible between V1/V2. `garmin_auth_version` column on `AthleteProfile` tracks format. Mismatch triggers auto-reconnect.
+- **WorkoutFacade**: `workout_facade.py` bridges formatter output. Injected into `SyncOrchestrator` as the formatter callable.
+- **Design spec**: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
+
 ---
 
 ## CI Troubleshooting (added 2026-03-26)

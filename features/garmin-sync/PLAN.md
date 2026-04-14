@@ -37,6 +37,21 @@ Track progress in **STATUS.md**.
 - [x] Write `test_api_sync.py` — API endpoint tests
 - [x] Run tests → GREEN
 
+### garminconnect 0.3.x Migration 🔄
+Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
+Implementation plan: `docs/superpowers/plans/2026-04-14-garminconnect-03x-migration.md`
+
+- [ ] Upgrade garminconnect to 0.3.x, pin garth 0.5.x
+- [ ] Create GarminAdapterProtocol + unified exception hierarchy
+- [ ] Add SystemConfig table + admin endpoint for runtime flag switching
+- [ ] Rename adapter.py → adapter_v1.py with exception wrapping
+- [ ] Create GarminAdapterV2 (garminconnect 0.3.x native)
+- [ ] Update client_factory.py with V2 paths + factory branching
+- [ ] Create WorkoutFacade (version-aware formatter bridge)
+- [ ] Migrate consumers (sync.py, garmin_connect.py, auto_reconnect.py)
+- [ ] Update test mocks for unified exceptions
+- [ ] Full verification + docs
+
 ---
 
 ## Garmin Workout JSON Format

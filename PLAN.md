@@ -65,7 +65,7 @@ Release process in **RELEASING.md** — versioning, GitHub tags, Render deploy w
 | ---------- | ------------------------------------------- |
 | Frontend   | React 18 + TypeScript + Tailwind + dnd-kit  |
 | Backend    | FastAPI (Python 3.11+) + SQLModel + SQLite (dev) / Neon PostgreSQL (prod) |
-| Garmin     | python-garminconnect (~1.8K★) via garth (~757★) |
+| Garmin     | python-garminconnect 0.3.x (native DI OAuth) + garth 0.5.x (V1 fallback) |
 | Auth       | Google OAuth + python-jose (JWT) + Fernet (token encryption) |
 | Testing    | pytest + Vitest + React Testing Library      |
 | Infra      | Docker Compose (dev + prod) → Render (free)  |
@@ -84,7 +84,7 @@ and `CLAUDE.md` (patterns, gotchas) in `features/<name>/`.
 | 1 | Infrastructure | `features/infrastructure/` | — | ✅ |
 | 2 | Zone Engine | `features/zone-engine/` | — (pure logic) | ✅ |
 | 3 | Workout Resolver | `features/workout-resolver/` | zone-engine | ✅ |
-| 4 | Garmin Sync | `features/garmin-sync/` | workout-resolver | ✅ |
+| 4 | Garmin Sync | `features/garmin-sync/` | workout-resolver | ✅ (0.3.x migration 🔄) |
 | 5 | Database + API | `features/database-api/` | all above | ✅ |
 | 6 | Calendar | `features/calendar/` | database-api | ✅ (UX improvements: view persistence + WorkoutPicker search 🟡) |
 | 7 | Workout Builder | `features/workout-builder/` | database-api, calendar | ✅ |
