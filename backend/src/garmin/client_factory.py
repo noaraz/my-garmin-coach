@@ -1,16 +1,15 @@
-"""Centralized Garmin client creation with Chrome TLS impersonation.
+"""Centralized Garmin client creation with feature-flag branching.
 
-All Garmin API calls (login, sync, activity fetch) go through clients created
-here, ensuring Chrome 136 TLS fingerprint bypasses Akamai Bot Manager on
-SSO login (sso.garmin.com) and regular API calls (connectapi.garmin.com).
+V1 (garth): Chrome TLS impersonation, manual fingerprint rotation.
+V2 (garminconnect 0.3.x): Library handles TLS + cascading login internally.
 
-garth's native sso.exchange() creates a GarminOAuth1Session that inherits
-adapters from ChromeTLSSession via parent=client.sess. This uses standard
-Python TLS for the OAuth2 token exchange — which Akamai allows (proven by
-login flow working). We do NOT override refresh_oauth2.
+The factory reads the auth version from Settings (env var seed).
+Runtime switching is handled by the admin endpoint writing to SystemConfig;
+callers that need the DB-backed value should query it via dependency injection.
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import garminconnect
@@ -18,7 +17,9 @@ import garth
 import requests
 from curl_cffi import requests as cffi_requests
 
+from src.garmin.adapter_protocol import GarminAdapterProtocol
 from src.garmin.adapter_v1 import GarminAdapter
+from src.garmin.adapter_v2 import GarminAdapterV2
 
 CHROME_VERSION = "chrome136"
 
@@ -45,29 +46,104 @@ class ChromeTLSSession(cffi_requests.Session):
         self.hooks = _rs.hooks
 
 
-def create_api_client(token_json: str) -> GarminAdapter:
-    """Create a GarminAdapter from stored OAuth tokens with Chrome TLS.
+def _get_auth_version() -> str:
+    """Read auth version from Settings (env var seed). For DB-backed runtime
+    value, callers should use the FastAPI dependency instead."""
+    from src.core.config import get_settings
+    return get_settings().garmin_auth_version
 
-    Used by sync.py for all API calls (workout push, activity fetch, etc.).
-    garth's native refresh_oauth2 handles token exchange via
-    GarminOAuth1Session(parent=ChromeTLSSession) — same path as login.
+
+# ---------------------------------------------------------------------------
+# Adapter creation (token → adapter)
+# ---------------------------------------------------------------------------
+
+def create_adapter(token_json: str, auth_version: str | None = None) -> GarminAdapterProtocol:
+    """Create the appropriate adapter based on auth version.
+
+    Args:
+        token_json: Serialized token (garth format for V1, JSON dict for V2).
+        auth_version: Override auth version. If None, reads from Settings.
     """
+    version = auth_version or _get_auth_version()
+    if version == "v2":
+        return _create_adapter_v2(token_json)
+    return _create_adapter_v1(token_json)
+
+
+def _create_adapter_v1(token_json: str) -> GarminAdapter:
+    """Create a V1 GarminAdapter from garth tokens with Chrome TLS."""
     client = garminconnect.Garmin()
     client.garth.loads(token_json)
     client.garth.sess = ChromeTLSSession(impersonate=CHROME_VERSION)
     return GarminAdapter(client)
 
 
+def _create_adapter_v2(token_json: str) -> GarminAdapterV2:
+    """Create a V2 GarminAdapterV2 from 0.3.x token dict."""
+    tokens = json.loads(token_json)
+    client = garminconnect.Garmin()
+    client.garmin_tokens = tokens
+    return GarminAdapterV2(client)
+
+
+# ---------------------------------------------------------------------------
+# Login (email+password → token JSON)
+# ---------------------------------------------------------------------------
+
+def login_and_get_token(
+    email: str,
+    password: str,
+    fingerprint: str = CHROME_VERSION,
+    proxy_url: str | None = None,
+    auth_version: str | None = None,
+) -> str:
+    """Login and return serialized token JSON.
+
+    V1: Creates garth.Client with ChromeTLSSession. Caller handles retry loop.
+    V2: Creates Garmin(email, password), calls login(). Library handles retries.
+    """
+    version = auth_version or _get_auth_version()
+    if version == "v2":
+        return _login_v2(email, password)
+    return _login_v1(email, password, fingerprint, proxy_url)
+
+
+def _login_v1(
+    email: str,
+    password: str,
+    fingerprint: str = CHROME_VERSION,
+    proxy_url: str | None = None,
+) -> str:
+    """V1 login via garth.Client + Chrome TLS."""
+    client = garth.Client()
+    client.sess = ChromeTLSSession(impersonate=fingerprint)
+    if proxy_url:
+        client.sess.proxies = {"https": proxy_url}
+    client.login(email, password)
+    return client.dumps()
+
+
+def _login_v2(email: str, password: str) -> str:
+    """V2 login via garminconnect 0.3.x native auth."""
+    client = garminconnect.Garmin(email=email, password=password)
+    client.login()
+    return json.dumps(client.garmin_tokens)
+
+
+# ---------------------------------------------------------------------------
+# Backward compat (used by existing code during migration)
+# ---------------------------------------------------------------------------
+
+def create_api_client(token_json: str) -> GarminAdapterProtocol:
+    """Backward-compat alias for create_adapter(). Reads version from Settings."""
+    return create_adapter(token_json)
+
+
 def create_login_client(
     fingerprint: str = CHROME_VERSION,
     proxy_url: str | None = None,
 ) -> garth.Client:
-    """Create a garth.Client with Chrome TLS for SSO login.
-
-    Used by garmin_connect.py for the initial Garmin authentication.
-    The fingerprint param selects which TLS impersonation to use — rotate
-    through FINGERPRINT_SEQUENCE to avoid Akamai bot detection.
-    """
+    """V1-only: Create a garth.Client for SSO login. Used by garmin_connect.py retry loop."""
     client = garth.Client()
     client.sess = ChromeTLSSession(impersonate=fingerprint)
     if proxy_url:
