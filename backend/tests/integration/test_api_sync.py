@@ -8,39 +8,18 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from garth.exc import GarthHTTPError
-from requests import HTTPError as RequestsHTTPError
-from requests.models import Response
-
 from src.api.app import create_app
 from src.api.dependencies import get_session
 from src.api.routers.sync import _get_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.garmin.adapter_protocol import GarminNotFoundError
 
 
-def _garmin_404() -> GarthHTTPError:
-    """Build a GarthHTTPError with status 404 for use in mock side_effects."""
-    resp = Response()
-    resp.status_code = 404
-    return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
-
-
-def _curl_cffi_404() -> Exception:
-    """Simulate a raw curl_cffi HTTPError (404) that garth does not wrap.
-
-    garth's request() only catches requests.HTTPError; curl_cffi raises its own
-    HTTPError which bubbles up unwrapped with a .response attribute.
-    """
-
-    class _FakeResponse:
-        status_code = 404
-
-    class _CurlCffiHTTPError(Exception):
-        response = _FakeResponse()
-
-    return _CurlCffiHTTPError("HTTP Error 404:")
+def _garmin_404() -> GarminNotFoundError:
+    """Build a GarminNotFoundError for use in mock side_effects."""
+    return GarminNotFoundError("404 Not Found")
 
 
 # ---------------------------------------------------------------------------
@@ -267,12 +246,12 @@ class TestSyncSingle:
         session: AsyncSession,
         mock_sync_service: MagicMock,
     ) -> None:
-        """curl_cffi 404 (unwrapped by garth) also clears stale ID and re-pushes."""
+        """GarminNotFoundError on delete also clears stale ID and re-pushes."""
         # Arrange
         sw = await _make_scheduled_workout(
             session, sync_status="modified", garmin_workout_id="stale-id"
         )
-        mock_sync_service.delete_workout.side_effect = _curl_cffi_404()
+        mock_sync_service.delete_workout.side_effect = _garmin_404()
         mock_sync_service.sync_workout.return_value = ("fresh-garmin-id", "sched-fresh-id")
 
         # Act
