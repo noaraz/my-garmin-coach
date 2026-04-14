@@ -4,17 +4,19 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from curl_cffi import requests as cffi_requests
-from garth.exc import GarthHTTPError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.core import cache
 from src.core.config import get_settings
-from src.db.models import AthleteProfile
+from src.db.models import AthleteProfile, SystemConfig
 from src.garmin import client_cache
-from src.garmin.adapter import GarminAdapter
-from src.garmin.client_factory import create_api_client, create_login_client
+from src.garmin.adapter_protocol import (
+    GarminAdapterProtocol,
+    GarminAuthError,
+    GarminConnectionError,
+)
+from src.garmin.client_factory import create_adapter, login_and_get_token
 from src.garmin.encryption import decrypt_credential, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -53,10 +55,10 @@ def _set_reconnect_cooldown(user_id: int, seconds: int) -> None:
 async def attempt_auto_reconnect(
     user_id: int,
     session: AsyncSession,
-) -> GarminAdapter | None:
+) -> GarminAdapterProtocol | None:
     """Try to re-login using stored credentials when exchange fails.
 
-    Returns a fresh GarminAdapter on success, None if credentials are
+    Returns a fresh adapter on success, None if credentials are
     missing, expired, on cooldown, or login fails.
 
     This function implements three layers of storm prevention:
@@ -69,7 +71,7 @@ async def attempt_auto_reconnect(
         session: Active async DB session.
 
     Returns:
-        A fresh GarminAdapter if reconnect succeeded, None otherwise.
+        A fresh GarminAdapterProtocol if reconnect succeeded, None otherwise.
     """
     settings = get_settings()
 
@@ -97,6 +99,17 @@ async def attempt_auto_reconnect(
         logger.info("Auto-reconnect on cooldown for user %s — skipping", user_id)
         return None
 
+    # Determine current auth version from runtime flag
+    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
+    current_version = auth_version_row.value if auth_version_row else "v1"
+    stored_version = profile.garmin_auth_version or "v1"
+
+    if stored_version != current_version:
+        logger.info(
+            "Auth version mismatch for user %s: stored=%s, current=%s — forcing reconnect",
+            user_id, stored_version, current_version,
+        )
+
     # Decrypt and re-login
     try:
         creds = decrypt_credential(
@@ -112,31 +125,27 @@ async def attempt_auto_reconnect(
 
     email, password = creds["email"], creds["password"]
     try:
-        # Best-effort single attempt — fingerprint rotation not applied here.
-        # If chrome136 fails, caller catches the exception and schedules a manual reconnect.
-        client = create_login_client()
-        client.login(email, password)
-        token_json = client.dumps()
+        token_json = login_and_get_token(email, password, auth_version=current_version)
 
         # Persist fresh tokens
         encrypted = encrypt_token(user_id, settings.garmincoach_secret_key, token_json)
         profile.garmin_oauth_token_encrypted = encrypted
+        profile.garmin_auth_version = current_version
         session.add(profile)
         await session.commit()
         cache.invalidate(f"profile:{user_id}")
         client_cache.invalidate(user_id)
 
-        adapter = create_api_client(token_json)
+        adapter = create_adapter(token_json, auth_version=current_version)
         client_cache.put(user_id, adapter)
 
         # Clear exchange cooldown — fresh tokens don't need the 30-min pause
         from src.api.routers.sync import clear_exchange_cooldown
         clear_exchange_cooldown(user_id)
 
-        logger.info("Auto-reconnect succeeded for user %s", user_id)
+        logger.info("Auto-reconnect succeeded for user %s (version=%s)", user_id, current_version)
         return adapter
-    except (GarthHTTPError, cffi_requests.exceptions.HTTPError):
-        # Bad credentials or Garmin blocked (curl_cffi may raise its own HTTPError)
+    except (GarminAuthError, GarminConnectionError):
         logger.warning(
             "Auto-reconnect login failed for user %s (clearing credentials)", user_id
         )
