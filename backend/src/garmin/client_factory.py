@@ -18,7 +18,7 @@ import garth
 import requests
 from curl_cffi import requests as cffi_requests
 
-from src.garmin.adapter import GarminAdapter
+from src.garmin.adapter_v1 import GarminAdapter
 
 CHROME_VERSION = "chrome136"
 
