@@ -112,18 +112,33 @@ async def _get_garmin_adapter(
             detail="Garmin account not connected. Connect via Settings → Garmin Connect.",
         )
 
+    # If the stored token version doesn't match the global auth version,
+    # the token format is incompatible — disconnect and force re-login.
+    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
+    global_version = auth_version_row.value if auth_version_row else "v1"
+    stored_version = profile.garmin_auth_version or "v1"
+
+    if stored_version != global_version:
+        logger.warning(
+            "Token version mismatch for user %s: stored=%s, global=%s — disconnecting",
+            current_user.id, stored_version, global_version,
+        )
+        profile.garmin_connected = False
+        profile.garmin_oauth_token_encrypted = None
+        session.add(profile)
+        await session.commit()
+        raise HTTPException(
+            status_code=403,
+            detail="Garmin auth version changed. Please reconnect in Settings.",
+        )
+
     token_json = decrypt_token(
         current_user.id,
         settings.garmincoach_secret_key,
         profile.garmin_oauth_token_encrypted,
     )
 
-    # Use the version the token was stored with (profile), not the global flag.
-    # The global flag controls new logins; existing tokens must be parsed with
-    # the format they were originally serialized in.
-    auth_version = profile.garmin_auth_version or "v1"
-
-    adapter = create_adapter(token_json, auth_version=auth_version)
+    adapter = create_adapter(token_json, auth_version=stored_version)
     client_cache.put(current_user.id, adapter)
     return adapter
 
