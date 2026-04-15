@@ -71,7 +71,10 @@ async def connect_garmin(
     auth_version = auth_version_row.value if auth_version_row else "v1"
 
     if auth_version == "v2":
-        # V2: garminconnect 0.3.x handles retries internally — single call
+        # V2: garminconnect 0.3.2 has a built-in 5-strategy cascading login.
+        # The library logs each strategy attempt at DEBUG level via
+        # "garminconnect.client" logger — set to DEBUG below to surface them.
+        logging.getLogger("garminconnect").setLevel(logging.DEBUG)
         try:
             token_json = login_and_get_token(email, password, auth_version="v2")
             logger.info("Garmin V2 login succeeded for user_id=%s", current_user.id)
@@ -86,7 +89,7 @@ async def connect_garmin(
                 detail="Garmin is temporarily rate-limiting this server. Please try again in a few minutes.",
             ) from exc
         except Exception as exc:
-            logger.error("Garmin V2 login error: %s", type(exc).__name__)
+            logger.error("Garmin V2 login error: %s: %s", type(exc).__name__, exc)
             raise HTTPException(
                 status_code=400,
                 detail="Garmin authentication failed. Check your email and password.",
