@@ -57,6 +57,20 @@ Common risks this catches:
 - **Bare `op.alter_column()`** — silently ignored on SQLite; must use `batch_alter_table`.
 - **Missing `.replace(tzinfo=None)`** — PostgreSQL rejects timezone-aware datetimes in `TIMESTAMP WITHOUT TIME ZONE` columns.
 
+### Apply migration to local Docker DB
+
+**Always** rebuild and restart the backend container so the local SQLite DB applies the new migration. This catches chain errors (multiple heads, missing down_revision) that only surface at `alembic upgrade head` runtime:
+
+```bash
+/Applications/Docker.app/Contents/Resources/bin/docker compose up -d --build backend
+sleep 3
+/Applications/Docker.app/Contents/Resources/bin/docker compose logs backend --tail 10
+```
+
+**Expected**: log shows `Running upgrade <prev> -> <new>, <description>` followed by `Application startup complete.`
+
+**If it fails** with "Multiple head revisions": the new migration's `down_revision` doesn't chain from the current head. Fix the `down_revision` in the migration file, rebuild, and re-check.
+
 ---
 
 ## 4. Security Audit
