@@ -17,7 +17,12 @@ import garth
 import requests
 from curl_cffi import requests as cffi_requests
 
-from src.garmin.adapter_protocol import GarminAdapterProtocol
+from src.garmin.adapter_protocol import (
+    GarminAdapterProtocol,
+    GarminAuthError,
+    GarminConnectionError,
+    GarminRateLimitError,
+)
 from src.garmin.adapter_v1 import GarminAdapter
 from src.garmin.adapter_v2 import GarminAdapterV2
 
@@ -125,9 +130,16 @@ def _login_v1(
 
 def _login_v2(email: str, password: str) -> str:
     """V2 login via garminconnect 0.3.x native auth."""
-    client = garminconnect.Garmin(email=email, password=password)
-    client.login()
-    return json.dumps(client.garmin_tokens)
+    try:
+        client = garminconnect.Garmin(email=email, password=password)
+        client.login()
+        return json.dumps(client.garmin_tokens)
+    except garminconnect.GarminConnectAuthenticationError as exc:
+        raise GarminAuthError(str(exc)) from exc
+    except garminconnect.GarminConnectTooManyRequestsError as exc:
+        raise GarminRateLimitError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise GarminConnectionError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

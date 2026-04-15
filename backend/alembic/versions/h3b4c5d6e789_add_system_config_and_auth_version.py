@@ -1,7 +1,7 @@
 """add system_config table and garmin_auth_version
 
 Revision ID: h3b4c5d6e789
-Revises: g2a3b4c5d678
+Revises: 460d2c67b829
 Create Date: 2026-04-14 00:00:00.000000
 """
 

@@ -47,7 +47,7 @@ class GarminAdapterV2:
                 method="POST",
                 json=formatted_workout,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # noqa: BLE001
             _translate_exception(exc)
             raise  # unreachable, satisfies type checker
 
@@ -55,7 +55,7 @@ class GarminAdapterV2:
         """Schedule a workout on a specific date."""
         try:
             return self._client.schedule_workout(workout_id, workout_date)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
             raise
 
@@ -67,28 +67,28 @@ class GarminAdapterV2:
                 method="PUT",
                 json=formatted_workout,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
 
     def delete_workout(self, workout_id: str) -> None:
         """Permanently delete a workout from Garmin Connect."""
         try:
             self._client.delete_workout(workout_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
 
     def unschedule_workout(self, schedule_id: str) -> None:
         """Remove a single calendar schedule entry."""
         try:
             self._client.unschedule_workout(schedule_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
 
     def get_activities_by_date(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """Fetch activities from Garmin within a date range."""
         try:
             return self._client.get_activities_by_date(start_date, end_date)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
             raise
 
@@ -96,7 +96,7 @@ class GarminAdapterV2:
         """Fetch all planned workouts from Garmin Connect."""
         try:
             return self._client.get_workouts()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
             raise
 
@@ -107,7 +107,7 @@ class GarminAdapterV2:
             path = f"/calendar-service/year/{year}/month/{garmin_month}"
             result = self._client.connectapi(path)
             return result.get("calendarItems", []) if isinstance(result, dict) else []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
             raise
 

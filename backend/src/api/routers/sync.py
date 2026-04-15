@@ -118,7 +118,10 @@ async def _get_garmin_adapter(
         profile.garmin_oauth_token_encrypted,
     )
 
-    adapter = create_adapter(token_json)
+    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
+    auth_version = auth_version_row.value if auth_version_row else "v1"
+
+    adapter = create_adapter(token_json, auth_version=auth_version)
     client_cache.put(current_user.id, adapter)
     return adapter
 
