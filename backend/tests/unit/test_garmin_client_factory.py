@@ -82,6 +82,48 @@ class TestCreateApiClient:
         assert "refresh_oauth2" not in garth_client.__dict__
 
 
+class TestCreateAdapterVersionRouting:
+    """create_adapter must route to V1 or V2 based on auth_version param."""
+
+    @patch("src.garmin.client_factory.garminconnect")
+    def test_create_adapter_v1_when_garth_token_parses_correctly(self, mock_gc: MagicMock) -> None:
+        from src.garmin.adapter_v1 import GarminAdapter
+        from src.garmin.client_factory import create_adapter
+
+        mock_client = MagicMock()
+        mock_gc.Garmin.return_value = mock_client
+
+        adapter = create_adapter('{"token": "garth_format"}', auth_version="v1")
+        assert isinstance(adapter, GarminAdapter)
+        mock_client.garth.loads.assert_called_once_with('{"token": "garth_format"}')
+
+    @patch("src.garmin.client_factory.garminconnect")
+    def test_create_adapter_v2_when_json_token_parses_correctly(self, mock_gc: MagicMock) -> None:
+        from src.garmin.adapter_v2 import GarminAdapterV2
+        from src.garmin.client_factory import create_adapter
+
+        mock_client = MagicMock()
+        mock_gc.Garmin.return_value = mock_client
+
+        adapter = create_adapter('{"oauth1": "tok", "oauth2": "tok2"}', auth_version="v2")
+        assert isinstance(adapter, GarminAdapterV2)
+
+    def test_create_adapter_v2_when_garth_token_raises_json_error(self) -> None:
+        """V1 garth tokens are not valid JSON dicts — V2 adapter must fail.
+
+        This is the real-world bug: global flag switched to v2 but existing users
+        still have V1 garth tokens stored. The adapter must be created with the
+        profile's auth_version, not the global flag.
+        """
+        import json
+
+        from src.garmin.client_factory import create_adapter
+
+        garth_style_token = "not-a-json-dict"  # garth.dumps() produces non-JSON
+        with __import__("pytest").raises(json.JSONDecodeError):
+            create_adapter(garth_style_token, auth_version="v2")
+
+
 class TestCreateLoginClient:
     """create_login_client must return a garth.Client with Chrome TLS session."""
 
