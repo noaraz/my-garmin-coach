@@ -155,6 +155,34 @@ The core value — what TrainingPeaks does that we're replicating:
 
 ---
 
+## Pending: Separate Preview DB from Production
+
+The Render Preview deployment currently shares the production Neon DB. This is dangerous — preview migrations can corrupt prod data, and runtime config changes (like `garmin_auth_version`) in preview affect prod immediately.
+
+**Goal**: Each Render Preview environment should use its own isolated database.
+
+**Options to evaluate**:
+
+1. **Neon branching** — Neon supports database branches (copy-on-write from prod). Each preview gets its own branch. Free tier supports branching. Pros: zero-copy, instant, schema matches prod. Cons: Neon-specific, branch cleanup needed.
+
+2. **Separate Neon project** — A second free-tier Neon project (`garmincoach-preview`). All previews share it. `alembic upgrade head` runs fresh on each deploy. Pros: simple, fully isolated. Cons: no prod data for testing, free tier limits (one project per account — may need a second account).
+
+3. **SQLite in preview** — Preview uses SQLite (like local dev). No external DB needed. Pros: zero cost, fully isolated. Cons: schema drift risk (SQLite vs PostgreSQL differences), no prod-like testing.
+
+**Recommendation**: Neon branching (option 1) if available on free tier, otherwise option 2.
+
+**Pre-migration step**: Before switching previews to a separate DB, write a simple SQL script to copy the existing Neon prod data into the new preview DB. This ensures preview environments start with realistic data (users, profiles, workouts, plans) instead of being empty. Script should handle `pg_dump`/`pg_restore` or a targeted `INSERT INTO ... SELECT` for the key tables.
+
+**Tasks**:
+- [ ] Write SQL/script to copy prod Neon data to preview DB
+- [ ] Evaluate Neon branching on free tier
+- [ ] Set up preview-specific `DATABASE_URL` in Render Preview Environment settings
+- [ ] Update `render.yaml` or preview env config to use the isolated DB
+- [ ] Test migration flow end-to-end on a preview deploy
+- [ ] Document the setup in `features/infrastructure/CLAUDE.md`
+
+---
+
 ## Design Principles
 
 1. **TDD**: Test → red → implement → green → refactor.

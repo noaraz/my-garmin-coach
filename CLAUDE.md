@@ -752,7 +752,9 @@ See `features/garmin-sync/CLAUDE.md` for Akamai bot detection, fingerprint rotat
 - **V2**: garminconnect 0.3.x (native DI OAuth) — `GarminAdapterV2` in `adapter_v2.py`
 - **Factory**: `client_factory.py` branches on version, returns `GarminAdapterProtocol`
 - **Unified exceptions**: All consumer code catches `GarminAdapterError` subtypes (not `GarthHTTPError`)
-- **Token format**: Incompatible between V1/V2. `garmin_auth_version` column on `AthleteProfile` tracks format. Mismatch triggers auto-reconnect.
+- **Token format**: Incompatible between V1/V2. `garmin_auth_version` column on `AthleteProfile` tracks format.
+- **Version mismatch → disconnect**: `_get_garmin_adapter` in `sync.py` compares `profile.garmin_auth_version` against the global `SystemConfig` flag. If they differ, the user's Garmin is disconnected (`garmin_connected=False`, token cleared) and a 403 is returned with "Please reconnect in Settings." Auto-reconnect handles migration transparently for users with stored credentials.
+- **Global flag controls new logins only**: The `SystemConfig` `garmin_auth_version` value determines which adapter `login_and_get_token` and `WorkoutFacade` use. Stored token deserialization uses `profile.garmin_auth_version` (set at connect time).
 - **WorkoutFacade**: `workout_facade.py` bridges formatter output. Injected into `SyncOrchestrator` as the formatter callable.
 - **Design spec**: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
 

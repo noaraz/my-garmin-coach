@@ -314,8 +314,10 @@ Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-desi
 - **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.x native — `client.connectapi()` replaces `client.garth.post/put/delete()`
 - **Unified exceptions**: `GarminAdapterError` hierarchy in `adapter_protocol.py`. Consumers catch these, not `GarthHTTPError`.
 - **WorkoutFacade** (`workout_facade.py`): Version-aware formatter bridge injected into SyncOrchestrator
-- **Token format**: V1 (garth.dumps) and V2 (json.dumps of garmin_tokens) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format. Mismatch triggers auto-reconnect.
-- **Rollback**: Switch flag to v1 via admin endpoint — instant, no restart needed
+- **Token format**: V1 (garth.dumps) and V2 (json.dumps of garmin_tokens) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format.
+- **Version mismatch → disconnect**: When `profile.garmin_auth_version` ≠ global `SystemConfig` flag, `_get_garmin_adapter` disconnects the user (clears token, sets `garmin_connected=False`) and returns 403 "Please reconnect in Settings." Auto-reconnect handles migration for users with stored credentials.
+- **Global flag = new logins only**: `SystemConfig.garmin_auth_version` controls `login_and_get_token` and `WorkoutFacade`. Stored token deserialization uses `profile.garmin_auth_version`.
+- **Rollback**: Switch flag to v1 via admin endpoint — instant, no restart needed. Existing V2 users will be disconnected and need to reconnect.
 
 ### V1 path (garth 0.5.21) — retained as fallback
 

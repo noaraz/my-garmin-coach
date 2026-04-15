@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-14 — garminconnect 0.3.x migration complete (ready for PR)
+Last updated: 2026-04-15 — garminconnect 0.3.x migration PR #84 (code review fixes + version mismatch handling)
 
 ## Garminconnect 0.3.x Migration ✅
 
@@ -15,6 +15,8 @@ Implementation plan: `docs/superpowers/plans/2026-04-14-garminconnect-03x-migrat
 | Chunk 2: V2 adapter, client factory, WorkoutFacade | ✅ |
 | Chunk 3: Consumer migration (sync.py, garmin_connect.py, auto_reconnect.py) | ✅ |
 | Chunk 4: Verification + final docs | ✅ |
+| Code review fixes (auth_version DB lookup, _login_v2 exception translation, noqa) | ✅ |
+| Version mismatch handling: disconnect + force reconnect on V1↔V2 token mismatch | ✅ |
 
 ---
 
