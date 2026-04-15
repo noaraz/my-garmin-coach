@@ -17,7 +17,7 @@ Replaces TrainingPeaks for self-coached athletes.
 | ---------- | ------------------------------------------- |
 | Frontend   | React 18 + TypeScript + Tailwind + dnd-kit  |
 | Backend    | FastAPI (Python 3.11+) + SQLModel + SQLite (dev) / PostgreSQL (prod) |
-| Garmin     | python-garminconnect (via garth OAuth)       |
+| Garmin     | python-garminconnect 0.3.x (native DI OAuth) + garth 0.5.x (V1 fallback) |
 | Auth       | python-jose (JWT) + passlib (bcrypt) + Fernet |
 | Testing    | pytest + Vitest + React Testing Library      |
 | Infra      | Docker Compose (dev + prod) → Render         |
@@ -742,7 +742,7 @@ Garmin's own calendar shows BOTH the scheduled planned workout AND the completed
 
 ## Garmin SSO & API
 
-See `features/garmin-sync/CLAUDE.md` for Akamai bot detection, fingerprint rotation, auto-reconnect, and garth deprecation notes.
+See `features/garmin-sync/CLAUDE.md` for Akamai bot detection, fingerprint rotation, auto-reconnect, and the garminconnect 0.3.x migration (dual adapter, unified exceptions, WorkoutFacade, runtime feature flag).
 
 ## Garmin Auth Version Feature Flag (added 2026-04-14)
 
@@ -903,8 +903,8 @@ Silent auto-fetch hid what Garmin context was being injected into the prompt. Th
 
 Ideas for future iterations, roughly in priority order.
 
-### Migrate off garth (deprecated)
-garth was deprecated March 27, 2026 (https://github.com/matin/garth/discussions/222). We're on garth 0.5.21 (old SSO form flow) which still works. DO NOT upgrade past 0.5.x. When it breaks, evaluate replacement libraries at that time. See `features/garmin-sync/CLAUDE.md` "Garth Deprecation" for context.
+### Remove V1 garth adapter code
+garminconnect 0.3.x migration is complete — V2 adapter is live behind a runtime feature flag (`POST /api/v1/admin/garmin-auth-version`). garth 0.5.21 is retained as V1 fallback. After V2 is stable in production, remove V1 code: `adapter_v1.py`, `adapter.py` shim, `create_login_client()`, garth dependency, ChromeTLSSession, FINGERPRINT_SEQUENCE.
 
 ### Test Run → Zone Update
 When a user completes a deliberate effort (time trial, race, or 30-min test), they should be able to tag it and have zones auto-updated from the result.
