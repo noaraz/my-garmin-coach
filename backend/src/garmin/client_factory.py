@@ -129,7 +129,12 @@ def _login_v1(
 
 
 def _login_v2(email: str, password: str) -> str:
-    """V2 login via garminconnect 0.3.x native auth."""
+    """V2 login via garminconnect 0.3.x native auth.
+
+    garminconnect 0.3.2+ has its own 5-strategy cascading login with automatic
+    retry and MFA dual-endpoint fallback. Do NOT inject ChromeTLSSession or
+    fingerprint rotation — it interferes with the library's built-in cascade.
+    """
     try:
         client = garminconnect.Garmin(email=email, password=password)
         client.login()
