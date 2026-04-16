@@ -9,13 +9,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.core import cache
 from src.core.config import get_settings
-from src.db.models import AthleteProfile, SystemConfig
+from src.db.models import AthleteProfile
 from src.garmin import client_cache
 from src.garmin.adapter_protocol import (
     GarminAdapterProtocol,
     GarminAuthError,
     GarminConnectionError,
 )
+from src.garmin.auth_version import get_db_auth_version, parse as parse_auth_version
 from src.garmin.client_factory import create_adapter, login_and_get_token
 from src.garmin.encryption import decrypt_credential, encrypt_token
 
@@ -100,9 +101,8 @@ async def attempt_auto_reconnect(
         return None
 
     # Determine current auth version from runtime flag
-    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-    current_version = auth_version_row.value if auth_version_row else "v1"
-    stored_version = profile.garmin_auth_version or "v1"
+    current_version = await get_db_auth_version(session)
+    stored_version = parse_auth_version(profile.garmin_auth_version)
 
     if stored_version != current_version:
         logger.info(

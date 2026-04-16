@@ -24,6 +24,7 @@ from src.garmin.adapter_protocol import (
 )
 from src.garmin.adapter_v1 import GarminAdapter
 from src.garmin.adapter_v2 import GarminAdapterV2
+from src.garmin.auth_version import GarminAuthVersion, parse as parse_auth_version
 
 CHROME_VERSION = "chrome136"
 
@@ -50,26 +51,28 @@ class ChromeTLSSession(cffi_requests.Session):
         self.hooks = _rs.hooks
 
 
-def _get_auth_version() -> str:
+def _get_auth_version() -> GarminAuthVersion:
     """Read auth version from Settings (env var seed). For DB-backed runtime
-    value, callers should use the FastAPI dependency instead."""
+    value, callers should use ``get_db_auth_version`` in ``auth_version`` instead."""
     from src.core.config import get_settings
-    return get_settings().garmin_auth_version
+    return parse_auth_version(get_settings().garmin_auth_version)
 
 
 # ---------------------------------------------------------------------------
 # Adapter creation (token → adapter)
 # ---------------------------------------------------------------------------
 
-def create_adapter(token_json: str, auth_version: str | None = None) -> GarminAdapterProtocol:
+def create_adapter(
+    token_json: str, auth_version: GarminAuthVersion | str | None = None,
+) -> GarminAdapterProtocol:
     """Create the appropriate adapter based on auth version.
 
     Args:
         token_json: Serialized token (garth format for V1, JSON dict for V2).
         auth_version: Override auth version. If None, reads from Settings.
     """
-    version = auth_version or _get_auth_version()
-    if version == "v2":
+    version = parse_auth_version(auth_version) if auth_version else _get_auth_version()
+    if version == GarminAuthVersion.V2:
         return _create_adapter_v2(token_json)
     return _create_adapter_v1(token_json)
 
@@ -83,10 +86,9 @@ def _create_adapter_v1(token_json: str) -> GarminAdapter:
 
 
 def _create_adapter_v2(token_json: str) -> GarminAdapterV2:
-    """Create a V2 GarminAdapterV2 from 0.3.2 token dict.
+    """Create a V2 GarminAdapterV2 from a 0.3.2 token JSON string.
 
     Token format: {"di_token": ..., "di_refresh_token": ..., "di_client_id": ...}
-    Restored via client.Client.loads() (not Garmin.garmin_tokens which doesn't exist).
     """
     client = garminconnect.Garmin()
     client.client.loads(token_json)
@@ -102,15 +104,15 @@ def login_and_get_token(
     password: str,
     fingerprint: str = CHROME_VERSION,
     proxy_url: str | None = None,
-    auth_version: str | None = None,
+    auth_version: GarminAuthVersion | str | None = None,
 ) -> str:
     """Login and return serialized token JSON.
 
     V1: Creates garth.Client with ChromeTLSSession. Caller handles retry loop.
     V2: Creates Garmin(email, password), calls login(). Library handles retries.
     """
-    version = auth_version or _get_auth_version()
-    if version == "v2":
+    version = parse_auth_version(auth_version) if auth_version else _get_auth_version()
+    if version == GarminAuthVersion.V2:
         return _login_v2(email, password)
     return _login_v1(email, password, fingerprint, proxy_url)
 

@@ -18,10 +18,12 @@ from src.auth.models import User
 from src.auth.schemas import GarminConnectRequest, GarminStatusResponse
 from src.core import cache
 from src.core.config import get_settings
-from src.db.models import AthleteProfile, SystemConfig
+from src.db.models import AthleteProfile
 from src.garmin import client_cache
 from src.garmin.adapter_protocol import GarminAuthError, GarminRateLimitError
+from src.garmin.auth_version import GarminAuthVersion, get_db_auth_version
 from src.garmin.client_factory import FINGERPRINT_SEQUENCE, create_login_client, login_and_get_token
+from src.garmin.disconnect import clear_garmin_connection
 from src.garmin.encryption import encrypt_credential, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -67,16 +69,13 @@ async def connect_garmin(
     logger.info("Garmin connect requested for user_id=%s", current_user.id)
 
     # Determine auth version from runtime flag
-    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-    auth_version = auth_version_row.value if auth_version_row else "v1"
+    auth_version = await get_db_auth_version(session)
 
-    if auth_version == "v2":
-        # V2: garminconnect 0.3.2 has a built-in 5-strategy cascading login.
-        # The library logs each strategy attempt at DEBUG level via
-        # "garminconnect.client" logger — set to DEBUG below to surface them.
-        logging.getLogger("garminconnect").setLevel(logging.DEBUG)
+    if auth_version == GarminAuthVersion.V2:
+        # garminconnect 0.3.2 has a built-in 5-strategy cascading login;
+        # its attempts are logged at DEBUG via "garminconnect" logger (set in app.py).
         try:
-            token_json = login_and_get_token(email, password, auth_version="v2")
+            token_json = login_and_get_token(email, password, auth_version=auth_version)
             logger.info("Garmin V2 login succeeded for user_id=%s", current_user.id)
         except GarminAuthError as exc:
             raise HTTPException(
@@ -230,13 +229,6 @@ async def disconnect_garmin(
         )
     ).first()
     if profile is not None:
-        profile.garmin_oauth_token_encrypted = None
-        profile.garmin_connected = False
-        profile.garmin_credential_encrypted = None
-        profile.garmin_credential_stored_at = None
-        session.add(profile)
-        await session.commit()
-        cache.invalidate(f"profile:{current_user.id}")
-        client_cache.invalidate(current_user.id)
+        await clear_garmin_connection(profile, current_user.id, session)
 
     return GarminStatusResponse(connected=False)

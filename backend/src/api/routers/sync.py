@@ -16,19 +16,21 @@ from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
-from src.db.models import AthleteProfile, ScheduledWorkout, SystemConfig, WorkoutTemplate
+from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.garmin import client_cache
 from src.garmin.adapter_protocol import (
     GarminAdapterProtocol,
     GarminNotFoundError,
     GarminRateLimitError,
 )
-from src.garmin import client_cache
+from src.garmin.auth_version import get_db_auth_version, parse as parse_auth_version
 from src.garmin.auto_reconnect import attempt_auto_reconnect
 from src.garmin.client_factory import create_adapter
+from src.garmin.disconnect import clear_garmin_connection
 from src.garmin.encryption import decrypt_token
 from src.garmin.sync_service import GarminSyncService
-from src.garmin.workout_facade import WorkoutFacade
 from src.garmin.token_persistence import persist_refreshed_token
+from src.garmin.workout_facade import WorkoutFacade
 from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.services.calendar_service import resolve_builder_steps
@@ -114,19 +116,18 @@ async def _get_garmin_adapter(
 
     # If the stored token version doesn't match the global auth version,
     # the token format is incompatible — disconnect and force re-login.
-    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-    global_version = auth_version_row.value if auth_version_row else "v1"
-    stored_version = profile.garmin_auth_version or "v1"
+    # Keep credentials so auto-reconnect can retry with the new version.
+    global_version = await get_db_auth_version(session)
+    stored_version = parse_auth_version(profile.garmin_auth_version)
 
     if stored_version != global_version:
         logger.warning(
             "Token version mismatch for user %s: stored=%s, global=%s — disconnecting",
             current_user.id, stored_version, global_version,
         )
-        profile.garmin_connected = False
-        profile.garmin_oauth_token_encrypted = None
-        session.add(profile)
-        await session.commit()
+        await clear_garmin_connection(
+            profile, current_user.id, session, keep_credentials=True,
+        )
         raise HTTPException(
             status_code=403,
             detail="Garmin auth version changed. Please reconnect in Settings.",
@@ -154,8 +155,7 @@ async def _get_garmin_sync_service(
     """
     adapter = await _get_garmin_adapter(current_user=current_user, session=session)
 
-    auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-    auth_version = auth_version_row.value if auth_version_row else "v1"
+    auth_version = await get_db_auth_version(session)
     facade = WorkoutFacade(auth_version=auth_version)
 
     def _resolver(steps: list[Any], **_: Any) -> list[Any]:
@@ -225,8 +225,7 @@ async def background_sync(user_id: int) -> None:
                 adapter = await _get_garmin_adapter(current_user=user, session=session)
             except HTTPException:
                 return  # Garmin not connected — nothing to do
-            auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-            auth_version = auth_version_row.value if auth_version_row else "v1"
+            auth_version = await get_db_auth_version(session)
             facade = WorkoutFacade(auth_version=auth_version)
             orchestrator = SyncOrchestrator(
                 sync_service=GarminSyncService(adapter),
@@ -508,8 +507,7 @@ async def sync_all(
                 fetch_error="Garmin credentials expired. Please reconnect in Settings.",
             )
         # Rebuild orchestrator with fresh adapter and retry
-        auth_version_row = await session.get(SystemConfig, "garmin_auth_version")
-        auth_version = auth_version_row.value if auth_version_row else "v1"
+        auth_version = await get_db_auth_version(session)
         facade = WorkoutFacade(auth_version=auth_version)
         sync_service = SyncOrchestrator(
             sync_service=GarminSyncService(adapter),

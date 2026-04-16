@@ -162,7 +162,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           setSyncError(null)
         }
       } catch {
-        // Sync failed (e.g. 403 from version mismatch disconnect) — refresh sidebar status
+        // 403 from version-mismatch clears garmin_connected server-side; resync sidebar state.
         refresh()
       } finally {
         setSyncing(false)

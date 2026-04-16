@@ -65,6 +65,11 @@ def create_app() -> FastAPI:
         )
         _app_logger.addHandler(_handler)
     _app_logger.setLevel(logging.INFO)
+
+    # Surface garminconnect 0.3.x's internal cascade-login attempts so we can
+    # see which of its 5 strategies succeeded/failed in production logs.
+    logging.getLogger("garminconnect").setLevel(logging.DEBUG)
+
     settings = get_settings()
     application = FastAPI(title="GarminCoach", lifespan=lifespan)
 

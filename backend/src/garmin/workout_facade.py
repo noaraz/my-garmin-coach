@@ -11,14 +11,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.garmin.auth_version import GarminAuthVersion, parse as parse_auth_version
 from src.garmin.formatter import format_workout
 
 
 class WorkoutFacade:
     """Stable interface between workout templates and Garmin API format."""
 
-    def __init__(self, auth_version: str = "v1") -> None:
-        self._auth_version = auth_version
+    def __init__(
+        self, auth_version: GarminAuthVersion | str = GarminAuthVersion.V1,
+    ) -> None:
+        self._auth_version = parse_auth_version(auth_version)
 
     def build_workout(
         self,
@@ -32,7 +35,7 @@ class WorkoutFacade:
         Both V1 and V2 return a dict — V2 builds from typed models then
         serializes to the same dict format for upload.
         """
-        if self._auth_version == "v2":
+        if self._auth_version == GarminAuthVersion.V2:
             return self._build_v2(workout_name, resolved_steps, workout_description)
         return format_workout(workout_name, resolved_steps, workout_description)
 
