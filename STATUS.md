@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-16 — garminconnect 0.3.x migration PR #84 (refactor: centralize auth-version enum + disconnect helper)
+Last updated: 2026-04-16 — v1.7.0 release (garminconnect 0.3.x migration)
+
+## v1.7.0 Release ✅
+
+| Task | Status |
+|------|--------|
+| Pre-flight checks (branch clean, tags fetched) | ✅ |
+| Full test suite (621 backend + 330 frontend, 80.66% coverage) | ✅ |
+| Version bump (frontend/package.json → 1.7.0) | ✅ |
+| Tag + push | ⏳ |
+
+---
 
 ## Garminconnect 0.3.x Migration ✅
 
