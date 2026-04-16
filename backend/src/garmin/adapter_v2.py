@@ -5,7 +5,6 @@ All garminconnect-specific exceptions are translated to the unified hierarchy.
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import garminconnect

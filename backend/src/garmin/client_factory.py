@@ -9,7 +9,6 @@ callers that need the DB-backed value should query it via dependency injection.
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import garminconnect
