@@ -308,17 +308,26 @@ Exchange 429 detected
 
 Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
 
-- **Runtime feature flag**: `SystemConfig` table + `POST /api/v1/admin/garmin-auth-version` (v1 or v2)
+- **Runtime feature flag**: `SystemConfig` table + `POST /api/v1/admin/garmin-auth-version` (v1 or v2). Admin endpoint calls `client_cache.clear()` on toggle so cached adapters can't bypass the version-mismatch check for up to 1h.
 - **GarminAdapterProtocol**: Shared interface in `adapter_protocol.py`
 - **GarminAdapterV1** (`adapter_v1.py`): Current garth-based code, exception wrapping added
-- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.2+ native — `client.connectapi()` replaces `client.garth.post/put/delete()`
-- **V2 login**: garminconnect 0.3.2 has a built-in 5-strategy cascading login (Mobile+cffi, Mobile+requests, SSO embed+cffi, Portal+cffi, Portal+requests). Do NOT inject `ChromeTLSSession` or fingerprint rotation into the V2 path — it interferes with the library's own cascade. `_login_v2` in `client_factory.py` is intentionally simple.
+- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.2+ native — `client.connectapi()` replaces `client.garth.post/put/delete()`. Token serialization via `client.client.dumps()` / `.loads()` (not `json.dumps(client.garmin_tokens)`).
+- **V2 login**: garminconnect 0.3.2 has a built-in 5-strategy cascading login (Mobile+cffi, Mobile+requests, SSO embed+cffi, Portal+cffi, Portal+requests). Do NOT inject `ChromeTLSSession` or fingerprint rotation into the V2 path — it interferes with the library's own cascade. `_login_v2` in `client_factory.py` is intentionally simple. garminconnect internal logs surface at DEBUG — set once at `create_app()` startup, not per-request.
 - **Unified exceptions**: `GarminAdapterError` hierarchy in `adapter_protocol.py`. Consumers catch these, not `GarthHTTPError`.
 - **WorkoutFacade** (`workout_facade.py`): Version-aware formatter bridge injected into SyncOrchestrator
-- **Token format**: V1 (garth.dumps) and V2 (json.dumps of garmin_tokens) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format.
-- **Version mismatch → disconnect**: When `profile.garmin_auth_version` ≠ global `SystemConfig` flag, `_get_garmin_adapter` disconnects the user (clears token, sets `garmin_connected=False`) and returns 403 "Please reconnect in Settings." Auto-reconnect handles migration for users with stored credentials.
+- **Token format**: V1 (garth.dumps) and V2 (garminconnect `client.client.dumps()`) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format.
+- **Version mismatch → disconnect**: When `profile.garmin_auth_version` ≠ global `SystemConfig` flag, `_get_garmin_adapter` calls `clear_garmin_connection(..., keep_credentials=True)` and returns 403 "Please reconnect in Settings." Credentials are kept so auto-reconnect can retry with the new version.
 - **Global flag = new logins only**: `SystemConfig.garmin_auth_version` controls `login_and_get_token` and `WorkoutFacade`. Stored token deserialization uses `profile.garmin_auth_version`.
 - **Rollback**: Switch flag to v1 via admin endpoint — instant, no restart needed. Existing V2 users will be disconnected and need to reconnect.
+
+### Central enum + shared helpers (2026-04-16)
+
+Three utilities eliminate duplication across `sync.py`, `garmin_connect.py`, `auto_reconnect.py`, `admin.py`, `client_factory.py`, `workout_facade.py`:
+
+- **`GarminAuthVersion(StrEnum)`** in `src/garmin/auth_version.py` — replaces `"v1"/"v2"` string literals. StrEnum gives string equality: both `version == GarminAuthVersion.V2` and `version == "v2"` work. **Use `==`, never `is`** — plain strings pass through `parse()` but fail identity checks.
+- **`parse(value)`** in `auth_version.py` — defensive coercion from DB/env; unknown value → V1.
+- **`get_db_auth_version(session)`** in `auth_version.py` — reads the `SystemConfig` row. Use this instead of inlining `await session.get(SystemConfig, SYSTEM_CONFIG_KEY)` anywhere new.
+- **`clear_garmin_connection(profile, user_id, session, *, keep_credentials=False)`** in `src/garmin/disconnect.py` — single disconnect path (clears token, sets `garmin_connected=False`, invalidates `cache` + `client_cache`). `keep_credentials=True` for version-mismatch (so auto-reconnect can retry); `False` for user-initiated disconnect.
 
 ### V1 path (garth 0.5.21) — retained as fallback
 

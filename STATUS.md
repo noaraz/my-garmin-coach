@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-15 — garminconnect 0.3.x migration PR #84 (code review fixes + version mismatch handling)
+Last updated: 2026-04-16 — garminconnect 0.3.x migration PR #84 (refactor: centralize auth-version enum + disconnect helper)
 
 ## Garminconnect 0.3.x Migration ✅
 
@@ -17,6 +17,7 @@ Implementation plan: `docs/superpowers/plans/2026-04-14-garminconnect-03x-migrat
 | Chunk 4: Verification + final docs | ✅ |
 | Code review fixes (auth_version DB lookup, _login_v2 exception translation, noqa) | ✅ |
 | Version mismatch handling: disconnect + force reconnect on V1↔V2 token mismatch | ✅ |
+| Simplify pass: `GarminAuthVersion(StrEnum)`, `get_db_auth_version()`, `clear_garmin_connection()` helpers; `client_cache.clear()` on admin toggle | ✅ |
 
 ---
 
