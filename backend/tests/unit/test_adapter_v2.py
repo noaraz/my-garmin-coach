@@ -61,10 +61,10 @@ class TestGarminAdapterV2:
         assert result == [{"id": 1}]
 
     def test_dump_token_serializes(self, adapter, mock_client: MagicMock) -> None:
-        mock_client.garmin_tokens = {"access_token": "abc", "refresh_token": "xyz"}
+        mock_client.client.dumps.return_value = '{"di_token": "abc", "di_refresh_token": "xyz"}'
         result = adapter.dump_token()
         parsed = json.loads(result)
-        assert parsed["access_token"] == "abc"
+        assert parsed["di_token"] == "abc"
 
     def test_auth_error_translated(self, adapter, mock_client: MagicMock) -> None:
         from garminconnect import GarminConnectAuthenticationError

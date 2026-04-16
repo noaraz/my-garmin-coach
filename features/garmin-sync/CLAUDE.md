@@ -311,7 +311,8 @@ Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-desi
 - **Runtime feature flag**: `SystemConfig` table + `POST /api/v1/admin/garmin-auth-version` (v1 or v2)
 - **GarminAdapterProtocol**: Shared interface in `adapter_protocol.py`
 - **GarminAdapterV1** (`adapter_v1.py`): Current garth-based code, exception wrapping added
-- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.x native — `client.connectapi()` replaces `client.garth.post/put/delete()`
+- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.2+ native — `client.connectapi()` replaces `client.garth.post/put/delete()`
+- **V2 login**: garminconnect 0.3.2 has a built-in 5-strategy cascading login (Mobile+cffi, Mobile+requests, SSO embed+cffi, Portal+cffi, Portal+requests). Do NOT inject `ChromeTLSSession` or fingerprint rotation into the V2 path — it interferes with the library's own cascade. `_login_v2` in `client_factory.py` is intentionally simple.
 - **Unified exceptions**: `GarminAdapterError` hierarchy in `adapter_protocol.py`. Consumers catch these, not `GarthHTTPError`.
 - **WorkoutFacade** (`workout_facade.py`): Version-aware formatter bridge injected into SyncOrchestrator
 - **Token format**: V1 (garth.dumps) and V2 (json.dumps of garmin_tokens) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format.

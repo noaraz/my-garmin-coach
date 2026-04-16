@@ -749,7 +749,8 @@ See `features/garmin-sync/CLAUDE.md` for Akamai bot detection, fingerprint rotat
 - **Runtime toggle**: `SystemConfig` table stores `garmin_auth_version` ("v1" | "v2")
 - **Admin endpoint**: `POST /api/v1/admin/garmin-auth-version` to switch at runtime
 - **V1**: garth 0.5.x (SSO form flow) — `GarminAdapterV1` in `adapter_v1.py`
-- **V2**: garminconnect 0.3.x (native DI OAuth) — `GarminAdapterV2` in `adapter_v2.py`
+- **V2**: garminconnect 0.3.2+ (native DI OAuth, 5-strategy cascading login) — `GarminAdapterV2` in `adapter_v2.py`
+- **V2 login strategies** (built into garminconnect 0.3.2, do NOT inject ChromeTLSSession): 1) Mobile iOS + curl_cffi, 2) Mobile iOS + requests, 3) SSO embed widget + cffi, 4) Portal web + curl_cffi, 5) Portal web + requests
 - **Factory**: `client_factory.py` branches on version, returns `GarminAdapterProtocol`
 - **Unified exceptions**: All consumer code catches `GarminAdapterError` subtypes (not `GarthHTTPError`)
 - **Token format**: Incompatible between V1/V2. `garmin_auth_version` column on `AthleteProfile` tracks format.

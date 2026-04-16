@@ -113,4 +113,4 @@ class GarminAdapterV2:
 
     def dump_token(self) -> str:
         """Serialize current token state as JSON string."""
-        return json.dumps(self._client.garmin_tokens)
+        return self._client.client.dumps()

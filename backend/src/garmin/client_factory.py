@@ -84,10 +84,13 @@ def _create_adapter_v1(token_json: str) -> GarminAdapter:
 
 
 def _create_adapter_v2(token_json: str) -> GarminAdapterV2:
-    """Create a V2 GarminAdapterV2 from 0.3.x token dict."""
-    tokens = json.loads(token_json)
+    """Create a V2 GarminAdapterV2 from 0.3.2 token dict.
+
+    Token format: {"di_token": ..., "di_refresh_token": ..., "di_client_id": ...}
+    Restored via client.Client.loads() (not Garmin.garmin_tokens which doesn't exist).
+    """
     client = garminconnect.Garmin()
-    client.garmin_tokens = tokens
+    client.client.loads(token_json)
     return GarminAdapterV2(client)
 
 
@@ -138,7 +141,7 @@ def _login_v2(email: str, password: str) -> str:
     try:
         client = garminconnect.Garmin(email=email, password=password)
         client.login()
-        return json.dumps(client.garmin_tokens)
+        return client.client.dumps()
     except garminconnect.GarminConnectAuthenticationError as exc:
         raise GarminAuthError(str(exc)) from exc
     except garminconnect.GarminConnectTooManyRequestsError as exc:

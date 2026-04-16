@@ -31,7 +31,7 @@ class TestClientFactoryV2:
     def test_login_v2(self, mock_garmin_cls, mock_version) -> None:
         from src.garmin.client_factory import login_and_get_token
         mock_client = MagicMock()
-        mock_client.garmin_tokens = {"access_token": "fresh"}
+        mock_client.client.dumps.return_value = '{"di_token": "fresh"}'
         mock_garmin_cls.return_value = mock_client
         token = login_and_get_token("user@test.com", "pass123")
         mock_client.login.assert_called_once()
