@@ -100,9 +100,11 @@ Garmin uses Akamai Bot Manager with **different configs per subdomain**:
 
 **Fix**: `ChromeTLSSession(impersonate="chrome124")` in `backend/src/garmin/client_factory.py` — single source of truth for all Garmin client creation. `CHROME_VERSION` constant controls the version.
 
-**Factory functions** (both inject `ChromeTLSSession`):
-- `create_login_client(proxy_url=None)` → `garth.Client` — SSO login in `garmin_connect.py`
-- `create_api_client(token_json)` → `GarminAdapter` — all API calls in `sync.py` via `_get_garmin_adapter()`
+**Factory functions** (version-aware, single branching point):
+- `login_and_get_token(email, password, auth_version=)` → token JSON — V1 uses garth, V2 uses garminconnect native
+- `create_adapter(token_json, auth_version=)` → `GarminAdapterProtocol` — returns V1 or V2 adapter
+- `create_login_client()` → `garth.Client` — V1-only, used by garmin_connect.py retry loop
+- `create_api_client(token_json)` — backward-compat alias for `create_adapter()`
 
 **Token exchange — DO NOT override `refresh_oauth2`**: garth's native `sso.exchange()` creates a `GarminOAuth1Session(parent=ChromeTLSSession)` which uses standard Python TLS. Akamai allows this on the exchange endpoint but blocks curl_cffi. Monkey-patching `refresh_oauth2` to route through curl_cffi causes 429.
 
@@ -129,9 +131,10 @@ reconnect).
 1. Push pending/modified workouts TO Garmin (existing)
 2. Fetch activities FROM Garmin (new — see `features/garmin-activity-fetch/`)
 
-The `GarminAdapter` in `backend/src/garmin/adapter.py` is shared between push and fetch.
-It provides `add_workout`, `schedule_workout`, `update_workout`, `delete_workout` (push),
-`get_activities_by_date` (fetch), and `get_workouts` (dedup).
+The adapter (V1: `adapter_v1.py`, V2: `adapter_v2.py`) is shared between push and fetch.
+Both implement `GarminAdapterProtocol` with `add_workout`, `schedule_workout`,
+`update_workout`, `delete_workout` (push), `get_activities_by_date` (fetch), and
+`get_workouts` (dedup). `adapter.py` is a backward-compat shim re-exporting from V1.
 
 Activity fetch is best-effort — if it fails, the push results are still returned.
 Response includes `activities_fetched`, `activities_matched`, `fetch_error` fields.
@@ -163,45 +166,26 @@ Orphan cleanup only deletes Garmin workouts whose name matches a `WorkoutTemplat
 
 All Garmin API calls from routers/services must go through `SyncOrchestrator` methods, not `sync_service.adapter.*`. When adding a new Garmin API method, add it to all three layers: `GarminAdapter` → `GarminSyncService` → `SyncOrchestrator`.
 
-## Typed 404 Detection (updated 2026-03-27)
+## Unified Exception Handling (updated 2026-04-14)
 
-`_is_garmin_404(exc)` uses three-tier detection to handle all HTTP client variants:
+Adapters (V1 and V2) translate library-specific exceptions into unified types in `adapter_protocol.py`:
+- `GarminNotFoundError` (404) — stale workout, already deleted
+- `GarminRateLimitError` (429) — exchange or API rate limit
+- `GarminAuthError` (401) — bad credentials or expired token
+- `GarminConnectionError` — network/other errors
 
+Consumers (sync.py, auto_reconnect.py) catch these types — never `GarthHTTPError` or library-specific errors.
+
+**Test factory:**
 ```python
-def _is_garmin_404(exc: Exception) -> bool:
-    # Tier 1: garth-wrapped requests.HTTPError
-    if isinstance(exc, GarthHTTPError):
-        return exc.error.response is not None and exc.error.response.status_code == 404
-    # Tier 2: curl_cffi HTTPError (garth doesn't catch it, bubbles up unwrapped)
-    response = getattr(exc, "response", None)
-    if response is not None:
-        return getattr(response, "status_code", None) == 404
-    # Tier 3: string fallback for bare requests.HTTPError with no .response object
-    return "404" in str(exc)
-```
-
-**Why three tiers**: garth wraps `requests.HTTPError` as `GarthHTTPError` (tier 1). curl_cffi raises its own `HTTPError` that garth doesn't catch — it surfaces unwrapped with a `.response` attribute (tier 2). `requests.exceptions.HTTPError` raised without a response object (e.g. direct `raise HTTPError("404 Client Error")`) only surfaces the status in its message (tier 3).
-
-**Test factories:**
-
-```python
-# Tier 1 — GarthHTTPError
-def _garmin_404() -> GarthHTTPError:
-    resp = Response(); resp.status_code = 404
-    return GarthHTTPError(msg="404 Not Found", error=RequestsHTTPError(response=resp))
-
-# Tier 2 — curl_cffi-style (unwrapped, has .response)
-def _curl_cffi_404() -> Exception:
-    class _FakeResponse:
-        status_code = 404
-    class _CurlCffiHTTPError(Exception):
-        response = _FakeResponse()
-    return _CurlCffiHTTPError("HTTP Error 404:")
+from src.garmin.adapter_protocol import GarminNotFoundError
+def _garmin_404() -> GarminNotFoundError:
+    return GarminNotFoundError("404 Not Found")
 ```
 
 ## Stale `garmin_workout_id` Recovery
 
-When a workout has a `garmin_workout_id` that no longer exists on Garmin (e.g. manually deleted from Garmin Connect), `_sync_and_persist` will receive a 404 on the delete attempt. `_is_garmin_404` detects it, clears the stale ID, and proceeds with a fresh push — self-healing on retry with no manual intervention needed.
+When a workout has a `garmin_workout_id` that no longer exists on Garmin (e.g. manually deleted from Garmin Connect), `_sync_and_persist` will receive a `GarminNotFoundError` on the delete attempt, clears the stale ID, and proceeds with a fresh push — self-healing on retry with no manual intervention needed.
 
 **If a workout is stuck as `sync_status="failed"` with a stale ID and self-heal isn't working** (e.g. `_is_garmin_404` not detecting the error variant), clear it manually:
 
@@ -312,32 +296,45 @@ Exchange 429 detected
 
 **Important**: Token persistence is only useful when exchange SUCCEEDS. When exchange FAILS (429), garth still has the OLD expired token — persisting it saves stale data. Auto-reconnect is the fix for the failed-exchange case.
 
-## Garth Deprecation (added 2026-03-29)
+## Garth Deprecation + garminconnect 0.3.x Migration (updated 2026-04-14)
 
-### What happened (March 2026)
+### Background (March 2026)
 
-- March 17: Garmin deployed Cloudflare protection blocking `/mobile/api/login` globally (429 for all IPs)
-- March 27: garth maintainer (matin) officially deprecated garth — https://github.com/matin/garth/discussions/222
-- Root cause: Garmin changed auth flow, broke mobile auth approach used by garth 0.7.x
-- References: garth#217, python-garminconnect#332
+- March 17: Garmin deployed Cloudflare protection blocking `/mobile/api/login` globally
+- March 27: garth maintainer (matin) officially deprecated garth
+- April 2: python-garminconnect 0.3.0 released — replaces garth with native DI OAuth
 
-### Why we're safe (garth 0.5.21)
+### Migration: Feature-Flagged Dual Adapter
 
-- We use garth 0.5.21 which uses the **old SSO form flow** (`/sso/embed` + `/sso/signin`)
-- The blocked endpoint is `/mobile/api/login` (garth 0.7.x only) — we don't use it
-- Our exchange endpoint (`/oauth-service/oauth/exchange/user/2.0`) still works
-- **DO NOT upgrade garth** past 0.5.x — newer versions use the dead mobile endpoint
+Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
 
-### When this will break
+- **Runtime feature flag**: `SystemConfig` table + `POST /api/v1/admin/garmin-auth-version` (v1 or v2). Admin endpoint calls `client_cache.clear()` on toggle so cached adapters can't bypass the version-mismatch check for up to 1h.
+- **GarminAdapterProtocol**: Shared interface in `adapter_protocol.py`
+- **GarminAdapterV1** (`adapter_v1.py`): Current garth-based code, exception wrapping added
+- **GarminAdapterV2** (`adapter_v2.py`): garminconnect 0.3.2+ native — `client.connectapi()` replaces `client.garth.post/put/delete()`. Token serialization via `client.client.dumps()` / `.loads()` (not `json.dumps(client.garmin_tokens)`).
+- **V2 login**: garminconnect 0.3.2 has a built-in 5-strategy cascading login (Mobile+cffi, Mobile+requests, SSO embed+cffi, Portal+cffi, Portal+requests). Do NOT inject `ChromeTLSSession` or fingerprint rotation into the V2 path — it interferes with the library's own cascade. `_login_v2` in `client_factory.py` is intentionally simple. garminconnect internal logs surface at DEBUG — set once at `create_app()` startup, not per-request.
+- **Unified exceptions**: `GarminAdapterError` hierarchy in `adapter_protocol.py`. Consumers catch these, not `GarthHTTPError`.
+- **WorkoutFacade** (`workout_facade.py`): Version-aware formatter bridge injected into SyncOrchestrator
+- **Token format**: V1 (garth.dumps) and V2 (garminconnect `client.client.dumps()`) are incompatible. `garmin_auth_version` column on AthleteProfile tracks format.
+- **Version mismatch → disconnect**: When `profile.garmin_auth_version` ≠ global `SystemConfig` flag, `_get_garmin_adapter` calls `clear_garmin_connection(..., keep_credentials=True)` and returns 403 "Please reconnect in Settings." Credentials are kept so auto-reconnect can retry with the new version.
+- **Global flag = new logins only**: `SystemConfig.garmin_auth_version` controls `login_and_get_token` and `WorkoutFacade`. Stored token deserialization uses `profile.garmin_auth_version`.
+- **Rollback**: Switch flag to v1 via admin endpoint — instant, no restart needed. Existing V2 users will be disconnected and need to reconnect.
 
-- If Garmin blocks `/sso/signin` (the old web form flow) — no signs of this yet
-- If Garmin changes the consumer key for `/oauth-service/oauth/preauthorized` (some users seeing 401 already)
-- garth will receive no more maintenance fixes
+### Central enum + shared helpers (2026-04-16)
 
-### When it breaks — what to do
+Three utilities eliminate duplication across `sync.py`, `garmin_connect.py`, `auto_reconnect.py`, `admin.py`, `client_factory.py`, `workout_facade.py`:
 
-- Evaluate the Garmin auth ecosystem at that time — multiple replacement approaches are emerging and the landscape will stabilize
-- Track: https://github.com/matin/garth/discussions/222 and https://github.com/cyberjunky/python-garminconnect/issues/332
+- **`GarminAuthVersion(StrEnum)`** in `src/garmin/auth_version.py` — replaces `"v1"/"v2"` string literals. StrEnum gives string equality: both `version == GarminAuthVersion.V2` and `version == "v2"` work. **Use `==`, never `is`** — plain strings pass through `parse()` but fail identity checks.
+- **`parse(value)`** in `auth_version.py` — defensive coercion from DB/env; unknown value → V1.
+- **`get_db_auth_version(session)`** in `auth_version.py` — reads the `SystemConfig` row. Use this instead of inlining `await session.get(SystemConfig, SYSTEM_CONFIG_KEY)` anywhere new.
+- **`clear_garmin_connection(profile, user_id, session, *, keep_credentials=False)`** in `src/garmin/disconnect.py` — single disconnect path (clears token, sets `garmin_connected=False`, invalidates `cache` + `client_cache`). `keep_credentials=True` for version-mismatch (so auto-reconnect can retry); `False` for user-initiated disconnect.
+
+### V1 path (garth 0.5.21) — retained as fallback
+
+- Uses old SSO form flow (`/sso/embed` + `/sso/signin`)
+- `ChromeTLSSession` + fingerprint rotation for Akamai bypass
+- **DO NOT upgrade garth** past 0.5.x
+- Will be removed in a follow-up PR after V2 is stable
 
 ## Reconnect Prompt for Existing Users (added 2026-03-29)
 

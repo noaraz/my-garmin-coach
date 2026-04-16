@@ -12,21 +12,25 @@ from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from garth.exc import GarthHTTPError
-
 from src.api.dependencies import get_session
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.core.config import get_settings
 from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
-from src.garmin.adapter import GarminAdapter
 from src.garmin import client_cache
+from src.garmin.adapter_protocol import (
+    GarminAdapterProtocol,
+    GarminNotFoundError,
+    GarminRateLimitError,
+)
+from src.garmin.auth_version import get_db_auth_version, parse as parse_auth_version
 from src.garmin.auto_reconnect import attempt_auto_reconnect
-from src.garmin.client_factory import create_api_client
+from src.garmin.client_factory import create_adapter
+from src.garmin.disconnect import clear_garmin_connection
 from src.garmin.encryption import decrypt_token
-from src.garmin.formatter import format_workout
 from src.garmin.sync_service import GarminSyncService
 from src.garmin.token_persistence import persist_refreshed_token
+from src.garmin.workout_facade import WorkoutFacade
 from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.services.calendar_service import resolve_builder_steps
@@ -47,31 +51,6 @@ _PENDING_STATUSES = ("pending", "modified", "failed")
 _exchange_cooldowns: dict[int, float] = {}
 _EXCHANGE_COOLDOWN_SECONDS = 1800  # 30 minutes
 
-
-def _is_exchange_429(exc: Exception) -> bool:
-    """Return True when exc indicates a Garmin OAuth exchange 429.
-
-    Three-tier detection (same pattern as _is_garmin_404):
-    1. GarthHTTPError: garth wrapped a requests.HTTPError — check status + URL
-    2. curl_cffi HTTPError: arrives unwrapped — check .response directly
-    3. String fallback: check for "429" and "exchange" in the message
-    """
-    # Tier 1: GarthHTTPError wraps requests.HTTPError
-    if isinstance(exc, GarthHTTPError):
-        inner = getattr(exc, "error", None)
-        response = getattr(inner, "response", None)
-        if response is not None and getattr(response, "status_code", None) == 429:
-            url = getattr(response, "url", "") or str(getattr(getattr(response, "request", None), "url", ""))
-            return "exchange" in url.lower()
-        return False
-    # Tier 2: curl_cffi HTTPError (not caught by garth)
-    response = getattr(exc, "response", None)
-    if response is not None and getattr(response, "status_code", None) == 429:
-        url = getattr(response, "url", "") or str(getattr(getattr(response, "request", None), "url", ""))
-        return "exchange" in url.lower()
-    # Tier 3: string fallback for other HTTP client variants
-    msg = str(exc).lower()
-    return "429" in msg and "exchange" in msg
 
 
 def _set_exchange_cooldown(user_id: int) -> None:
@@ -103,7 +82,7 @@ def clear_exchange_cooldown(user_id: int) -> None:
 async def _get_garmin_adapter(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> GarminAdapter:
+) -> GarminAdapterProtocol:
     """Return a GarminAdapter wired to the user's stored Garmin token.
 
     Uses the in-process client cache when available (avoids re-decrypting
@@ -135,13 +114,32 @@ async def _get_garmin_adapter(
             detail="Garmin account not connected. Connect via Settings → Garmin Connect.",
         )
 
+    # If the stored token version doesn't match the global auth version,
+    # the token format is incompatible — disconnect and force re-login.
+    # Keep credentials so auto-reconnect can retry with the new version.
+    global_version = await get_db_auth_version(session)
+    stored_version = parse_auth_version(profile.garmin_auth_version)
+
+    if stored_version != global_version:
+        logger.warning(
+            "Token version mismatch for user %s: stored=%s, global=%s — disconnecting",
+            current_user.id, stored_version, global_version,
+        )
+        await clear_garmin_connection(
+            profile, current_user.id, session, keep_credentials=True,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Garmin auth version changed. Please reconnect in Settings.",
+        )
+
     token_json = decrypt_token(
         current_user.id,
         settings.garmincoach_secret_key,
         profile.garmin_oauth_token_encrypted,
     )
 
-    adapter = create_api_client(token_json)
+    adapter = create_adapter(token_json, auth_version=stored_version)
     client_cache.put(current_user.id, adapter)
     return adapter
 
@@ -157,44 +155,18 @@ async def _get_garmin_sync_service(
     """
     adapter = await _get_garmin_adapter(current_user=current_user, session=session)
 
+    auth_version = await get_db_auth_version(session)
+    facade = WorkoutFacade(auth_version=auth_version)
+
     def _resolver(steps: list[Any], **_: Any) -> list[Any]:
         return steps
 
     return SyncOrchestrator(
         sync_service=GarminSyncService(adapter),
-        formatter=format_workout,
+        formatter=facade.build_workout,
         resolver=_resolver,
     )
 
-
-# NOTE: Calendar reconciliation via GET /workout-service/schedule/{id} is not feasible.
-# The garminconnect library's get_scheduled_workout_by_id() expects a schedule ENTRY ID,
-# but Garmin returns 404 for GET on schedule entry IDs (write-only endpoint) and 403 for
-# GET using template IDs. There is no accessible Garmin API endpoint to check whether a
-# specific workout template is still on the calendar without pushing a new schedule entry.
-
-
-def _is_garmin_404(exc: Exception) -> bool:
-    """Return True when exc is a Garmin 404 (resource not found on Connect).
-
-    Two cases:
-    - GarthHTTPError: garth wrapped a requests.HTTPError → check exc.error.response
-    - curl_cffi HTTPError: garth only catches requests.HTTPError, so curl_cffi's own
-      HTTPError bubbles up unwrapped → check exc.response directly
-    """
-    if isinstance(exc, GarthHTTPError):
-        return (
-            exc.error.response is not None
-            and exc.error.response.status_code == 404
-        )
-    # curl_cffi raises its own HTTPError (not requests.HTTPError); garth's except clause
-    # doesn't catch it, so it arrives here unwrapped with a .response attribute.
-    response = getattr(exc, "response", None)
-    if response is not None:
-        return getattr(response, "status_code", None) == 404
-    # Final fallback: some HTTP client variants surface the status only in the message
-    # (e.g. requests.exceptions.HTTPError("404 Client Error: ...")).
-    return "404" in str(exc)
 
 
 async def _persist_refreshed_token(
@@ -253,9 +225,11 @@ async def background_sync(user_id: int) -> None:
                 adapter = await _get_garmin_adapter(current_user=user, session=session)
             except HTTPException:
                 return  # Garmin not connected — nothing to do
+            auth_version = await get_db_auth_version(session)
+            facade = WorkoutFacade(auth_version=auth_version)
             orchestrator = SyncOrchestrator(
                 sync_service=GarminSyncService(adapter),
-                formatter=format_workout,
+                formatter=facade.build_workout,
                 resolver=lambda steps, **_: steps,
             )
             await sync_modified_workouts(session, orchestrator, user)
@@ -390,25 +364,23 @@ async def _sync_and_persist(
                 "Deleted old Garmin workout %s before re-sync", workout.garmin_workout_id
             )
             workout.garmin_workout_id = None
+        except GarminNotFoundError:
+            # Workout already gone from Garmin — clear stale ID and proceed with push.
+            logger.info(
+                "Old Garmin workout %s already deleted (404) — clearing ID and re-pushing",
+                workout.garmin_workout_id,
+            )
+            workout.garmin_workout_id = None
         except Exception as exc:  # noqa: BLE001
-            if _is_garmin_404(exc):
-                # Workout already gone from Garmin — clear stale ID and proceed with push.
-                logger.info(
-                    "Old Garmin workout %s already deleted (404) — clearing ID and re-pushing",
-                    workout.garmin_workout_id,
-                )
-                workout.garmin_workout_id = None
-            else:
-                # Real error (network, auth, rate limit) — keep ID so we can retry next sync.
-                # Pushing a new workout now would orphan the old one on Garmin.
-                logger.warning(
-                    "Could not delete old Garmin workout %s — skipping re-push to avoid duplicate: %s",
-                    workout.garmin_workout_id,
-                    exc,
-                )
-                workout.sync_status = "failed"
-                session.add(workout)
-                return None
+            # Real error (network, auth, rate limit) — keep ID so we can retry next sync.
+            logger.warning(
+                "Could not delete old Garmin workout %s — skipping re-push to avoid duplicate: %s",
+                workout.garmin_workout_id,
+                exc,
+            )
+            workout.sync_status = "failed"
+            session.add(workout)
+            return None
 
     # Load the template (from pre-loaded dict if available, else single fetch)
     template: WorkoutTemplate | None = None
@@ -439,20 +411,19 @@ async def _sync_and_persist(
             try:
                 sync_service.delete_workout(match_id)
                 workout.garmin_workout_id = None
+            except GarminNotFoundError:
+                # Already gone — proceed with push
+                logger.info("Matched Garmin workout %s already deleted (404)", match_id)
+                workout.garmin_workout_id = None
             except Exception as exc:  # noqa: BLE001
-                if _is_garmin_404(exc):
-                    # Already gone — proceed with push
-                    logger.info("Matched Garmin workout %s already deleted (404)", match_id)
-                    workout.garmin_workout_id = None
-                else:
-                    logger.warning(
-                        "Could not delete matched Garmin workout %s — skipping push: %s",
-                        match_id,
-                        exc,
-                    )
-                    workout.sync_status = "failed"
-                    session.add(workout)
-                    return None
+                logger.warning(
+                    "Could not delete matched Garmin workout %s — skipping push: %s",
+                    match_id,
+                    exc,
+                )
+                workout.sync_status = "failed"
+                session.add(workout)
+                return None
 
     resolved_steps: list = (
         json.loads(workout.resolved_steps) if workout.resolved_steps else []
@@ -525,34 +496,35 @@ async def sync_all(
     try:
         garmin_workouts = sync_service.get_workouts()
         logger.info("Fetched %d Garmin workouts for user %s", len(garmin_workouts), current_user.id)
-    except Exception as exc:  # noqa: BLE001
-        if _is_exchange_429(exc):
-            logger.warning("Exchange 429 on get_workouts — attempting auto-reconnect for user %s", current_user.id)
-            adapter = await attempt_auto_reconnect(current_user.id, session)
-            if adapter is None:
-                _set_exchange_cooldown(current_user.id)
-                return SyncAllResponse(
-                    synced=0,
-                    failed=0,
-                    fetch_error="Garmin credentials expired. Please reconnect in Settings.",
-                )
-            # Rebuild orchestrator with fresh adapter and retry
-            sync_service = SyncOrchestrator(
-                sync_service=GarminSyncService(adapter),
-                formatter=format_workout,
-                resolver=lambda steps, **_: steps,
+    except GarminRateLimitError:
+        logger.warning("Rate limit on get_workouts — attempting auto-reconnect for user %s", current_user.id)
+        adapter = await attempt_auto_reconnect(current_user.id, session)
+        if adapter is None:
+            _set_exchange_cooldown(current_user.id)
+            return SyncAllResponse(
+                synced=0,
+                failed=0,
+                fetch_error="Garmin credentials expired. Please reconnect in Settings.",
             )
-            try:
-                garmin_workouts = sync_service.get_workouts()
-            except Exception as retry_exc:  # noqa: BLE001
-                logger.warning("Retry after auto-reconnect also failed: %s", type(retry_exc).__name__)
-                _set_exchange_cooldown(current_user.id)
-                return SyncAllResponse(
-                    synced=0, failed=0,
-                    fetch_error="Garmin sync failed after reconnect. Please try again later.",
-                )
-        else:
-            logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", type(exc).__name__)
+        # Rebuild orchestrator with fresh adapter and retry
+        auth_version = await get_db_auth_version(session)
+        facade = WorkoutFacade(auth_version=auth_version)
+        sync_service = SyncOrchestrator(
+            sync_service=GarminSyncService(adapter),
+            formatter=facade.build_workout,
+            resolver=lambda steps, **_: steps,
+        )
+        try:
+            garmin_workouts = sync_service.get_workouts()
+        except Exception as retry_exc:  # noqa: BLE001
+            logger.warning("Retry after auto-reconnect also failed: %s", type(retry_exc).__name__)
+            _set_exchange_cooldown(current_user.id)
+            return SyncAllResponse(
+                synced=0, failed=0,
+                fetch_error="Garmin sync failed after reconnect. Please try again later.",
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not fetch Garmin workouts for dedup (continuing): %s", type(exc).__name__)
 
     # ── Reconciliation: detect synced workouts not on Garmin calendar ────
     reconciled = 0
@@ -746,14 +718,12 @@ async def sync_all(
             session, current_user.id, start_date, end_date
         )
         await session.commit()
+    except GarminRateLimitError:
+        _set_exchange_cooldown(current_user.id)
+        fetch_error = "Garmin exchange rate-limited — skipping activity fetch"
     except Exception as exc:  # noqa: BLE001
-        if _is_exchange_429(exc):
-            # Exchange 429 during activity fetch — early-exit, don't continue to cleanup
-            _set_exchange_cooldown(current_user.id)
-            fetch_error = "Garmin exchange rate-limited — skipping activity fetch"
-        else:
-            fetch_error = "Activity fetch failed — please retry"
-            logger.warning("Activity fetch failed (continuing): %s", type(exc).__name__)
+        fetch_error = "Activity fetch failed — please retry"
+        logger.warning("Activity fetch failed (continuing): %s", type(exc).__name__)
 
     # Best-effort cleanup: delete Garmin scheduled workouts for all completed workouts
     # in the sync window that still have garmin_workout_id set.
@@ -778,13 +748,12 @@ async def sync_all(
                 workout.garmin_workout_id = None
                 session.add(workout)
                 logger.info("Cleared paired Garmin workout %s from calendar", garmin_id)
+            except GarminNotFoundError:
+                # Already gone from Garmin — still clear our ID so we don't retry
+                workout.garmin_workout_id = None
+                session.add(workout)
             except Exception as exc:  # noqa: BLE001
-                if _is_garmin_404(exc):
-                    # Already gone from Garmin — still clear our ID so we don't retry
-                    workout.garmin_workout_id = None
-                    session.add(workout)
-                else:
-                    logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, type(exc).__name__)
+                logger.warning("Could not delete paired Garmin workout %s: %s", garmin_id, type(exc).__name__)
 
         if paired_with_garmin:
             await session.commit()
@@ -813,11 +782,10 @@ async def sync_all(
                 try:
                     sync_service.delete_workout(orphan_id)
                     logger.info("Deleted orphaned Garmin workout %s", orphan_id)
+                except GarminNotFoundError:
+                    pass  # Already deleted during this sync (e.g. reconciliation re-push)
                 except Exception as exc:  # noqa: BLE001
-                    # 404 is expected when the ID was already deleted during this sync
-                    # (reconciliation marks workouts modified → re-push deletes old template).
-                    if not _is_garmin_404(exc):
-                        logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, type(exc).__name__)
+                    logger.warning("Could not delete orphaned Garmin workout %s: %s", orphan_id, type(exc).__name__)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Orphan cleanup failed (continuing): %s", type(exc).__name__)
 

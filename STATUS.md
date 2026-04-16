@@ -1,6 +1,25 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-12 — v1.6.3 released
+Last updated: 2026-04-16 — garminconnect 0.3.x migration PR #84 (refactor: centralize auth-version enum + disconnect helper)
+
+## Garminconnect 0.3.x Migration ✅
+
+Migrated from deprecated garth to python-garminconnect 0.3.x native DI OAuth.
+Design spec: `docs/superpowers/specs/2026-04-14-garminconnect-03x-migration-design.md`
+Implementation plan: `docs/superpowers/plans/2026-04-14-garminconnect-03x-migration.md`
+
+| Task | Status |
+|------|--------|
+| Phase 0: Update tracking docs | ✅ |
+| Chunk 1: Infrastructure (protocol, exceptions, SystemConfig, admin endpoint) | ✅ |
+| Chunk 2: V2 adapter, client factory, WorkoutFacade | ✅ |
+| Chunk 3: Consumer migration (sync.py, garmin_connect.py, auto_reconnect.py) | ✅ |
+| Chunk 4: Verification + final docs | ✅ |
+| Code review fixes (auth_version DB lookup, _login_v2 exception translation, noqa) | ✅ |
+| Version mismatch handling: disconnect + force reconnect on V1↔V2 token mismatch | ✅ |
+| Simplify pass: `GarminAuthVersion(StrEnum)`, `get_db_auth_version()`, `clear_garmin_connection()` helpers; `client_cache.clear()` on admin toggle | ✅ |
+
+---
 
 ## v1.6.3 Release ✅
 

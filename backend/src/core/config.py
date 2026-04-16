@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # Fixie proxy for Garmin OAuth (production only — avoids 429 from shared IPs)
     fixie_url: str = ""
 
+    # Garmin auth version seed — initial value for SystemConfig table
+    garmin_auth_version: str = "v1"
+
     # Gemini Flash for Plan Coach chat (empty = chat disabled)
     gemini_api_key: str = ""
 

@@ -21,7 +21,7 @@ interface CalendarPageProps {
 export function CalendarPage({ initialDate, templates: propTemplates }: CalendarPageProps) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { garminConnected, credentialsStored } = useGarminStatus()
+  const { garminConnected, credentialsStored, refresh } = useGarminStatus()
   const [view, setView] = useState<'week' | 'month'>(
     () => {
       const stored = localStorage.getItem('calendar_view_preference')
@@ -161,6 +161,9 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
         } else {
           setSyncError(null)
         }
+      } catch {
+        // 403 from version-mismatch clears garmin_connected server-side; resync sidebar state.
+        refresh()
       } finally {
         setSyncing(false)
         syncDebounceRef.current = null
