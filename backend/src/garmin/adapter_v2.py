@@ -39,14 +39,12 @@ class GarminAdapterV2:
         self._client = client
 
     def add_workout(self, formatted_workout: dict[str, Any]) -> dict[str, Any]:
-        """Upload a workout via connectapi."""
+        """Upload a workout via POST."""
         try:
-            return self._client.connectapi(
-                "/workout-service/workout",
-                method="POST",
-                json=formatted_workout,
+            return self._client.client.post(
+                "connect", "/workout-service/workout", json=formatted_workout, api=True,
             )
-        except Exception as exc:  # noqa: BLE001  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
             raise  # unreachable, satisfies type checker
 
@@ -61,10 +59,8 @@ class GarminAdapterV2:
     def update_workout(self, workout_id: str, formatted_workout: dict[str, Any]) -> None:
         """Update an existing Garmin workout in-place."""
         try:
-            self._client.connectapi(
-                f"/workout-service/workout/{workout_id}",
-                method="PUT",
-                json=formatted_workout,
+            self._client.client.put(
+                "connect", f"/workout-service/workout/{workout_id}", json=formatted_workout, api=True,
             )
         except Exception as exc:  # noqa: BLE001
             _translate_exception(exc)
