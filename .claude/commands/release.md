@@ -154,9 +154,25 @@ Present verified results, then ask the user to confirm any items you could not a
 > - [auto] `RENDER_DEPLOY_HOOK_URL` secret: present / NOT FOUND
 > - [ ] All features for this release are merged to `main` — please confirm
 
-**Wait for the user to confirm all checks pass and the PR CI is green before asking them to merge.**
+---
 
-After merge, pull main:
+## 7. Monitor PR CI and Notify
+
+After opening the release PR, poll CI until it completes. Do not proceed to merge or ask release notes questions until CI is confirmed green.
+
+```bash
+# Get the run ID for the release branch CI
+gh run list --repo noaraz/my-garmin-coach --branch release/<VERSION> --limit 3
+
+# Watch until complete (exits when done)
+gh run watch <run-id>
+```
+
+When CI completes:
+- **Pass**: notify the user: "CI passed on PR #<N>. Ready to merge." Then present the full pre-release summary and wait for the user to confirm all items before asking them to merge.
+- **Fail**: show the failure summary (`gh run view <run-id> --log-failed`) and stop. Do not proceed until the user decides how to fix it.
+
+After the user confirms and merges the PR, pull main:
 ```bash
 git checkout main && git pull
 ```
