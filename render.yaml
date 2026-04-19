@@ -21,7 +21,13 @@ services:
         value: production
       - key: CORS_ORIGINS
         value: https://garmincoach.onrender.com
-      # DATABASE_URL: set manually in Render dashboard — points to Neon PostgreSQL.
+      # DATABASE_URL: set manually in Render dashboard — points to Neon 'main' branch (prod).
       # Format: postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require
       # Do NOT commit the Neon connection string here (contains credentials).
       # Render free tier does not support persistent disks, so SQLite is not viable in prod.
+      #
+      # PREVIEW DATABASE_URL: set separately in Render dashboard → Preview Environments tab.
+      # Must point to the Neon 'preview' branch — NOT the main/prod branch.
+      # The preview branch is reset to prod state by .github/workflows/preview-db-reset.yml
+      # before each preview deploy, then alembic runs migrations on the isolated branch.
+      # See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for setup instructions.

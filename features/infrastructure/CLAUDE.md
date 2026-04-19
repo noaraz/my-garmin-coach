@@ -158,6 +158,59 @@ Default (no env var) = SQLite in-memory, unchanged.
 - **`DATABASE_URL` must use `+asyncpg`** driver: `postgresql+asyncpg://...`. Plain `postgresql://...` causes `psycopg2 is not async` crash at startup
 - **Deployment status via GitHub API**: `gh api repos/noaraz/my-garmin-coach/deployments` → get latest deployment ID → check `statuses` endpoint for `state`, `environment_url`, `log_url`
 
+## Preview DB Isolation (added 2026-04-18)
+
+Render Preview environments use a dedicated Neon **branch** (`preview`) inside the same
+Neon project. Before each preview deploy, a GitHub Actions workflow resets this branch to
+the `main` (prod) state — copy-on-write, instant, free. The preview container then runs
+`alembic upgrade head` on the isolated branch. Prod is never touched.
+
+### One-time setup
+
+1. **neon.tech** → garmincoach project → Branches → create branch `preview` from `main`
+   - Copy the preview branch connection string (ends in `?ssl=require`) — this is `PREVIEW_DATABASE_URL`
+   - Copy the preview branch ID (`br-xxxx-yyyy` shown in branch details) — `NEON_PREVIEW_BRANCH_ID`
+   - Copy the main branch ID (`br-xxxx-yyyy` — different from preview) — `NEON_MAIN_BRANCH_ID`
+   - Account Settings → API Keys → create a new API key — `NEON_API_KEY`
+   - Project Settings → copy the project ID (e.g. `long-fog-12345678`) — `NEON_PROJECT_ID`
+
+2. **Render dashboard** → Account Settings → API Keys → create key — `RENDER_API_KEY`
+
+3. **GitHub** → repo Settings → Secrets and variables → Actions → add:
+   - `NEON_API_KEY`
+   - `NEON_PROJECT_ID`
+   - `NEON_PREVIEW_BRANCH_ID`
+   - `NEON_MAIN_BRANCH_ID`
+   - `RENDER_API_KEY`
+   - `PREVIEW_DATABASE_URL` (the Neon preview branch connection string — contains credentials, never commit this)
+
+   No per-PR secrets needed — the workflow finds the right preview service dynamically by matching the PR branch name.
+
+### How it works on each PR push
+
+```
+PR pushed to GitHub
+    └── GitHub Actions: preview-db-reset.yml
+            1. POST /neon/.../branches/{preview_id}/restore   ← reset to prod state (instant)
+            2. sleep 10s
+            3. GET /render/.../services/{preview_id}/env-vars  ← read current env vars
+            4. Replace DATABASE_URL with preview Neon branch URL
+            5. PUT /render/.../services/{preview_id}/env-vars  ← update in place
+            6. POST /render/.../services/{preview_id}/deploys  ← trigger rebuild
+
+Render container starts → alembic upgrade head → runs on preview branch only
+```
+
+### Gotchas
+
+- **First deploy of a brand-new preview uses prod DATABASE_URL** — Render creates the service by copying the base service's env vars (prod DATABASE_URL). Push a commit immediately after creating the preview to let the workflow correct it before any migrations run.
+- **Preview service lookup by branch name** — the workflow searches Render services filtered by name `garmincoach` and matches on `branch == PR branch name`. If the preview service isn't found, the workflow warns and skips (no error) — create the preview in Render first, then push a commit.
+- **Preview branch URL is static** — the Neon preview branch connection string never changes even after resets. It's a persistent credential.
+- **Two open PRs share one preview branch** — sequential is fine for a solo project; simultaneous deploys would conflict (last reset wins).
+- **Neon restore is async** — the workflow sleeps 10s. If `alembic upgrade head` fails with `relation does not exist`, increase the sleep in the workflow.
+- **Branch IDs vs branch names** — the Neon restore API requires branch IDs (`br-xxxx-yyyy`), not names. Get them from neon.tech → Branches → click the branch → copy the ID from the URL or details panel.
+- **Render PUT env-vars replaces all vars** — the workflow GETs the full current list first, updates only `DATABASE_URL`, then PUTs the complete list back. This preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
+
 ---
 
 ## FastAPI Static File Mount (Production)

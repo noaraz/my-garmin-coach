@@ -101,6 +101,33 @@ Local dev keeps SQLite. `DATABASE_URL` env var handles the split.
 > **Connection string format**: `postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require`
 > Do NOT commit the Neon URL to `render.yaml` — set it in the Render dashboard directly.
 
+### Preview DB Isolation via Neon Branching (2026-04-18)
+
+**Problem**: Render Preview deployments share the production Neon DB. `alembic upgrade head`
+on preview startup runs against prod — a buggy schema migration in a PR corrupts live data.
+
+**Solution**: A permanent `preview` branch inside the existing Neon project. Before each
+preview deploy, a GitHub Actions workflow resets the branch to `main` state (copy-on-write,
+instant, free). The preview container then runs migrations on the isolated branch.
+
+- [ ] **Manual**: neon.tech → garmincoach project → Branches → create `preview` branch from `main`
+  - Copy preview branch connection string (for Render)
+  - Copy preview branch ID (`br-xxxx-yyyy`, for GitHub Actions)
+  - Copy main branch ID (`br-xxxx-yyyy`, for GitHub Actions restore call)
+  - neon.tech → Account Settings → API Keys → create API key
+- [ ] **Manual**: Render dashboard → Account Settings → API Keys → create key (`RENDER_API_KEY`)
+- [ ] **Manual**: GitHub repo → Settings → Secrets → Actions → add:
+  - `NEON_API_KEY`
+  - `NEON_PROJECT_ID`
+  - `NEON_PREVIEW_BRANCH_ID`
+  - `NEON_MAIN_BRANCH_ID`
+  - `RENDER_API_KEY`
+  - `PREVIEW_DATABASE_URL` (Neon preview branch connection string)
+- [ ] Create `.github/workflows/preview-db-reset.yml` — triggers on `pull_request` to `main`, calls Neon restore API
+- [ ] Add preview `DATABASE_URL` comment to `render.yaml`
+- [ ] Document setup in `features/infrastructure/CLAUDE.md` → "Preview DB Isolation" section
+- [ ] **Verify**: open PR with a new Alembic migration → check Neon `preview` branch has new migration stamped, `main` branch unchanged
+
 ### Release Management
 See **`RELEASING.md`** at the repo root — versioning scheme, full workflow, GitHub Release commands.
 

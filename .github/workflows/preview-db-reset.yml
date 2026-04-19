@@ -1,0 +1,169 @@
+name: Reset Preview DB
+
+# Runs on every PR push to main:
+#   1. Resets the Neon 'preview' branch to current prod ('main') state — instant copy-on-write
+#   2. Finds the Render preview service for this PR by matching the PR branch name
+#   3. Updates that service's DATABASE_URL to the preview Neon branch
+#   4. Triggers a Render redeploy so the container runs alembic against the isolated branch
+#
+# Required GitHub Secrets:
+#   NEON_API_KEY           — Neon API key (neon.tech → Account Settings → API Keys)
+#   NEON_PROJECT_ID        — Neon project ID (e.g. "long-fog-12345678", from project Settings)
+#   NEON_PREVIEW_BRANCH_ID — Branch ID of the 'preview' branch (e.g. "br-xxxx-yyyy")
+#   NEON_MAIN_BRANCH_ID    — Branch ID of the 'main' branch (e.g. "br-aaaa-bbbb")
+#   RENDER_API_KEY         — Render API key (render.com → Account Settings → API Keys)
+#   PREVIEW_DATABASE_URL   — Neon preview branch connection string
+#                            (postgresql+asyncpg://user:pass@preview-host.neon.tech/db?ssl=require)
+#
+# No per-PR secrets needed — the preview service is found dynamically by matching the PR branch name.
+#
+# See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for full setup instructions.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  reset-preview-db:
+    name: Reset Neon preview branch and update Render preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore Neon preview branch from main
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_PREVIEW_BRANCH_ID: ${{ secrets.NEON_PREVIEW_BRANCH_ID }}
+          NEON_MAIN_BRANCH_ID: ${{ secrets.NEON_MAIN_BRANCH_ID }}
+        run: |
+          echo "Resetting Neon preview branch to main state..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_PREVIEW_BRANCH_ID}/restore" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"source_branch_id\": \"${NEON_MAIN_BRANCH_ID}\"}")
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Neon restore API returned HTTP $HTTP_STATUS"
+            echo "$BODY"
+            exit 1
+          fi
+
+          STATE=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch']['current_state'])" 2>/dev/null || echo "unknown")
+          echo "Branch state after restore: $STATE"
+
+      - name: Wait for Neon branch to be ready
+        # Neon restore is async — branch transitions init → ready.
+        # Render's Docker build takes 3-5 min so 10s is well within the window.
+        run: |
+          echo "Waiting 10s for Neon branch to reach ready state..."
+          sleep 10
+
+      - name: Find Render preview service for this PR
+        id: find_preview
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          echo "Looking for Render preview service on branch: $PR_BRANCH"
+
+          # List all services including previews, search by base service name
+          SERVICES=$(curl -s \
+            "https://api.render.com/v1/services?name=garmincoach&includePreviews=true&limit=50" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json")
+
+          # Find the service whose branch matches this PR's branch
+          SERVICE_ID=$(echo "$SERVICES" | PR_BRANCH="$PR_BRANCH" python3 - <<'PYEOF'
+import sys, json, os
+data = json.load(sys.stdin)
+branch = os.environ['PR_BRANCH']
+for item in data:
+    svc = item.get('service', item)
+    if svc.get('branch') == branch:
+        print(svc['id'])
+        sys.exit(0)
+# Not found
+sys.exit(1)
+PYEOF
+)
+
+          if [ -z "$SERVICE_ID" ]; then
+            echo "⚠️ No Render preview service found for branch '$PR_BRANCH'."
+            echo "   Create a preview from the Render dashboard first, then push a new commit."
+            echo "service_found=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found preview service: $SERVICE_ID"
+            echo "service_id=$SERVICE_ID" >> $GITHUB_OUTPUT
+            echo "service_found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Render preview DATABASE_URL
+        if: steps.find_preview.outputs.service_found == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.find_preview.outputs.service_id }}
+          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+        run: |
+          echo "Fetching current env vars from Render preview service $SERVICE_ID..."
+          CURRENT=$(curl -s -f \
+            "https://api.render.com/v1/services/${SERVICE_ID}/env-vars?limit=100" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json")
+
+          if [ $? -ne 0 ]; then
+            echo "❌ Could not fetch env vars for service $SERVICE_ID"
+            exit 1
+          fi
+
+          # Replace DATABASE_URL value, preserve all other vars.
+          # Render's response may wrap each var as {envVar: {key, value}} or plain {key, value}.
+          UPDATED=$(echo "$CURRENT" | PREVIEW_DATABASE_URL="$PREVIEW_DATABASE_URL" python3 - <<'PYEOF'
+import sys, json, os
+data = json.load(sys.stdin)
+preview_url = os.environ['PREVIEW_DATABASE_URL']
+clean = []
+for item in data:
+    env = item.get('envVar', item)
+    entry = {'key': env['key'], 'value': env['value']}
+    if env['key'] == 'DATABASE_URL':
+        entry['value'] = preview_url
+    clean.append(entry)
+print(json.dumps(clean))
+PYEOF
+)
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            "https://api.render.com/v1/services/${SERVICE_ID}/env-vars" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$UPDATED")
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ DATABASE_URL updated to Neon preview branch"
+          else
+            echo "❌ Failed to update env vars (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: Trigger Render preview redeploy
+        if: steps.find_preview.outputs.service_found == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.find_preview.outputs.service_id }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"deployMode": "build_and_deploy"}')
+
+          if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "202" ]; then
+            echo "✅ Render preview redeploy triggered"
+            echo "   Render will build and run: alembic upgrade head (on Neon preview branch)"
+          else
+            echo "❌ Failed to trigger redeploy (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
