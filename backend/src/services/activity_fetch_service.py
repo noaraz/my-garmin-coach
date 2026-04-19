@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -137,7 +138,16 @@ class ActivityFetchService:
                 result.stored += 1
 
         if result.stored > 0 or result.updated > 0:
-            await session.flush()
+            try:
+                await session.flush()
+            except IntegrityError:
+                # Activity already exists outside the fetch window — skip silently
+                logger.debug(
+                    "IntegrityError during activity upsert (activity already exists) — ignoring"
+                )
+                await session.rollback()
+                result.stored = 0
+                result.updated = 0
 
         return result
 
