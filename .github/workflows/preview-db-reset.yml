@@ -44,14 +44,14 @@ jobs:
           branch_name: preview/pr-${{ github.event.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
           database: neondb
-          role: neondb_owner
+          username: neondb_owner
 
       - name: Build asyncpg-compatible DATABASE_URL
         id: db_url
         run: |
           # Neon outputs: postgresql://user:pass@host/db?sslmode=require
           # FastAPI needs: postgresql+asyncpg://user:pass@host/db?ssl=require
-          RAW="${{ steps.neon.outputs.db_url_pooled }}"
+          RAW="${{ steps.neon.outputs.db_url_with_pooler }}"
           CONVERTED=$(echo "$RAW" \
             | sed 's|^postgresql://|postgresql+asyncpg://|' \
             | sed 's|sslmode=require|ssl=require|' \
