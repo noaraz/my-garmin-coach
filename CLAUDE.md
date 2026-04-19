@@ -502,27 +502,6 @@ DATABASE_URL="postgresql+asyncpg://..." alembic current
 was stamped into Neon during a debugging session. Always verify the revision ID exists in
 `backend/alembic/versions/` before running `alembic stamp`.
 
-### Cross-PR preview DB conflict (added 2026-04-19)
-
-When two PRs share the same Render preview Neon DB, one PR can advance `alembic_version` to a
-revision that doesn't exist in the other PR's migration history. `alembic upgrade head` then fails
-with `"Can't locate revision identified by '<id>'"`.
-
-**Fix**: add a startup guard to `Dockerfile.prod` that uses `alembic stamp --purge` to reset
-`alembic_version` to this branch's head whenever the DB is stuck on an unknown revision:
-
-```dockerfile
-CMD ["sh", "-c", "alembic current 2>&1 | grep -q \"Can't locate\" && alembic stamp --purge <branch-head-id>; alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000"]
-```
-
-`--purge` deletes all rows from `alembic_version` before inserting the target revision — it bypasses
-the revision-lookup that causes a regular `alembic stamp` to fail on unknown IDs. On normal
-deployments where the DB is already at the correct head, `alembic current` succeeds, grep finds
-nothing, and the stamp is skipped.
-
-**Remove the guard before merging** — it hard-codes a specific revision ID and would prevent future
-migrations from applying cleanly on a fresh DB.
-
 ---
 
 ## Date Parsing — Local Midnight Rule (added 2026-03-23)
