@@ -1,0 +1,207 @@
+name: Preview DB — per-PR Neon branch
+
+# Best-practice preview DB isolation:
+#   - PR opened/updated  → create a fresh Neon branch for this PR, update Render preview DATABASE_URL
+#   - PR closed/merged   → delete the Neon branch (cleanup)
+#
+# Each PR gets its own isolated Neon branch with a copy of prod data.
+# Migrations run on the branch, never on prod.
+#
+# Race condition handling:
+#   Render starts Deploy #1 immediately when the preview is created (copying prod DATABASE_URL).
+#   This workflow updates DATABASE_URL within ~60s.
+#   Render's Docker build takes 3-5 min on a cold preview, so the container always
+#   starts with the correct DATABASE_URL already in place.
+#   If the build is already in progress, we cancel it and trigger a fresh deploy.
+#
+# Required GitHub Secrets:
+#   NEON_API_KEY     — Neon API key (neon.tech -> Account Settings -> API Keys)
+#   NEON_PROJECT_ID  — Neon project ID (e.g. "rough-paper-73594330")
+#   RENDER_API_KEY   — Render API key (render.com -> Account Settings -> API Keys)
+#
+# Required GitHub Variables (Settings -> Variables -> Actions):
+#   NEON_PROJECT_ID can also be a var (non-secret) — either works
+#
+# See features/infrastructure/CLAUDE.md -> "Preview DB Isolation" for setup instructions.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  # ── Create branch + update Render (on PR open/push) ─────────────────────────
+  setup-preview-db:
+    name: Create Neon branch for PR
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - name: Create Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          database: neondb
+          username: neondb_owner
+
+      - name: Build asyncpg-compatible DATABASE_URL
+        id: db_url
+        run: |
+          # Neon outputs: postgresql://user:pass@host/db?sslmode=require
+          # FastAPI needs: postgresql+asyncpg://user:pass@host/db?ssl=require
+          RAW="${{ steps.neon.outputs.db_url_with_pooler }}"
+          CONVERTED=$(echo "$RAW" \
+            | sed 's|^postgresql://|postgresql+asyncpg://|' \
+            | sed 's|sslmode=require|ssl=require|' \
+            | sed 's|channel_binding=require||' \
+            | sed 's|&&|&|g' \
+            | sed 's|?&|?|g' \
+            | sed 's|&$||')
+          echo "url=$CONVERTED" >> $GITHUB_OUTPUT
+          echo "Branch URL ready (credentials hidden)"
+
+      - name: Find Render preview service for this PR
+        id: render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          cat > /tmp/find_service.py << 'EOF'
+          import sys, json, os
+          data = json.load(sys.stdin)
+          branch = os.environ['PR_BRANCH']
+          for item in data:
+              svc = item.get('service', item)
+              if svc.get('branch') == branch:
+                  print(svc['id'])
+                  sys.exit(0)
+          sys.exit(1)
+          EOF
+
+          # Poll up to 5 min — Render takes 1-2 min to create a preview service
+          SERVICE_ID=""
+          for i in $(seq 1 20); do
+            SERVICES=$(curl -s \
+              "https://api.render.com/v1/services?limit=50" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Accept: application/json")
+            SERVICE_ID=$(echo "$SERVICES" | python3 /tmp/find_service.py || true)
+            if [ -n "$SERVICE_ID" ]; then break; fi
+            echo "Attempt $i/20: waiting for Render preview service... (15s)"
+            sleep 15
+          done
+
+          if [ -z "$SERVICE_ID" ]; then
+            echo "❌ Render preview service not found for branch '$PR_BRANCH' after 5 minutes."
+            exit 1
+          fi
+          echo "✅ Found Render preview service: $SERVICE_ID"
+          echo "service_id=$SERVICE_ID" >> $GITHUB_OUTPUT
+
+      - name: Cancel any in-progress Render deploy
+        continue-on-error: true
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.render.outputs.service_id }}
+        run: |
+          # Find the most recent deploy and cancel it if still building
+          DEPLOYS=$(curl -s \
+            "https://api.render.com/v1/services/${SERVICE_ID}/deploys?limit=5" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json")
+
+          DEPLOY_ID=$(echo "$DEPLOYS" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          in_progress = {'build_in_progress', 'update_in_progress', 'pre_deploy_in_progress', 'created'}
+          for item in data:
+              d = item.get('deploy', item)
+              if d.get('status') in in_progress:
+                  print(d['id'])
+                  break
+          " || true)
+
+          if [ -n "$DEPLOY_ID" ]; then
+            echo "Cancelling in-progress deploy $DEPLOY_ID..."
+            curl -s -X POST \
+              "https://api.render.com/v1/services/${SERVICE_ID}/deploys/${DEPLOY_ID}/cancel" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Content-Type: application/json"
+            echo "✅ Deploy cancelled"
+          else
+            echo "No in-progress deploy to cancel"
+          fi
+
+      - name: Update Render preview DATABASE_URL
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.render.outputs.service_id }}
+          PREVIEW_DATABASE_URL: ${{ steps.db_url.outputs.url }}
+        run: |
+          CURRENT=$(curl -s -f \
+            "https://api.render.com/v1/services/${SERVICE_ID}/env-vars?limit=100" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json")
+
+          cat > /tmp/update_db_url.py << 'EOF'
+          import sys, json, os
+          data = json.load(sys.stdin)
+          preview_url = os.environ['PREVIEW_DATABASE_URL']
+          clean = []
+          for item in data:
+              env = item.get('envVar', item)
+              entry = {'key': env['key'], 'value': env['value']}
+              if env['key'] == 'DATABASE_URL':
+                  entry['value'] = preview_url
+              clean.append(entry)
+          print(json.dumps(clean))
+          EOF
+
+          UPDATED=$(echo "$CURRENT" | python3 /tmp/update_db_url.py)
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            "https://api.render.com/v1/services/${SERVICE_ID}/env-vars" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$UPDATED")
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ DATABASE_URL updated to Neon branch preview/pr-${{ github.event.number }}"
+          else
+            echo "❌ Failed to update env vars (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: Trigger Render preview deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ steps.render.outputs.service_id }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"deployMode": "build_and_deploy"}')
+
+          if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "202" ]; then
+            echo "✅ Render preview deploy triggered"
+            echo "   Container will run: alembic upgrade head (on Neon branch preview/pr-${{ github.event.number }})"
+          else
+            echo "❌ Failed to trigger deploy (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+  # ── Delete branch on PR close ────────────────────────────────────────────────
+  cleanup-preview-db:
+    name: Delete Neon branch for PR
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Delete Neon branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
