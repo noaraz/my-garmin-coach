@@ -15,9 +15,7 @@ name: Reset Preview DB
 #   PREVIEW_DATABASE_URL   — Neon preview branch connection string
 #                            (postgresql+asyncpg://user:pass@preview-host.neon.tech/db?ssl=require)
 #
-# No per-PR secrets needed — the preview service is found dynamically by matching the PR branch name.
-#
-# See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for full setup instructions.
+# See features/infrastructure/CLAUDE.md -> "Preview DB Isolation" for full setup instructions.
 
 on:
   pull_request:
@@ -55,8 +53,6 @@ jobs:
           echo "Branch state after restore: $STATE"
 
       - name: Wait for Neon branch to be ready
-        # Neon restore is async — branch transitions init → ready.
-        # Render's Docker build takes 3-5 min so 10s is well within the window.
         run: |
           echo "Waiting 10s for Neon branch to reach ready state..."
           sleep 10
@@ -69,26 +65,24 @@ jobs:
         run: |
           echo "Looking for Render preview service on branch: $PR_BRANCH"
 
-          # List all services including previews, search by base service name
           SERVICES=$(curl -s \
             "https://api.render.com/v1/services?name=garmincoach&includePreviews=true&limit=50" \
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Accept: application/json")
 
-          # Find the service whose branch matches this PR's branch
-          SERVICE_ID=$(echo "$SERVICES" | PR_BRANCH="$PR_BRANCH" python3 - <<'PYEOF'
-import sys, json, os
-data = json.load(sys.stdin)
-branch = os.environ['PR_BRANCH']
-for item in data:
-    svc = item.get('service', item)
-    if svc.get('branch') == branch:
-        print(svc['id'])
-        sys.exit(0)
-# Not found
-sys.exit(1)
-PYEOF
-)
+          cat > /tmp/find_service.py << 'EOF'
+          import sys, json, os
+          data = json.load(sys.stdin)
+          branch = os.environ['PR_BRANCH']
+          for item in data:
+              svc = item.get('service', item)
+              if svc.get('branch') == branch:
+                  print(svc['id'])
+                  sys.exit(0)
+          sys.exit(1)
+          EOF
+
+          SERVICE_ID=$(echo "$SERVICES" | python3 /tmp/find_service.py || true)
 
           if [ -z "$SERVICE_ID" ]; then
             echo "⚠️ No Render preview service found for branch '$PR_BRANCH'."
@@ -118,22 +112,21 @@ PYEOF
             exit 1
           fi
 
-          # Replace DATABASE_URL value, preserve all other vars.
-          # Render's response may wrap each var as {envVar: {key, value}} or plain {key, value}.
-          UPDATED=$(echo "$CURRENT" | PREVIEW_DATABASE_URL="$PREVIEW_DATABASE_URL" python3 - <<'PYEOF'
-import sys, json, os
-data = json.load(sys.stdin)
-preview_url = os.environ['PREVIEW_DATABASE_URL']
-clean = []
-for item in data:
-    env = item.get('envVar', item)
-    entry = {'key': env['key'], 'value': env['value']}
-    if env['key'] == 'DATABASE_URL':
-        entry['value'] = preview_url
-    clean.append(entry)
-print(json.dumps(clean))
-PYEOF
-)
+          cat > /tmp/update_db_url.py << 'EOF'
+          import sys, json, os
+          data = json.load(sys.stdin)
+          preview_url = os.environ['PREVIEW_DATABASE_URL']
+          clean = []
+          for item in data:
+              env = item.get('envVar', item)
+              entry = {'key': env['key'], 'value': env['value']}
+              if env['key'] == 'DATABASE_URL':
+                  entry['value'] = preview_url
+              clean.append(entry)
+          print(json.dumps(clean))
+          EOF
+
+          UPDATED=$(echo "$CURRENT" | python3 /tmp/update_db_url.py)
 
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
             "https://api.render.com/v1/services/${SERVICE_ID}/env-vars" \
