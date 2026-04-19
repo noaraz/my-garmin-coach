@@ -103,6 +103,10 @@ class GarminSyncService:
         """Fetch scheduled calendar items for a given month."""
         return self._client.get_calendar_items(year, month)
 
+    def get_activity(self, activity_id: str) -> dict[str, Any]:
+        """Fetch a single activity by ID. Delegates to the Garmin adapter."""
+        return self._client.get_activity(activity_id)
+
     def dump_token(self) -> str:
         """Return the current garth token state as a JSON string."""
         return self._client.dump_token()

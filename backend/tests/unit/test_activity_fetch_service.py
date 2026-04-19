@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-import pytest
 from datetime import date, datetime, timezone
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
-from src.services.activity_fetch_service import ActivityFetchService
+import pytest
+
 from src.db.models import GarminActivity
+from src.services.activity_fetch_service import ActivityFetchService
 
 
 def _make_garmin_activity(
@@ -100,3 +103,129 @@ class TestMatchActivities:
     def test_match_returns_none_for_empty(self):
         service = ActivityFetchService()
         assert service._pick_best_match([]) is None
+
+
+def _make_raw_activity(
+    activity_id: str = "act-1",
+    name: str = "Morning Run",
+    distance: float = 10000.0,
+    duration: float = 3600.0,
+    avg_speed: float = 2.78,
+    avg_hr: float = 145.0,
+    start_time_local: str = "2026-04-10 08:00:00",
+) -> dict[str, Any]:
+    return {
+        "activityId": activity_id,
+        "activityName": name,
+        "activityType": {"typeKey": "running"},
+        "distance": distance,
+        "duration": duration,
+        "averageSpeed": avg_speed,
+        "averageHR": avg_hr,
+        "maxHR": 170.0,
+        "calories": 500,
+        "startTimeLocal": start_time_local,
+    }
+
+
+class TestFetchAndStoreUpsert:
+    async def test_fetch_and_store_upserts_existing_activity(self):
+        """When an activity already exists in DB, update its fields (not skip)."""
+        existing = GarminActivity(
+            id=1,
+            user_id=1,
+            garmin_activity_id="act-1",
+            activity_type="running",
+            name="Old Name",
+            start_time=datetime(2026, 4, 10, 8, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None),
+            date=date(2026, 4, 10),
+            duration_sec=3500.0,
+            distance_m=9500.0,
+            avg_hr=140.0,
+        )
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [existing]
+        mock_session.exec.return_value = mock_result
+
+        mock_adapter = MagicMock()
+        mock_adapter.get_activities_by_date.return_value = [
+            _make_raw_activity(
+                activity_id="act-1",
+                name="Corrected Name",
+                distance=10000.0,
+                duration=3600.0,
+            )
+        ]
+
+        result = await ActivityFetchService().fetch_and_store(
+            garmin_adapter=mock_adapter,
+            session=mock_session,
+            user_id=1,
+            start_date="2026-04-10",
+            end_date="2026-04-10",
+        )
+
+        assert result.fetched == 1
+        assert result.stored == 0
+        assert result.updated == 1
+        assert existing.distance_m == 10000.0
+        assert existing.duration_sec == 3600.0
+        assert existing.name == "Corrected Name"
+        mock_session.add.assert_called()
+
+    async def test_fetch_and_store_inserts_new_activity(self):
+        """New activities are inserted as before."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.exec.return_value = mock_result
+
+        mock_adapter = MagicMock()
+        mock_adapter.get_activities_by_date.return_value = [
+            _make_raw_activity(activity_id="brand-new")
+        ]
+
+        result = await ActivityFetchService().fetch_and_store(
+            garmin_adapter=mock_adapter,
+            session=mock_session,
+            user_id=1,
+            start_date="2026-04-10",
+            end_date="2026-04-10",
+        )
+
+        assert result.fetched == 1
+        assert result.stored == 1
+        assert result.updated == 0
+
+    async def test_fetch_and_store_does_not_mutate_date_on_upsert(self):
+        """Upsert must NOT change the date field — date drives pairing."""
+        original_date = date(2026, 4, 10)
+        existing = GarminActivity(
+            id=1, user_id=1, garmin_activity_id="act-1",
+            activity_type="running", name="Run",
+            start_time=datetime(2026, 4, 10, 8, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None),
+            date=original_date,
+            duration_sec=3500.0, distance_m=9500.0,
+        )
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [existing]
+        mock_session.exec.return_value = mock_result
+
+        mock_adapter = MagicMock()
+        mock_adapter.get_activities_by_date.return_value = [
+            _make_raw_activity(
+                activity_id="act-1",
+                start_time_local="2026-04-11 08:00:00",
+            )
+        ]
+
+        await ActivityFetchService().fetch_and_store(
+            garmin_adapter=mock_adapter, session=mock_session,
+            user_id=1, start_date="2026-04-10", end_date="2026-04-11",
+        )
+
+        assert existing.date == original_date
