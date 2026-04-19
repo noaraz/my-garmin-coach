@@ -21,13 +21,7 @@ services:
         value: production
       - key: CORS_ORIGINS
         value: https://garmincoach.onrender.com
-      # DATABASE_URL: set manually in Render dashboard — points to Neon 'main' branch (prod).
+      # DATABASE_URL: set manually in Render dashboard — points to Neon PostgreSQL.
       # Format: postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require
       # Do NOT commit the Neon connection string here (contains credentials).
       # Render free tier does not support persistent disks, so SQLite is not viable in prod.
-      #
-      # PREVIEW DATABASE_URL: injected automatically by .github/workflows/preview-db-isolation.yml
-      # Each PR gets its own Neon branch (preview/pr-{N}) via neondatabase/create-branch-action.
-      # The workflow updates DATABASE_URL on the Render preview service before deploying.
-      # No manual configuration needed for previews.
-      # See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for details.
