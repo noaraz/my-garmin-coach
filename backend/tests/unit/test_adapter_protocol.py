@@ -49,6 +49,8 @@ class TestGarminAdapterProtocol:
                 return []
             def get_calendar_items(self, year: int, month: int) -> list[dict[str, Any]]:
                 return []
+            def get_activity(self, activity_id: str) -> dict[str, Any]:
+                return {}
             def dump_token(self) -> str:
                 return ""
 
