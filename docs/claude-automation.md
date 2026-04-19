@@ -233,14 +233,14 @@ Every PR preview gets its own isolated Neon PostgreSQL branch — a copy-on-writ
 
 ---
 
-## CI Changes (vs before this PR)
+## CI Checks
 
-| Check | Before | After |
-|---|---|---|
-| Backend tests | pytest | pytest (unchanged) |
-| Backend deps | — | pip-audit (ignores CVE-2024-23342) |
-| Frontend tests | vitest + build | vitest + build (unchanged) |
-| Frontend deps | npm audit --high | npm audit --moderate (stricter) |
+| Check | Detail |
+|---|---|
+| Backend tests | pytest |
+| Backend deps | pip-audit (ignores CVE-2024-23342) |
+| Frontend tests | vitest + build |
+| Frontend deps | npm audit --moderate |
 
 ---
 

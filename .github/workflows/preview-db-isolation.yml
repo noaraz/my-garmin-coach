@@ -1,40 +1,42 @@
 name: Preview DB — per-PR Neon branch
 
 # Best-practice preview DB isolation:
-#   - PR opened/updated  → create a fresh Neon branch for this PR, update Render preview DATABASE_URL
-#   - PR closed/merged   → delete the Neon branch (cleanup)
+#   - PR opened/updated/title-edited → create a fresh Neon branch for this PR,
+#     update Render preview DATABASE_URL, trigger a clean deploy
+#   - PR closed/merged → delete the Neon branch (cleanup)
+#
+# Only runs for PRs with [Render Preview] in the title — Render only creates
+# preview services for those PRs (render.yaml: previews.generation: manual).
+# Adding [Render Preview] to a PR title re-triggers the workflow via the
+# `edited` event type.
 #
 # Each PR gets its own isolated Neon branch with a copy of prod data.
 # Migrations run on the branch, never on prod.
 #
 # Race condition handling:
 #   Render starts Deploy #1 immediately when the preview is created (copying prod DATABASE_URL).
-#   This workflow updates DATABASE_URL within ~60s.
+#   This workflow cancels that deploy, updates DATABASE_URL, then triggers a fresh deploy.
 #   Render's Docker build takes 3-5 min on a cold preview, so the container always
 #   starts with the correct DATABASE_URL already in place.
-#   If the build is already in progress, we cancel it and trigger a fresh deploy.
 #
 # Required GitHub Secrets:
 #   NEON_API_KEY     — Neon API key (neon.tech -> Account Settings -> API Keys)
-#   NEON_PROJECT_ID  — Neon project ID (e.g. "rough-paper-73594330")
+#   NEON_PROJECT_ID  — Neon project ID (e.g. "rough-paper-73594330") — must be a Secret
 #   RENDER_API_KEY   — Render API key (render.com -> Account Settings -> API Keys)
-#
-# Required GitHub Variables (Settings -> Variables -> Actions):
-#   NEON_PROJECT_ID can also be a var (non-secret) — either works
 #
 # See features/infrastructure/CLAUDE.md -> "Preview DB Isolation" for setup instructions.
 
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened, closed, edited]
 
 jobs:
-  # ── Create branch + update Render (on PR open/push) ─────────────────────────
+  # ── Create branch + update Render (on PR open/push/title edit) ──────────────
   setup-preview-db:
     name: Create Neon branch for PR
     runs-on: ubuntu-latest
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && contains(github.event.pull_request.title, '[Render Preview]')
     steps:
       - name: Create Neon branch
         id: neon
@@ -49,18 +51,20 @@ jobs:
       - name: Build asyncpg-compatible DATABASE_URL
         id: db_url
         run: |
-          # Neon outputs: postgresql://user:pass@host/db?sslmode=require
+          # Neon outputs: postgresql://user:pass@host/db?sslmode=require&channel_binding=require
           # FastAPI needs: postgresql+asyncpg://user:pass@host/db?ssl=require
           RAW="${{ steps.neon.outputs.db_url_with_pooler }}"
           CONVERTED=$(echo "$RAW" \
             | sed 's|^postgresql://|postgresql+asyncpg://|' \
             | sed 's|sslmode=require|ssl=require|' \
             | sed 's|channel_binding=require||' \
+            | sed 's|channel_binding=prefer||' \
             | sed 's|&&|&|g' \
             | sed 's|?&|?|g' \
             | sed 's|&$||')
+          echo "::add-mask::$CONVERTED"
           echo "url=$CONVERTED" >> $GITHUB_OUTPUT
-          echo "Branch URL ready (credentials hidden)"
+          echo "Branch URL ready (credentials masked)"
 
       - name: Find Render preview service for this PR
         id: render
@@ -106,7 +110,6 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           SERVICE_ID: ${{ steps.render.outputs.service_id }}
         run: |
-          # Find the most recent deploy and cancel it if still building
           DEPLOYS=$(curl -s \
             "https://api.render.com/v1/services/${SERVICE_ID}/deploys?limit=5" \
             -H "Authorization: Bearer ${RENDER_API_KEY}" \
@@ -150,12 +153,17 @@ jobs:
           data = json.load(sys.stdin)
           preview_url = os.environ['PREVIEW_DATABASE_URL']
           clean = []
+          found = False
           for item in data:
               env = item.get('envVar', item)
               entry = {'key': env['key'], 'value': env['value']}
               if env['key'] == 'DATABASE_URL':
                   entry['value'] = preview_url
+                  found = True
               clean.append(entry)
+          # Inject DATABASE_URL if the preview service doesn't have it yet
+          if not found:
+              clean.append({'key': 'DATABASE_URL', 'value': preview_url})
           print(json.dumps(clean))
           EOF
 
@@ -193,15 +201,72 @@ jobs:
             exit 1
           fi
 
+      - name: Delete Neon branch on workflow failure (cleanup orphan)
+        if: failure()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          # Look up branch ID by name then delete — branch name with slashes
+          # is not reliably resolved by delete-branch-action, so use API directly.
+          BRANCH_ID=$(curl -s \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          pr = 'preview/pr-${{ github.event.number }}'
+          for b in data.get('branches', []):
+              if b['name'] == pr:
+                  print(b['id'])
+                  break
+          " || true)
+          if [ -n "$BRANCH_ID" ]; then
+            curl -s -X DELETE \
+              "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${BRANCH_ID}" \
+              -H "Authorization: Bearer ${NEON_API_KEY}"
+            echo "✅ Orphaned Neon branch deleted: $BRANCH_ID"
+          else
+            echo "No Neon branch found to clean up"
+          fi
+
   # ── Delete branch on PR close ────────────────────────────────────────────────
   cleanup-preview-db:
     name: Delete Neon branch for PR
     runs-on: ubuntu-latest
-    if: github.event.action == 'closed'
+    if: github.event.action == 'closed' && contains(github.event.pull_request.title, '[Render Preview]')
     steps:
-      - name: Delete Neon branch
-        uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ secrets.NEON_PROJECT_ID }}
-          branch: preview/pr-${{ github.event.number }}
-          api_key: ${{ secrets.NEON_API_KEY }}
+      - name: Delete Neon branch via API
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          # delete-branch-action@v3 silently fails to resolve branch names containing
+          # slashes (e.g. preview/pr-86). Use the Neon API directly instead:
+          # look up branch ID by name, then DELETE by ID.
+          BRANCH_ID=$(curl -s \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          pr = 'preview/pr-${{ github.event.number }}'
+          for b in data.get('branches', []):
+              if b['name'] == pr:
+                  print(b['id'])
+                  break
+          " || true)
+
+          if [ -n "$BRANCH_ID" ]; then
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+              "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${BRANCH_ID}" \
+              -H "Authorization: Bearer ${NEON_API_KEY}")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Neon branch preview/pr-${{ github.event.number }} deleted"
+            else
+              echo "❌ Failed to delete branch (HTTP $HTTP_STATUS)"
+              exit 1
+            fi
+          else
+            echo "No Neon branch found for preview/pr-${{ github.event.number }} — already deleted or never created"
+          fi

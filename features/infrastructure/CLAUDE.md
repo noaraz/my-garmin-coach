@@ -201,6 +201,10 @@ PR closed/merged → job: cleanup-preview-db  (.github/workflows/preview-db-isol
 - **Render PUT env-vars replaces all vars** — workflow GETs the full list, updates only `DATABASE_URL`, PUTs the full list back. Preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
 - **Preview service lookup** — matches on `branch == PR head branch name`. Polls every 15s for up to 5 min waiting for Render to create the service.
 - **Neon action v5 output name** — the action outputs `db_url_with_pooler` (NOT `db_url_pooled`). Input key for the DB role is `username` (NOT `role`).
+- **`NEON_PROJECT_ID` must be a GitHub Secret** — not a variable. The workflow uses `secrets.NEON_PROJECT_ID`; if set as a GitHub Variable it silently expands to empty string.
+- **`delete-branch-action@v3` silently fails with slash branch names** — `preview/pr-N` is not reliably resolved by the action. Use the Neon API directly: list branches to get `branch_id`, then `DELETE /branches/{id}`. The workflow does this.
+- **`::add-mask::` required before writing DATABASE_URL to `$GITHUB_OUTPUT`** — GitHub Actions does not auto-mask output values. Always `echo "::add-mask::$URL"` before `echo "url=$URL" >> $GITHUB_OUTPUT` to prevent credentials appearing in logs.
+- **Workflow only runs for `[Render Preview]` PRs** — `render.yaml` has `previews: generation: manual`; Render only creates preview services for PRs with `[Render Preview]` in the title. Both jobs have `if: contains(github.event.pull_request.title, '[Render Preview]')`. Adding the token to a PR title re-fires the workflow via the `edited` trigger.
 - **`op.batch_alter_table` breaks on PostgreSQL** — migrations must use plain `op.add_column` / `op.drop_column`. `batch_alter_table` is SQLite-only; using it in a migration will cause `DuplicateColumn` errors on the preview Neon branch.
 - **`DATABASE_URL` is NOT set in `render.yaml`** — it must be set manually in the Render dashboard for the main service (prod). Preview services get it injected by the workflow automatically. Never commit Neon credentials to `render.yaml`.
 
