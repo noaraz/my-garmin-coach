@@ -158,6 +158,87 @@ Default (no env var) = SQLite in-memory, unchanged.
 - **`DATABASE_URL` must use `+asyncpg`** driver: `postgresql+asyncpg://...`. Plain `postgresql://...` causes `psycopg2 is not async` crash at startup
 - **Deployment status via GitHub API**: `gh api repos/noaraz/my-garmin-coach/deployments` → get latest deployment ID → check `statuses` endpoint for `state`, `environment_url`, `log_url`
 
+## Preview DB Isolation (added 2026-04-19)
+
+**Workflow**: `.github/workflows/preview-db-isolation.yml`
+
+Each PR gets its own isolated Neon branch — a copy-on-write snapshot of prod created when
+the PR opens and deleted when it closes. Uses the official Neon GitHub Actions.
+Migrations run on the branch, never on prod.
+
+### One-time setup (already done)
+
+1. **neon.tech** → Account Settings → API Keys → `NEON_API_KEY` ✅
+2. **neon.tech** → project Settings → project ID → `NEON_PROJECT_ID` ✅
+3. **render.com** → Account Settings → API Keys → `RENDER_API_KEY` ✅
+4. All three set as GitHub Actions secrets ✅
+5. **render.yaml** → `previews.generation: manual` — Render creates a preview service per PR ✅
+
+### How it works
+
+```
+PR opened/pushed → job: setup-preview-db  (.github/workflows/preview-db-isolation.yml)
+    1. neondatabase/create-branch-action@v5  → creates branch preview/pr-{NUMBER}
+                                               outputs db_url_with_pooler
+    2. Convert URL: postgresql:// → postgresql+asyncpg://, sslmode= → ssl=
+    3. Poll Render API until preview service appears (up to 5 min)
+    4. Cancel any in-progress Render deploy (best-effort, avoids race condition)
+    5. PUT new DATABASE_URL onto the Render preview service
+    6. POST /deploys → trigger a fresh build with the correct DATABASE_URL
+
+Render container starts → alembic upgrade head → runs on preview/pr-{NUMBER} only
+
+PR closed/merged → job: cleanup-preview-db  (.github/workflows/preview-db-isolation.yml)
+    1. neondatabase/delete-branch-action@v3  → deletes branch preview/pr-{NUMBER}
+```
+
+### Gotchas
+
+- **Each PR gets a fresh branch from prod** — no stale data, no shared state between PRs.
+- **Branch auto-deleted on PR close** — no manual cleanup needed. Up to 10 branches on free tier; fine for a solo project.
+- **Race condition mitigated by cancel step** — workflow cancels any in-progress Render deploy before updating `DATABASE_URL` and triggering a clean redeploy. `continue-on-error: true` so a failed cancel doesn't block the workflow.
+- **URL format conversion** — Neon outputs `postgresql://...?sslmode=require`; asyncpg needs `postgresql+asyncpg://...?ssl=require`. Converted via `sed` in the workflow.
+- **Render PUT env-vars replaces all vars** — workflow GETs the full list, updates only `DATABASE_URL`, PUTs the full list back. Preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
+- **Preview service lookup** — matches on `branch == PR head branch name`. Polls every 15s for up to 5 min waiting for Render to create the service.
+- **Neon action v5 output name** — the action outputs `db_url_with_pooler` (NOT `db_url_pooled`). Input key for the DB role is `username` (NOT `role`).
+- **`NEON_PROJECT_ID` must be a GitHub Secret** — not a variable. The workflow uses `secrets.NEON_PROJECT_ID`; if set as a GitHub Variable it silently expands to empty string.
+- **`delete-branch-action@v3` silently fails with slash branch names** — `preview/pr-N` is not reliably resolved by the action. Use the Neon API directly: list branches to get `branch_id`, then `DELETE /branches/{id}`. The workflow does this.
+- **`::add-mask::` required before writing DATABASE_URL to `$GITHUB_OUTPUT`** — GitHub Actions does not auto-mask output values. Always `echo "::add-mask::$URL"` before `echo "url=$URL" >> $GITHUB_OUTPUT` to prevent credentials appearing in logs.
+- **Workflow only runs for `[Render Preview]` PRs** — `render.yaml` has `previews: generation: manual`; Render only creates preview services for PRs with `[Render Preview]` in the title. Both jobs have `if: contains(github.event.pull_request.title, '[Render Preview]')`. Adding the token to a PR title re-fires the workflow via the `edited` trigger.
+- **`op.batch_alter_table` breaks on PostgreSQL** — migrations must use plain `op.add_column` / `op.drop_column`. `batch_alter_table` is SQLite-only; using it in a migration will cause `DuplicateColumn` errors on the preview Neon branch.
+- **`DATABASE_URL` is NOT set in `render.yaml`** — it must be set manually in the Render dashboard for the main service (prod). Preview services get it injected by the workflow automatically. Never commit Neon credentials to `render.yaml`.
+
+### Official documentation
+
+| Resource | URL |
+|---|---|
+| `neondatabase/create-branch-action` repo | https://github.com/neondatabase/create-branch-action |
+| `neondatabase/delete-branch-action` repo | https://github.com/neondatabase/delete-branch-action |
+| Neon: Branching with GitHub Actions | https://neon.tech/docs/guides/branching-github-actions |
+| Neon: Preview environments guide | https://neon.tech/docs/guides/preview-branches-github |
+
+**`create-branch-action@v5` outputs** (full list):
+
+| Output | Description |
+|---|---|
+| `db_url` | Direct connection string (no pooler) |
+| `db_url_with_pooler` | Connection string via PgBouncer — use this for app connections |
+| `host` | Branch host |
+| `host_with_pooler` | Branch host with pooling |
+| `branch_id` | Branch ID — pass to `delete-branch-action` via `branch` input |
+| `password` | Password for the role specified in `username` |
+
+**`create-branch-action@v5` inputs** (key ones):
+
+| Input | Required | Notes |
+|---|---|---|
+| `project_id` | yes | Neon project ID |
+| `api_key` | yes | Neon API key |
+| `branch_name` | no | e.g. `preview/pr-{NUMBER}` |
+| `username` | yes | DB role name (was `role` in older versions — causes warning if wrong) |
+| `database` | no | Defaults to `neondb` |
+| `parent` | no | Parent branch name/ID (defaults to primary/main) |
+
 ---
 
 ## FastAPI Static File Mount (Production)
