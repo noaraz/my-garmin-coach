@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ScheduledWorkoutWithActivity, GarminActivity, SyncAllResponse, SyncStatusItem } from '../api/types'
-import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, syncOne, pairActivity, unpairActivity, updateWorkoutNotes } from '../api/client'
+import { fetchCalendarRange, scheduleWorkout, rescheduleWorkout, unscheduleWorkout, syncAll, syncOne, pairActivity, unpairActivity, updateWorkoutNotes, refreshActivity } from '../api/client'
 import { toDateString } from '../utils/formatting'
 
 export function useCalendar(initialStart: Date, initialEnd: Date) {
@@ -83,5 +83,14 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     setWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes: updated.notes } : w))
   }
 
-  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, pair, unpair, loadRange, updateNotes }
+  const refreshOneActivity = async (id: number): Promise<GarminActivity> => {
+    const updated = await refreshActivity(id)
+    const current = rangeRef.current
+    const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
+    setWorkouts(response.workouts)
+    setUnplannedActivities(response.unplanned_activities)
+    return updated
+  }
+
+  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, pair, unpair, loadRange, updateNotes, refreshOneActivity }
 }

@@ -51,7 +51,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, unpair, loadRange, updateNotes } = useCalendar(
+  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, unpair, loadRange, updateNotes, refreshOneActivity } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -665,6 +665,10 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           onUpdateNotes={updateNotes}
           onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
           onSync={handleSync}
+          onRefreshActivity={async (updated) => {
+            await refreshOneActivity(updated.id)
+            setSelectedActivity(updated)
+          }}
         />
       )}
 
