@@ -116,7 +116,7 @@ created on PR open and deleted on PR close.
 - [x] Create `.github/workflows/preview-db-isolation.yml` — per-PR branch lifecycle
 - [x] Add preview `DATABASE_URL` comment to `render.yaml`
 - [x] Document setup in `features/infrastructure/CLAUDE.md` → "Preview DB Isolation" section
-- [ ] **Verify**: open PR with a new Alembic migration → check Neon `preview/pr-{N}` branch has migration stamped, `main` branch unchanged, branch deleted on PR close
+- [x] **Verify**: open PR with a new Alembic migration → check Neon `preview/pr-{N}` branch has migration stamped, `main` branch unchanged, branch deleted on PR close
 
 ### Release Management
 See **`RELEASING.md`** at the repo root — versioning scheme, full workflow, GitHub Release commands.

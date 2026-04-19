@@ -160,6 +160,8 @@ Default (no env var) = SQLite in-memory, unchanged.
 
 ## Preview DB Isolation (added 2026-04-19)
 
+**Workflow**: `.github/workflows/preview-db-isolation.yml`
+
 Each PR gets its own isolated Neon branch — a copy-on-write snapshot of prod created when
 the PR opens and deleted when it closes. Uses the official Neon GitHub Actions.
 Migrations run on the branch, never on prod.
@@ -170,13 +172,14 @@ Migrations run on the branch, never on prod.
 2. **neon.tech** → project Settings → project ID → `NEON_PROJECT_ID` ✅
 3. **render.com** → Account Settings → API Keys → `RENDER_API_KEY` ✅
 4. All three set as GitHub Actions secrets ✅
+5. **render.yaml** → `previews.generation: manual` — Render creates a preview service per PR ✅
 
 ### How it works
 
 ```
-PR opened/pushed → job: setup-preview-db
-    1. neondatabase/create-branch-action  → creates branch preview/pr-{NUMBER}
-                                            outputs db_url_pooled
+PR opened/pushed → job: setup-preview-db  (.github/workflows/preview-db-isolation.yml)
+    1. neondatabase/create-branch-action@v5  → creates branch preview/pr-{NUMBER}
+                                               outputs db_url_with_pooler
     2. Convert URL: postgresql:// → postgresql+asyncpg://, sslmode= → ssl=
     3. Poll Render API until preview service appears (up to 5 min)
     4. Cancel any in-progress Render deploy (best-effort, avoids race condition)
@@ -185,8 +188,8 @@ PR opened/pushed → job: setup-preview-db
 
 Render container starts → alembic upgrade head → runs on preview/pr-{NUMBER} only
 
-PR closed/merged → job: cleanup-preview-db
-    1. neondatabase/delete-branch-action  → deletes branch preview/pr-{NUMBER}
+PR closed/merged → job: cleanup-preview-db  (.github/workflows/preview-db-isolation.yml)
+    1. neondatabase/delete-branch-action@v3  → deletes branch preview/pr-{NUMBER}
 ```
 
 ### Gotchas
@@ -197,6 +200,9 @@ PR closed/merged → job: cleanup-preview-db
 - **URL format conversion** — Neon outputs `postgresql://...?sslmode=require`; asyncpg needs `postgresql+asyncpg://...?ssl=require`. Converted via `sed` in the workflow.
 - **Render PUT env-vars replaces all vars** — workflow GETs the full list, updates only `DATABASE_URL`, PUTs the full list back. Preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
 - **Preview service lookup** — matches on `branch == PR head branch name`. Polls every 15s for up to 5 min waiting for Render to create the service.
+- **Neon action v5 output name** — the action outputs `db_url_with_pooler` (NOT `db_url_pooled`). Input key for the DB role is `username` (NOT `role`).
+- **`op.batch_alter_table` breaks on PostgreSQL** — migrations must use plain `op.add_column` / `op.drop_column`. `batch_alter_table` is SQLite-only; using it in a migration will cause `DuplicateColumn` errors on the preview Neon branch.
+- **`DATABASE_URL` is NOT set in `render.yaml`** — it must be set manually in the Render dashboard for the main service (prod). Preview services get it injected by the workflow automatically. Never commit Neon credentials to `render.yaml`.
 
 ---
 
