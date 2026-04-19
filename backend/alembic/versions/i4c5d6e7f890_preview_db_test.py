@@ -20,17 +20,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("scheduledworkout") as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "preview_db_test",
-                sa.Boolean(),
-                nullable=True,
-                comment="Temporary column added to test preview DB isolation. Safe to remove.",
-            )
-        )
+    op.add_column(
+        "scheduledworkout",
+        sa.Column(
+            "preview_db_test",
+            sa.Boolean(),
+            nullable=True,
+            comment="Temporary column added to test preview DB isolation. Safe to remove.",
+        ),
+    )
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("scheduledworkout") as batch_op:
-        batch_op.drop_column("preview_db_test")
+    op.drop_column("scheduledworkout", "preview_db_test")
