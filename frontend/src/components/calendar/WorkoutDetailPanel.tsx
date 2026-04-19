@@ -458,15 +458,18 @@ function WorkoutDetailCompleted({
   template,
   onUnpair,
   onUpdateNotes,
+  onRefreshActivity,
 }: {
   workout: ScheduledWorkoutWithActivity
   template?: WorkoutTemplate
   onClose: () => void
   onUnpair: (scheduledId: number) => void
   onUpdateNotes: (id: number, notes: string) => void
+  onRefreshActivity?: (updated: GarminActivity) => void
 }) {
   const [localNotes, setLocalNotes] = useState(workout.notes ?? '')
   const [saved, setSaved] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
@@ -791,6 +794,42 @@ function WorkoutDetailCompleted({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Refresh button */}
+        {onRefreshActivity && workout.activity && (
+          <div style={{ marginBottom: '8px' }}>
+            <button
+              onClick={async () => {
+                if (!workout.activity) return
+                setRefreshing(true)
+                try {
+                  const updated = await refreshActivity(workout.activity.id)
+                  onRefreshActivity(updated)
+                } catch {
+                  // swallow — button re-enables in finally
+                } finally {
+                  setRefreshing(false)
+                }
+              }}
+              disabled={refreshing}
+              aria-label={refreshing ? 'Refreshing activity data from Garmin' : 'Refresh from Garmin'}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-surface-2)',
+                color: 'var(--text-primary)',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: '13px',
+                cursor: refreshing ? 'not-allowed' : 'pointer',
+                opacity: refreshing ? 0.6 : 1,
+              }}
+            >
+              {refreshing ? 'Refreshing\u2026' : 'Refresh from Garmin'}
+            </button>
           </div>
         )}
 
@@ -1216,6 +1255,7 @@ export function WorkoutDetailPanel({
             onClose={onClose}
             onUnpair={onUnpair}
             onUpdateNotes={onUpdateNotes}
+            onRefreshActivity={onRefreshActivity}
           />
         )}
 
