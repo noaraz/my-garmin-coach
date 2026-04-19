@@ -1,6 +1,21 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-19 — Activity refresh (GPS drift recovery) + Dockerfile.prod alembic stamp guard
+Last updated: 2026-04-19 — Preview DB isolation via Neon branching
+
+## Preview DB Isolation ✅
+
+Per-PR Neon branches so preview `alembic upgrade head` never touches prod.
+Workflow: `.github/workflows/preview-db-isolation.yml`
+
+| Task | Status |
+|------|--------|
+| GitHub secrets: `NEON_API_KEY`, `NEON_PROJECT_ID`, `RENDER_API_KEY` | ✅ |
+| `.github/workflows/preview-db-isolation.yml` — create/delete Neon branch per PR | ✅ |
+| `render.yaml` — comment documenting auto-injected preview `DATABASE_URL` | ✅ |
+| `features/infrastructure/CLAUDE.md` — "Preview DB Isolation" section | ✅ |
+| Verified: migration ran on `preview/pr-86`, `main` branch unchanged | ✅ |
+
+---
 
 ## Activity Refresh — GPS Drift Recovery ✅
 

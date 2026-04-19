@@ -10,6 +10,7 @@ Everything added to make Claude Code smarter and faster in this repo.
 |---|---|
 | Check a PR's CI status | GitHub MCP (`mcp__github__get_pull_request_status`) |
 | Query the production DB | Postgres MCP (`mcp__postgres__query`) |
+| Check preview DB is isolated from prod | Neon SQL Editor → branch dropdown → `SELECT version_num FROM alembic_version` |
 | Look up library docs | context7 MCP — ask Claude: *"use context7 to look up X"* |
 | Run browser automation | Playwright MCP — ask Claude to navigate/click/screenshot |
 | Run a security review | `security-auditor` agent |
@@ -210,6 +211,25 @@ Release workflow:
 5. Update + commit STATUS.md (marks release ✅, adds entry to Infrastructure table)
 6. Tag + push — tag lands on the STATUS.md commit
 7. GitHub Actions: tests → approval gate → GitHub Release → Render deploy
+
+---
+
+## GitHub Actions Workflows
+
+| Workflow | File | Trigger | What it does |
+|---|---|---|---|
+| CI | `.github/workflows/ci.yml` | push / PR | pytest, pip-audit, vitest, npm audit |
+| Preview DB Isolation | `.github/workflows/preview-db-isolation.yml` | PR open/push/close | Creates Neon branch `preview/pr-{N}`, injects `DATABASE_URL` into Render preview service, triggers deploy. Deletes branch on PR close. |
+
+### Preview DB Isolation workflow detail
+
+Every PR preview gets its own isolated Neon PostgreSQL branch — a copy-on-write snapshot of prod.
+`alembic upgrade head` in the preview container runs against this branch only, never prod.
+
+- **Secrets required**: `NEON_API_KEY`, `NEON_PROJECT_ID`, `RENDER_API_KEY` (all set ✅)
+- **No manual setup per PR** — fully automatic
+- **Neon branch naming**: `preview/pr-{NUMBER}` — visible in neon.tech → project → Branches
+- **Full docs**: `features/infrastructure/CLAUDE.md` → "Preview DB Isolation"
 
 ---
 
