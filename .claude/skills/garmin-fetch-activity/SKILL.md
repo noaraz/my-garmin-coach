@@ -9,10 +9,8 @@ description: Use when the user asks to fetch, view, or analyze raw Garmin activi
 
 Before running anything, ask the user:
 1. **Date** — today, a specific date (`YYYY-MM-DD`), or a range?
-2. **JSON** — save raw JSON to repo root? (default: no)
-3. **MD** — save formatted markdown summary? (default: no)
 
-Then proceed with the answers below.
+Then proceed. The script always saves both JSON + MD to repo root (gitignored).
 
 ## Use the script (preferred)
 
@@ -29,9 +27,7 @@ cd backend
 ```
 
 The script reads credentials from `../.env.prod` automatically.  
-Always saves both JSON + MD to repo root as `activities_<date>.json` / `.md`.
-
-If the user said **no JSON** or **no MD**, delete the unwanted file after running.
+Always saves both JSON + MD to repo root as `activities_<date>.json` / `.md` (both are gitignored).
 
 ## Manual auth (only if script can't be used)
 

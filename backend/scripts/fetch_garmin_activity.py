@@ -7,6 +7,9 @@ Usage:
 
 Credentials are read from ../.env.prod (never hardcoded here).
 Output: prints a summary + writes <date>.json and <date>.md to the repo root.
+
+Env overrides (all optional):
+    GARMIN_USER_ID  — defaults to 3 (noa.raz90@gmail.com)
 """
 from __future__ import annotations
 
@@ -14,16 +17,20 @@ import asyncio
 import json
 import os
 import sys
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env.prod")
+env_path = Path(__file__).parent.parent.parent / ".env.prod"
+if not env_path.exists():
+    sys.exit(f"Error: .env.prod not found at {env_path}")
+load_dotenv(env_path)
 
 DB_URL = os.environ["DATABASE_URL"]
 SECRET = os.environ["GARMINCOACH_SECRET_KEY"]
@@ -39,22 +46,24 @@ def fmt_pace(speed_ms: float | None) -> str:
 
 def fmt_dur(seconds: float) -> str:
     s = int(seconds)
-    return f"{s // 60}:{s % 60:02d}"
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
 
 
 async def _get_token() -> tuple[str, str]:
+    from src.db.models import AthleteProfile
+
     engine = create_async_engine(DB_URL)
-    async with engine.connect() as conn:
-        row = await conn.execute(
-            text(
-                "SELECT garmin_oauth_token_encrypted, garmin_auth_version "
-                "FROM athleteprofile WHERE user_id = :uid"
-            ),
-            {"uid": USER_ID},
-        )
-        result = row.fetchone()
+    async with AsyncSession(engine) as session:
+        result = await session.exec(select(AthleteProfile).where(AthleteProfile.user_id == USER_ID))
+        profile = result.first()
     await engine.dispose()
-    return result[0], result[1] or "v1"
+    if profile is None:
+        sys.exit(f"Error: no AthleteProfile found for user_id={USER_ID}")
+    return profile.garmin_oauth_token_encrypted, profile.garmin_auth_version or "v1"
 
 
 def _build_md(activities_data: list[dict]) -> str:
@@ -93,7 +102,7 @@ def _build_md(activities_data: list[dict]) -> str:
 
 def main() -> None:
     args = sys.argv[1:]
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     start_date = args[0] if args else today
     end_date = args[1] if len(args) > 1 else start_date
 
@@ -102,6 +111,7 @@ def main() -> None:
 
     encrypted, auth_version = asyncio.run(_get_token())
     adapter = create_adapter(decrypt_token(USER_ID, SECRET, encrypted), auth_version=auth_version)
+    # get_activity / get_activity_splits are not on GarminAdapterProtocol — use _client directly
     client = adapter._client
 
     raw_activities = adapter.get_activities_by_date(start_date, end_date)
@@ -117,7 +127,8 @@ def main() -> None:
         details = client.get_activity(aid)
         try:
             laps = client.get_activity_splits(aid).get("lapDTOs", [])
-        except Exception:
+        except Exception as exc:
+            print(f"  Warning: could not fetch laps for {aid}: {exc}")
             laps = []
 
         s = details.get("summaryDTO", {})
