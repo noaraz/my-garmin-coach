@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-19 — Preview DB isolation via Neon branching
+Last updated: 2026-04-19 — v1.8.0 release
+
+## v1.8.0 Release ✅
+
+| Task | Status |
+|------|--------|
+| Activity refresh from Garmin (GPS drift recovery) | ✅ |
+| Preview DB isolation via per-PR Neon branching | ✅ |
+| All tests passing (637 backend, 334 frontend) | ✅ |
+| Tagged and deployed to Render | ✅ |
+
+---
 
 ## Preview DB Isolation ✅
 
