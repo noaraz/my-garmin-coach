@@ -30,6 +30,12 @@ dist/
 data/
 *.db
 
+# Script-generated activity exports
+activities_*.json
+activities_*.md
+*_workouts.json
+training_*.md
+
 # OS
 .DS_Store
 Thumbs.db

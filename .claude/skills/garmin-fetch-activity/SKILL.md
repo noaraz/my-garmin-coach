@@ -3,22 +3,47 @@ name: garmin-fetch-activity
 description: Use when the user asks to fetch, view, or analyze raw Garmin activity data — laps, HR, pace, splits, or threshold test analysis (Friel, LTHR, race).
 ---
 
-# Fetch Full Garmin Activity Data
+# Fetch Garmin Activity Data
 
-Run from `backend/` with `.venv/bin/python3`. Credentials in `.env.prod` at repo root.
+## Step 0 — Ask before fetching
 
-## Auth (always start here)
+Before running anything, ask the user:
+1. **Date** — today, a specific date (`YYYY-MM-DD`), or a range?
+
+Then proceed. The script always saves both JSON + MD to repo root (gitignored).
+
+## Use the script (preferred)
+
+```bash
+cd backend
+# today
+.venv/bin/python3 scripts/fetch_garmin_activity.py
+
+# specific date
+.venv/bin/python3 scripts/fetch_garmin_activity.py 2026-04-16
+
+# date range
+.venv/bin/python3 scripts/fetch_garmin_activity.py 2026-04-12 2026-04-16
+```
+
+The script reads credentials from `../.env.prod` automatically.  
+Always saves both JSON + MD to repo root as `activities_<date>.json` / `.md` (both are gitignored).
+
+## Manual auth (only if script can't be used)
 
 ```python
-import asyncio, sys, json
+import asyncio, sys, json, os
 sys.path.insert(0, '.')
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path('..') / '.env.prod')
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 from src.garmin.encryption import decrypt_token
 from src.garmin.client_factory import create_adapter
 
-DB_URL = '<DATABASE_URL>'   # from .env.prod
-SECRET = '<GARMINCOACH_SECRET_KEY>'  # from .env.prod
+DB_URL = os.environ['DATABASE_URL']
+SECRET = os.environ['GARMINCOACH_SECRET_KEY']
 USER_ID = 3  # noa.raz90@gmail.com
 
 engine = create_async_engine(DB_URL)
@@ -29,36 +54,30 @@ async def get_profile():
 
 row = asyncio.run(get_profile())
 encrypted, auth_version = row[0], row[1] or 'v1'
-# Pass auth_version explicitly — env default is 'v1', fails for V2 tokens
 adapter = create_adapter(decrypt_token(USER_ID, SECRET, encrypted), auth_version=auth_version)
-client = adapter._client  # V1: client.garth  V2: client.client
+client = adapter._client
 ```
 
-## Find + Fetch
+## Key API calls
 
 ```python
-# Find by date range
-activities = adapter.get_activities_by_date('2026-04-12', '2026-04-12')
-for a in activities: print(a['activityId'], a['activityName'], a['startTimeLocal'])
-
-# Summary + laps
-details = client.get_activity(ACTIVITY_ID)
-summary = details['summaryDTO']
-laps = client.get_activity_splits(ACTIVITY_ID)['lapDTOs']
+activities = adapter.get_activities_by_date('YYYY-MM-DD', 'YYYY-MM-DD')
+details    = client.get_activity(ACTIVITY_ID)          # summaryDTO
+laps       = client.get_activity_splits(ACTIVITY_ID)['lapDTOs']
 ```
 
-**summaryDTO keys:** `distance`(m), `duration`(s), `averageHR`, `maxHR`, `averageSpeed`(m/s), `averageRunCadence`, `calories`, `elevationGain`, `trainingEffect`
+**summaryDTO:** `distance`(m), `duration`(s), `averageHR`, `maxHR`, `averageSpeed`(m/s), `averageRunCadence`, `calories`, `elevationGain`, `trainingEffect`
 
-**lapDTOs keys:** `lapIndex`, `distance`, `duration`, `averageHR`, `maxHR`, `averageSpeed`, `averageRunCadence`, `strideLength`, `intensityType`
+**lapDTOs:** `lapIndex`, `distance`, `duration`, `averageHR`, `maxHR`, `averageSpeed`, `averageRunCadence`, `strideLength`, `intensityType`
 
 ## Helpers
 
 ```python
 def fmt_pace(s): return '--' if not s else f"{int(1000/s//60)}:{int(1000/s%60):02d}/km"
-def fmt_dur(s): return f"{int(s//60)}:{int(s%60):02d}"
+def fmt_dur(s):  return f"{int(s//60)}:{int(s%60):02d}"
 ```
 
-## Weighted Avg (lap subset / threshold analysis)
+## Weighted avg (threshold analysis)
 
 ```python
 total_time = sum(l['duration'] for l in selected)
