@@ -33,9 +33,18 @@ class TestGarminAdapterV2:
         assert isinstance(adapter, GarminAdapterProtocol)
 
     def test_add_workout_delegates(self, adapter, mock_client: MagicMock) -> None:
-        mock_client.connectapi.return_value = {"workoutId": "123"}
+        mock_client.client.post.return_value = {"workoutId": "123"}
         result = adapter.add_workout({"workoutName": "Test"})
+        mock_client.client.post.assert_called_once_with(
+            "connect", "/workout-service/workout", json={"workoutName": "Test"}, api=True,
+        )
         assert result["workoutId"] == "123"
+
+    def test_update_workout_delegates(self, adapter, mock_client: MagicMock) -> None:
+        adapter.update_workout("123", {"workoutName": "Updated"})
+        mock_client.client.put.assert_called_once_with(
+            "connect", "/workout-service/workout/123", json={"workoutName": "Updated"}, api=True,
+        )
 
     def test_delete_workout_delegates(self, adapter, mock_client: MagicMock) -> None:
         adapter.delete_workout("123")
