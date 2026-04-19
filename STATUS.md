@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-19 — v1.8.0 release
+Last updated: 2026-04-19 — v1.8.1 release
+
+## v1.8.1 Release ✅
+
+| Task | Status |
+|------|--------|
+| Fix V2 adapter POST/PUT (use client.post/put instead of connectapi) | ✅ |
+| Trim garmin-fetch-activity skill token footprint | ✅ |
+| All tests passing (638 backend, 334 frontend) | ✅ |
+| Tagged and deployed to Render | ✅ |
+
+---
 
 ## v1.8.0 Release ✅
 
