@@ -101,23 +101,6 @@ Local dev keeps SQLite. `DATABASE_URL` env var handles the split.
 > **Connection string format**: `postgresql+asyncpg://user:pass@host.neon.tech/db?ssl=require`
 > Do NOT commit the Neon URL to `render.yaml` — set it in the Render dashboard directly.
 
-### Preview DB Isolation via Neon Branching (2026-04-19)
-
-**Problem**: Render Preview deployments share the production Neon DB. `alembic upgrade head`
-on preview startup runs against prod — a buggy schema migration in a PR corrupts live data.
-
-**Solution**: Per-PR Neon branches using official `neondatabase/create-branch-action` and
-`delete-branch-action`. Each PR gets a fresh copy-on-write snapshot of prod. Branch is
-created on PR open and deleted on PR close.
-
-- [x] **Manual**: neon.tech → Account Settings → API Keys → create `NEON_API_KEY`
-- [x] **Manual**: render.com → Account Settings → API Keys → create `RENDER_API_KEY`
-- [x] **Manual**: GitHub Secrets → add `NEON_API_KEY`, `NEON_PROJECT_ID`, `RENDER_API_KEY`
-- [x] Create `.github/workflows/preview-db-isolation.yml` — per-PR branch lifecycle
-- [x] Add preview `DATABASE_URL` comment to `render.yaml`
-- [x] Document setup in `features/infrastructure/CLAUDE.md` → "Preview DB Isolation" section
-- [x] **Verify**: open PR with a new Alembic migration → check Neon `preview/pr-{N}` branch has migration stamped, `main` branch unchanged, branch deleted on PR close
-
 ### Release Management
 See **`RELEASING.md`** at the repo root — versioning scheme, full workflow, GitHub Release commands.
 
