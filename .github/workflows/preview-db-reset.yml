@@ -82,14 +82,14 @@ jobs:
           SERVICE_ID=""
           for i in $(seq 1 20); do
             SERVICES=$(curl -s \
-              "https://api.render.com/v1/services?name=garmincoach&includePreviews=true&limit=50" \
+              "https://api.render.com/v1/services?limit=50" \
               -H "Authorization: Bearer ${RENDER_API_KEY}" \
               -H "Accept: application/json")
 
             # Debug: print raw response on first attempt to diagnose field names
             if [ "$i" = "1" ]; then
               echo "--- Raw Render API response (first attempt) ---"
-              echo "$SERVICES" | python3 -c "import sys,json; data=json.load(sys.stdin); [print(json.dumps(item, indent=2)) for item in data[:3]]" || echo "$SERVICES"
+              echo "$SERVICES"
               echo "--- End response ---"
             fi
 
