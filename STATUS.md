@@ -1,6 +1,17 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-19 — v1.8.1 release
+Last updated: 2026-04-19 — v1.8.2 release
+
+## v1.8.2 Release ✅
+
+| Task | Status |
+|------|--------|
+| Add fetch_garmin_activity script for raw activity inspection | ✅ |
+| Update garmin-fetch-activity skill | ✅ |
+| All tests passing (638 backend, 334 frontend) | ✅ |
+| Tagged and deployed to Render | ✅ |
+
+---
 
 ## v1.8.1 Release ✅
 
