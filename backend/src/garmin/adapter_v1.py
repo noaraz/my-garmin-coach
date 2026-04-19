@@ -127,6 +127,14 @@ class GarminAdapter:
             _translate_exception(exc)
             raise
 
+    def get_activity(self, activity_id: str) -> dict[str, Any]:
+        """Fetch a single activity by ID from Garmin Connect."""
+        try:
+            return self._client.get_activity(activity_id)
+        except (GarthHTTPError, requests.exceptions.HTTPError, cffi_requests.exceptions.HTTPError) as exc:
+            _translate_exception(exc)
+            raise  # unreachable, satisfies type checker
+
     def dump_token(self) -> str:
         """Return the current garth token state as JSON."""
         return self._client.garth.dumps()

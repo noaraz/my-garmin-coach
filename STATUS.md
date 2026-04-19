@@ -1,6 +1,23 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-16 — v1.7.0 release (garminconnect 0.3.x migration)
+Last updated: 2026-04-19 — Activity refresh (GPS drift recovery) + Dockerfile.prod alembic stamp guard
+
+## Activity Refresh — GPS Drift Recovery ✅
+
+Feature: per-activity "Refresh from Garmin" button + upsert on Sync All
+PR: #83 (`feature/activity-refresh`)
+
+| Task | Status |
+|------|--------|
+| `get_activity()` to adapter protocol, V1, V2 | ✅ |
+| Delegate through `GarminSyncService` → `SyncOrchestrator` | ✅ |
+| `fetch_and_store` upsert + bounded query + `FetchResult.updated` | ✅ |
+| `POST /calendar/activities/{id}/refresh` endpoint | ✅ |
+| Frontend: `refreshActivity()`, `refreshOneActivity()`, `RefreshButton` | ✅ |
+| Tests: 19 new tests (8 unit adapter, 3 unit fetch, 4 integration, 4 frontend) | ✅ |
+| Docs: CLAUDE.md, PLAN.md, STATUS.md | ✅ |
+
+---
 
 ## v1.7.0 Release ✅
 

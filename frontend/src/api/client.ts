@@ -6,7 +6,7 @@ import type {
   ScheduledWorkout, ScheduleCreate,
   CalendarResponse, ScheduledWorkoutWithActivity,
   SyncAllResponse, SyncStatusItem,
-  GarminStatusResponse,
+  GarminStatusResponse, GarminActivity,
   BootstrapResponse,
   TokenResponse,
   ValidateResult, CommitResult, ActivePlan, PlanWorkoutInput,
@@ -148,6 +148,8 @@ export const pairActivity = (scheduledId: number, activityId: number) =>
   request<ScheduledWorkoutWithActivity>(`/calendar/${scheduledId}/pair/${activityId}`, { method: 'POST' })
 export const unpairActivity = (scheduledId: number) =>
   request<ScheduledWorkoutWithActivity>(`/calendar/${scheduledId}/unpair`, { method: 'POST' })
+export const refreshActivity = (id: number) =>
+  request<GarminActivity>(`/calendar/activities/${id}/refresh`, { method: 'POST' })
 
 export const syncAll = () =>
   request<SyncAllResponse>('/sync/all', { method: 'POST' })

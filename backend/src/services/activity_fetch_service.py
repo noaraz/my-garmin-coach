@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -21,9 +22,32 @@ _RUNNING_TYPES = ("running", "trail_running", "treadmill_running", "track_runnin
 class FetchResult:
     fetched: int = 0
     stored: int = 0
+    updated: int = 0
 
 
 class ActivityFetchService:
+    def _update_activity(
+        self, existing: GarminActivity, parsed: GarminActivity
+    ) -> bool:
+        """Update mutable fields on existing. Returns True if any field changed.
+
+        NOTE: 'date' is intentionally NOT updated — it drives match_activities
+        pairing and changing it would silently detach paired ScheduledWorkouts.
+        """
+        changed = False
+        for field in (
+            "distance_m", "duration_sec", "avg_pace_sec_per_km",
+            "avg_hr", "max_hr", "calories", "name", "start_time",
+        ):
+            old_val = getattr(existing, field)
+            new_val = getattr(parsed, field)
+            if old_val != new_val:
+                setattr(existing, field, new_val)
+                changed = True
+        if changed:
+            existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        return changed
+
     def _parse_activity(
         self, raw: dict[str, Any], user_id: int
     ) -> GarminActivity | None:
@@ -80,29 +104,50 @@ class ActivityFetchService:
         start_date: str,
         end_date: str,
     ) -> FetchResult:
-        """Fetch activities from Garmin, dedup, store new ones."""
+        """Fetch activities from Garmin; upsert existing ones, insert new ones."""
         raw_activities = garmin_adapter.get_activities_by_date(start_date, end_date)
         result = FetchResult(fetched=len(raw_activities))
 
-        existing = await session.exec(
-            select(GarminActivity.garmin_activity_id).where(
-                GarminActivity.user_id == user_id
+        # Bounded query: only load activities in the fetch window (not all-time)
+        existing_rows = (
+            await session.exec(
+                select(GarminActivity).where(
+                    GarminActivity.user_id == user_id,
+                    GarminActivity.date >= date.fromisoformat(start_date),
+                    GarminActivity.date <= date.fromisoformat(end_date),
+                )
             )
-        )
-        existing_ids = set(existing.all())
+        ).all()
+        existing_map: dict[str, GarminActivity] = {
+            a.garmin_activity_id: a for a in existing_rows
+        }
 
         for raw in raw_activities:
             parsed = self._parse_activity(raw, user_id)
             if parsed is None:
                 continue
-            if parsed.garmin_activity_id in existing_ids:
-                continue
-            session.add(parsed)
-            existing_ids.add(parsed.garmin_activity_id)
-            result.stored += 1
 
-        if result.stored > 0:
-            await session.flush()
+            existing = existing_map.get(parsed.garmin_activity_id)
+            if existing is not None:
+                if self._update_activity(existing, parsed):
+                    session.add(existing)
+                    result.updated += 1
+            else:
+                session.add(parsed)
+                existing_map[parsed.garmin_activity_id] = parsed
+                result.stored += 1
+
+        if result.stored > 0 or result.updated > 0:
+            try:
+                await session.flush()
+            except IntegrityError:
+                # Activity already exists outside the fetch window — skip silently
+                logger.debug(
+                    "IntegrityError during activity upsert (activity already exists) — ignoring"
+                )
+                await session.rollback()
+                result.stored = 0
+                result.updated = 0
 
         return result
 

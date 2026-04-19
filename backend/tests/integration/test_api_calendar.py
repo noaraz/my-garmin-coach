@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 from collections.abc import AsyncGenerator
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,10 +12,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.app import create_app
 from src.api.dependencies import get_session
-from src.api.routers.sync import get_optional_garmin_sync_service
+from src.api.routers.sync import _get_garmin_sync_service, get_optional_garmin_sync_service
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.db.models import AthleteProfile, HRZone, ScheduledWorkout, WorkoutTemplate
+from src.db.models import AthleteProfile, GarminActivity, HRZone, ScheduledWorkout, WorkoutTemplate
 from src.services.calendar_service import CalendarService
 
 # ---------------------------------------------------------------------------
@@ -875,3 +875,142 @@ class TestCalendarRangeUnplannedActivities:
         assert response.status_code == 200
         data = response.json()
         assert data["unplanned_activities"] == []
+
+
+class TestRefreshActivity:
+    """Tests for POST /api/v1/calendar/activities/{activity_id}/refresh"""
+
+    async def _seed_activity(self, session: AsyncSession) -> Any:
+        activity = GarminActivity(
+            user_id=1,
+            garmin_activity_id="garmin-act-42",
+            activity_type="running",
+            name="Morning Run",
+            start_time=datetime(2026, 4, 10, 8, 0, 0),  # noqa: DTZ001
+            date=date(2026, 4, 10),
+            duration_sec=3600.0,
+            distance_m=9500.0,
+            avg_hr=145.0,
+            max_hr=170.0,
+            calories=500,
+            avg_pace_sec_per_km=360.0,
+        )
+        session.add(activity)
+        await session.commit()
+        await session.refresh(activity)
+        return activity
+
+    async def test_refresh_activity_updates_db_row(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        activity = await self._seed_activity(session)
+
+        mock_sync = MagicMock()
+        mock_sync.get_activity.return_value = {
+            "activityName": "Fixed Run",
+            "summaryDTO": {
+                "distance": 10200.0,
+                "duration": 3700.0,
+                "averageSpeed": 2.75,
+                "averageHR": 148.0,
+                "maxHR": 172.0,
+                "calories": 510,
+            },
+        }
+        mock_sync.dump_token.return_value = '{"token": "dummy"}'
+
+        app = create_app()
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[_get_garmin_sync_service] = lambda: mock_sync
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(f"/api/v1/calendar/activities/{activity.id}/refresh")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Fixed Run"
+        assert data["distance_m"] == pytest.approx(10200.0)
+        assert data["duration_sec"] == pytest.approx(3700.0)
+        assert data["avg_hr"] == pytest.approx(148.0)
+
+    async def test_refresh_activity_not_found_in_db_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        mock_sync = MagicMock()
+        app = create_app()
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[_get_garmin_sync_service] = lambda: mock_sync
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post("/api/v1/calendar/activities/99999/refresh")
+
+        assert response.status_code == 404
+
+    async def test_refresh_activity_deleted_on_garmin_returns_404(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        from src.garmin.adapter_protocol import GarminNotFoundError
+
+        activity = await self._seed_activity(session)
+
+        mock_sync = MagicMock()
+        mock_sync.get_activity.side_effect = GarminNotFoundError("Activity gone")
+        mock_sync.dump_token.return_value = '{"token": "dummy"}'
+
+        app = create_app()
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[_get_garmin_sync_service] = lambda: mock_sync
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(f"/api/v1/calendar/activities/{activity.id}/refresh")
+
+        assert response.status_code == 404
+        assert "no longer exists" in response.json()["detail"].lower()
+
+    async def test_refresh_activity_rate_limit_returns_502(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        from src.garmin.adapter_protocol import GarminRateLimitError
+
+        activity = await self._seed_activity(session)
+
+        mock_sync = MagicMock()
+        mock_sync.get_activity.side_effect = GarminRateLimitError("429")
+        mock_sync.dump_token.return_value = '{"token": "dummy"}'
+
+        app = create_app()
+        app.dependency_overrides[get_current_user] = _mock_get_current_user
+        app.dependency_overrides[_get_garmin_sync_service] = lambda: mock_sync
+
+        async def override_session() -> AsyncGenerator[AsyncSession, None]:
+            yield session
+
+        app.dependency_overrides[get_session] = override_session
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(f"/api/v1/calendar/activities/{activity.id}/refresh")
+
+        assert response.status_code == 502

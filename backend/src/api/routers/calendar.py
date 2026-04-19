@@ -9,7 +9,9 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.api.dependencies import get_session
-from src.api.routers.sync import get_optional_garmin_sync_service
+from src.api.routers.sync import _get_garmin_sync_service, get_optional_garmin_sync_service
+from src.garmin.adapter_protocol import GarminAdapterError, GarminNotFoundError
+from src.garmin.converters import speed_to_pace
 from src.api.schemas import (
     CalendarResponse,
     GarminActivityRead,
@@ -239,3 +241,49 @@ async def delete_schedule(
     return Response(status_code=204)
 
 
+@router.post("/activities/{activity_id}/refresh", response_model=GarminActivityRead)
+async def refresh_activity(
+    activity_id: int,
+    session: AsyncSession = Depends(get_session),
+    sync_service: SyncOrchestrator = Depends(_get_garmin_sync_service),
+    current_user: User = Depends(get_current_user),
+) -> GarminActivityRead:
+    """Re-fetch a completed activity from Garmin to fix GPS drift or missing data."""
+    activity = await session.get(GarminActivity, activity_id)
+    if activity is None or activity.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    try:
+        raw = sync_service.get_activity(activity.garmin_activity_id)
+    except GarminNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Activity no longer exists on Garmin Connect",
+        ) from exc
+    except GarminAdapterError as exc:
+        logger.warning(
+            "Garmin get_activity failed for %s: %s", activity.garmin_activity_id, exc
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Garmin is temporarily unavailable — please try again later",
+        ) from exc
+
+    # V1 single-activity responses wrap fields in summaryDTO; V2 may not.
+    summary = raw.get("summaryDTO", raw)
+    activity.distance_m = float(summary.get("distance", activity.distance_m))
+    activity.duration_sec = float(summary.get("duration", activity.duration_sec))
+    avg_speed = float(summary.get("averageSpeed", 0.0) or 0.0)
+    activity.avg_pace_sec_per_km = (
+        speed_to_pace(avg_speed) if avg_speed > 0 else activity.avg_pace_sec_per_km
+    )
+    activity.avg_hr = summary.get("averageHR", activity.avg_hr)
+    activity.max_hr = summary.get("maxHR", activity.max_hr)
+    activity.calories = summary.get("calories", activity.calories)
+    activity.name = raw.get("activityName", activity.name)
+    activity.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    session.add(activity)
+    await session.commit()
+    await persist_refreshed_token(sync_service, current_user.id, session)
+    return GarminActivityRead.model_validate(activity)

@@ -110,6 +110,14 @@ class GarminAdapterV2:
             _translate_exception(exc)
             raise
 
+    def get_activity(self, activity_id: str) -> dict[str, Any]:
+        """Fetch a single activity by ID from Garmin Connect."""
+        try:
+            return self._client.get_activity(activity_id)
+        except Exception as exc:  # noqa: BLE001
+            _translate_exception(exc)
+            raise  # unreachable, satisfies type checker
+
     def dump_token(self) -> str:
         """Serialize current token state as JSON string."""
         return self._client.client.dumps()

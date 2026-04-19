@@ -4,6 +4,7 @@ import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, format
 import { formatDateHeader, formatPace } from '../../utils/formatting'
 import { computeCompliance, type ComplianceLevel } from '../../utils/compliance'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { refreshActivity } from '../../api/client'
 
 // ---------------------------------------------------------------------------
 // Step rendering helpers
@@ -105,6 +106,7 @@ interface WorkoutDetailPanelProps {
   onUpdateNotes: (id: number, notes: string) => void
   onNavigateToBuilder: (templateId: number) => void
   onSync?: (id: number) => Promise<void>
+  onRefreshActivity?: (updated: GarminActivity) => void
 }
 
 function syncStatusLabel(status: SyncStatus): string {
@@ -456,15 +458,18 @@ function WorkoutDetailCompleted({
   template,
   onUnpair,
   onUpdateNotes,
+  onRefreshActivity,
 }: {
   workout: ScheduledWorkoutWithActivity
   template?: WorkoutTemplate
   onClose: () => void
   onUnpair: (scheduledId: number) => void
   onUpdateNotes: (id: number, notes: string) => void
+  onRefreshActivity?: (updated: GarminActivity) => void
 }) {
   const [localNotes, setLocalNotes] = useState(workout.notes ?? '')
   const [saved, setSaved] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
@@ -792,6 +797,42 @@ function WorkoutDetailCompleted({
           </div>
         )}
 
+        {/* Refresh button */}
+        {onRefreshActivity && workout.activity && (
+          <div style={{ marginBottom: '8px' }}>
+            <button
+              onClick={async () => {
+                if (!workout.activity) return
+                setRefreshing(true)
+                try {
+                  const updated = await refreshActivity(workout.activity.id)
+                  onRefreshActivity(updated)
+                } catch {
+                  // swallow — button re-enables in finally
+                } finally {
+                  setRefreshing(false)
+                }
+              }}
+              disabled={refreshing}
+              aria-label={refreshing ? 'Refreshing activity data from Garmin' : 'Refresh from Garmin'}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-surface-2)',
+                color: 'var(--text-primary)',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: '13px',
+                cursor: refreshing ? 'not-allowed' : 'pointer',
+                opacity: refreshing ? 0.6 : 1,
+              }}
+            >
+              {refreshing ? 'Refreshing\u2026' : 'Refresh from Garmin'}
+            </button>
+          </div>
+        )}
+
         {/* Unpair button */}
         <div style={{ marginBottom: '20px' }}>
           <button
@@ -868,10 +909,13 @@ function WorkoutDetailCompleted({
 
 function WorkoutDetailUnplanned({
   activity,
+  onRefreshActivity,
 }: {
   activity: GarminActivity
   onClose: () => void
+  onRefreshActivity?: (updated: GarminActivity) => void
 }) {
+  const [refreshing, setRefreshing] = useState(false)
   const greyColor = 'var(--color-compliance-grey)'
 
   return (
@@ -1063,6 +1107,42 @@ function WorkoutDetailUnplanned({
             </div>
           )}
         </div>
+
+        {/* Refresh button */}
+        {onRefreshActivity && (
+          <button
+            onClick={async () => {
+              setRefreshing(true)
+              try {
+                const updated = await refreshActivity(activity.id)
+                onRefreshActivity(updated)
+              } catch {
+                // swallow — button re-enables in finally
+              } finally {
+                setRefreshing(false)
+              }
+            }}
+            disabled={refreshing}
+            aria-label={refreshing ? 'Refreshing activity data from Garmin' : 'Refresh from Garmin'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'var(--bg-surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '8px 14px',
+              color: 'var(--text-primary)',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              fontSize: '13px',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              opacity: refreshing ? 0.6 : 1,
+              marginTop: '16px',
+            }}
+          >
+            {refreshing ? 'Refreshing\u2026' : 'Refresh from Garmin'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1079,6 +1159,7 @@ export function WorkoutDetailPanel({
   onUpdateNotes,
   onNavigateToBuilder,
   onSync,
+  onRefreshActivity,
 }: WorkoutDetailPanelProps) {
   const isMobile = useIsMobile()
 
@@ -1174,11 +1255,12 @@ export function WorkoutDetailPanel({
             onClose={onClose}
             onUnpair={onUnpair}
             onUpdateNotes={onUpdateNotes}
+            onRefreshActivity={onRefreshActivity}
           />
         )}
 
         {isUnplannedOnly && activity && (
-          <WorkoutDetailUnplanned activity={activity} onClose={onClose} />
+          <WorkoutDetailUnplanned activity={activity} onClose={onClose} onRefreshActivity={onRefreshActivity} />
         )}
       </div>
     </>

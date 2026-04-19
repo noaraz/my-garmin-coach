@@ -51,6 +51,30 @@
 - `expire_on_commit=False` in the integration test conftest — `session.refresh()` after `commit()` in test setup is a wasted round-trip; object `.id` is already populated in-memory
 - Frontend: `mockResolvedValue` (not `Once`) due to StrictMode double-fire
 
+## Activity Refresh (added 2026-04-18)
+
+**Purpose**: Re-fetch a single activity from Garmin to fix GPS drift or missing sensor data.
+
+**Endpoint**: `POST /api/v1/calendar/activities/{id}/refresh` → returns `GarminActivityRead`
+
+**Error contract**:
+- `GarminNotFoundError` → 404 `"Activity no longer exists on Garmin Connect"`
+- Any other `GarminAdapterError` (rate limit, connection) → 502 `"Garmin is temporarily unavailable"`
+
+**`summaryDTO` unwrap**: Single-activity Garmin responses (V1) wrap fields in a `summaryDTO` key; V2 may return them at the root. Always unwrap: `summary = raw.get("summaryDTO", raw)`.
+
+**Date field policy**: `_update_activity()` in `ActivityFetchService` intentionally does NOT mutate the `date` field. `date` drives `match_activities` pairing — changing it would silently detach paired `ScheduledWorkout` records. Mutable fields: `distance_m`, `duration_sec`, `avg_pace_sec_per_km`, `avg_hr`, `max_hr`, `calories`, `name`, `start_time`.
+
+**Layer chain**: `refresh_activity endpoint` → `SyncOrchestrator.get_activity()` → `GarminSyncService.get_activity()` → `adapter.get_activity(activity_id)`
+
+**Frontend**:
+- `refreshActivity(id)` in `frontend/src/api/client.ts`
+- `refreshOneActivity(id)` in `frontend/src/hooks/useCalendar.ts` — calls API, refetches calendar range, returns updated activity
+- `RefreshButton` in `WorkoutDetailPanel.tsx` — loading state (`refreshing`), disabled while in flight, re-enables in `finally`
+- Wired via `onRefreshActivity={refreshOneActivity}` prop in `CalendarPage.tsx`
+
+**Upsert**: `fetch_and_store` now upserts within the `start_date`/`end_date` window (bounded query). `FetchResult.updated` tracks the count of updated rows. Previous behavior was insert-only; new behavior updates existing activity fields on re-sync.
+
 ## Workout Detail Panel (cross-reference)
 
 The detail panel displays activity data fetched by this feature:
