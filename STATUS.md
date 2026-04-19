@@ -1,6 +1,6 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-18 — Activity refresh (GPS drift recovery)
+Last updated: 2026-04-19 — Activity refresh (GPS drift recovery) + Dockerfile.prod alembic stamp guard
 
 ## Activity Refresh — GPS Drift Recovery ✅
 
