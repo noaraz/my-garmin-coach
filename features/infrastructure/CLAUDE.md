@@ -158,58 +158,45 @@ Default (no env var) = SQLite in-memory, unchanged.
 - **`DATABASE_URL` must use `+asyncpg`** driver: `postgresql+asyncpg://...`. Plain `postgresql://...` causes `psycopg2 is not async` crash at startup
 - **Deployment status via GitHub API**: `gh api repos/noaraz/my-garmin-coach/deployments` → get latest deployment ID → check `statuses` endpoint for `state`, `environment_url`, `log_url`
 
-## Preview DB Isolation (added 2026-04-18)
+## Preview DB Isolation (added 2026-04-19)
 
-Render Preview environments use a dedicated Neon **branch** (`preview`) inside the same
-Neon project. Before each preview deploy, a GitHub Actions workflow resets this branch to
-the `main` (prod) state — copy-on-write, instant, free. The preview container then runs
-`alembic upgrade head` on the isolated branch. Prod is never touched.
+Each PR gets its own isolated Neon branch — a copy-on-write snapshot of prod created when
+the PR opens and deleted when it closes. Uses the official Neon GitHub Actions.
+Migrations run on the branch, never on prod.
 
-### One-time setup
+### One-time setup (already done)
 
-1. **neon.tech** → garmincoach project → Branches → create branch `preview` from `main`
-   - Copy the preview branch connection string (ends in `?ssl=require`) — this is `PREVIEW_DATABASE_URL`
-   - Copy the preview branch ID (`br-xxxx-yyyy` shown in branch details) — `NEON_PREVIEW_BRANCH_ID`
-   - Copy the main branch ID (`br-xxxx-yyyy` — different from preview) — `NEON_MAIN_BRANCH_ID`
-   - Account Settings → API Keys → create a new API key — `NEON_API_KEY`
-   - Project Settings → copy the project ID (e.g. `long-fog-12345678`) — `NEON_PROJECT_ID`
+1. **neon.tech** → Account Settings → API Keys → `NEON_API_KEY` ✅
+2. **neon.tech** → project Settings → project ID → `NEON_PROJECT_ID` ✅
+3. **render.com** → Account Settings → API Keys → `RENDER_API_KEY` ✅
+4. All three set as GitHub Actions secrets ✅
 
-2. **Render dashboard** → Account Settings → API Keys → create key — `RENDER_API_KEY`
-
-3. **GitHub** → repo Settings → Secrets and variables → Actions → add:
-   - `NEON_API_KEY`
-   - `NEON_PROJECT_ID`
-   - `NEON_PREVIEW_BRANCH_ID`
-   - `NEON_MAIN_BRANCH_ID`
-   - `RENDER_API_KEY`
-   - `PREVIEW_DATABASE_URL` (the Neon preview branch connection string — contains credentials, never commit this)
-
-   No per-PR secrets needed — the workflow finds the right preview service dynamically by matching the PR branch name.
-
-### How it works on each PR push
+### How it works
 
 ```
-PR pushed to GitHub
-    └── GitHub Actions: preview-db-reset.yml
-            1. POST /neon/.../branches/{preview_id}/restore   ← reset to prod state (instant)
-            2. sleep 10s
-            3. GET /render/.../services/{preview_id}/env-vars  ← read current env vars
-            4. Replace DATABASE_URL with preview Neon branch URL
-            5. PUT /render/.../services/{preview_id}/env-vars  ← update in place
-            6. POST /render/.../services/{preview_id}/deploys  ← trigger rebuild
+PR opened/pushed → job: setup-preview-db
+    1. neondatabase/create-branch-action  → creates branch preview/pr-{NUMBER}
+                                            outputs db_url_pooled
+    2. Convert URL: postgresql:// → postgresql+asyncpg://, sslmode= → ssl=
+    3. Poll Render API until preview service appears (up to 5 min)
+    4. Cancel any in-progress Render deploy (best-effort, avoids race condition)
+    5. PUT new DATABASE_URL onto the Render preview service
+    6. POST /deploys → trigger a fresh build with the correct DATABASE_URL
 
-Render container starts → alembic upgrade head → runs on preview branch only
+Render container starts → alembic upgrade head → runs on preview/pr-{NUMBER} only
+
+PR closed/merged → job: cleanup-preview-db
+    1. neondatabase/delete-branch-action  → deletes branch preview/pr-{NUMBER}
 ```
 
 ### Gotchas
 
-- **First deploy of a brand-new preview uses prod DATABASE_URL** — Render creates the service by copying the base service's env vars (prod DATABASE_URL). Push a commit immediately after creating the preview to let the workflow correct it before any migrations run.
-- **Preview service lookup by branch name** — the workflow searches Render services filtered by name `garmincoach` and matches on `branch == PR branch name`. If the preview service isn't found, the workflow warns and skips (no error) — create the preview in Render first, then push a commit.
-- **Preview branch URL is static** — the Neon preview branch connection string never changes even after resets. It's a persistent credential.
-- **Two open PRs share one preview branch** — sequential is fine for a solo project; simultaneous deploys would conflict (last reset wins).
-- **Neon restore is async** — the workflow sleeps 10s. If `alembic upgrade head` fails with `relation does not exist`, increase the sleep in the workflow.
-- **Branch IDs vs branch names** — the Neon restore API requires branch IDs (`br-xxxx-yyyy`), not names. Get them from neon.tech → Branches → click the branch → copy the ID from the URL or details panel.
-- **Render PUT env-vars replaces all vars** — the workflow GETs the full current list first, updates only `DATABASE_URL`, then PUTs the complete list back. This preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
+- **Each PR gets a fresh branch from prod** — no stale data, no shared state between PRs.
+- **Branch auto-deleted on PR close** — no manual cleanup needed. Up to 10 branches on free tier; fine for a solo project.
+- **Race condition mitigated by cancel step** — workflow cancels any in-progress Render deploy before updating `DATABASE_URL` and triggering a clean redeploy. `continue-on-error: true` so a failed cancel doesn't block the workflow.
+- **URL format conversion** — Neon outputs `postgresql://...?sslmode=require`; asyncpg needs `postgresql+asyncpg://...?ssl=require`. Converted via `sed` in the workflow.
+- **Render PUT env-vars replaces all vars** — workflow GETs the full list, updates only `DATABASE_URL`, PUTs the full list back. Preserves `JWT_SECRET`, `GARMINCOACH_SECRET_KEY`, etc.
+- **Preview service lookup** — matches on `branch == PR head branch name`. Polls every 15s for up to 5 min waiting for Render to create the service.
 
 ---
 

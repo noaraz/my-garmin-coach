@@ -26,8 +26,8 @@ services:
       # Do NOT commit the Neon connection string here (contains credentials).
       # Render free tier does not support persistent disks, so SQLite is not viable in prod.
       #
-      # PREVIEW DATABASE_URL: set separately in Render dashboard → Preview Environments tab.
-      # Must point to the Neon 'preview' branch — NOT the main/prod branch.
-      # The preview branch is reset to prod state by .github/workflows/preview-db-reset.yml
-      # before each preview deploy, then alembic runs migrations on the isolated branch.
-      # See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for setup instructions.
+      # PREVIEW DATABASE_URL: injected automatically by .github/workflows/preview-db-reset.yml
+      # Each PR gets its own Neon branch (preview/pr-{N}) via neondatabase/create-branch-action.
+      # The workflow updates DATABASE_URL on the Render preview service before deploying.
+      # No manual configuration needed for previews.
+      # See features/infrastructure/CLAUDE.md → "Preview DB Isolation" for details.
