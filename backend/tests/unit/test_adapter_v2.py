@@ -40,6 +40,12 @@ class TestGarminAdapterV2:
         )
         assert result["workoutId"] == "123"
 
+    def test_update_workout_delegates(self, adapter, mock_client: MagicMock) -> None:
+        adapter.update_workout("123", {"workoutName": "Updated"})
+        mock_client.client.put.assert_called_once_with(
+            "connect", "/workout-service/workout/123", json={"workoutName": "Updated"}, api=True,
+        )
+
     def test_delete_workout_delegates(self, adapter, mock_client: MagicMock) -> None:
         adapter.delete_workout("123")
         mock_client.delete_workout.assert_called_once_with("123")
