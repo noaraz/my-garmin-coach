@@ -204,6 +204,37 @@ PR closed/merged → job: cleanup-preview-db  (.github/workflows/preview-db-isol
 - **`op.batch_alter_table` breaks on PostgreSQL** — migrations must use plain `op.add_column` / `op.drop_column`. `batch_alter_table` is SQLite-only; using it in a migration will cause `DuplicateColumn` errors on the preview Neon branch.
 - **`DATABASE_URL` is NOT set in `render.yaml`** — it must be set manually in the Render dashboard for the main service (prod). Preview services get it injected by the workflow automatically. Never commit Neon credentials to `render.yaml`.
 
+### Official documentation
+
+| Resource | URL |
+|---|---|
+| `neondatabase/create-branch-action` repo | https://github.com/neondatabase/create-branch-action |
+| `neondatabase/delete-branch-action` repo | https://github.com/neondatabase/delete-branch-action |
+| Neon: Branching with GitHub Actions | https://neon.tech/docs/guides/branching-github-actions |
+| Neon: Preview environments guide | https://neon.tech/docs/guides/preview-branches-github |
+
+**`create-branch-action@v5` outputs** (full list):
+
+| Output | Description |
+|---|---|
+| `db_url` | Direct connection string (no pooler) |
+| `db_url_with_pooler` | Connection string via PgBouncer — use this for app connections |
+| `host` | Branch host |
+| `host_with_pooler` | Branch host with pooling |
+| `branch_id` | Branch ID — pass to `delete-branch-action` via `branch` input |
+| `password` | Password for the role specified in `username` |
+
+**`create-branch-action@v5` inputs** (key ones):
+
+| Input | Required | Notes |
+|---|---|---|
+| `project_id` | yes | Neon project ID |
+| `api_key` | yes | Neon API key |
+| `branch_name` | no | e.g. `preview/pr-{NUMBER}` |
+| `username` | yes | DB role name (was `role` in older versions — causes warning if wrong) |
+| `database` | no | Defaults to `neondb` |
+| `parent` | no | Parent branch name/ID (defaults to primary/main) |
+
 ---
 
 ## FastAPI Static File Mount (Production)
