@@ -26,7 +26,7 @@ services:
       # Do NOT commit the Neon connection string here (contains credentials).
       # Render free tier does not support persistent disks, so SQLite is not viable in prod.
       #
-      # PREVIEW DATABASE_URL: injected automatically by .github/workflows/preview-db-reset.yml
+      # PREVIEW DATABASE_URL: injected automatically by .github/workflows/preview-db-isolation.yml
       # Each PR gets its own Neon branch (preview/pr-{N}) via neondatabase/create-branch-action.
       # The workflow updates DATABASE_URL on the Render preview service before deploying.
       # No manual configuration needed for previews.

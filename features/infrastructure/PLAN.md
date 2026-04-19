@@ -113,7 +113,7 @@ created on PR open and deleted on PR close.
 - [x] **Manual**: neon.tech → Account Settings → API Keys → create `NEON_API_KEY`
 - [x] **Manual**: render.com → Account Settings → API Keys → create `RENDER_API_KEY`
 - [x] **Manual**: GitHub Secrets → add `NEON_API_KEY`, `NEON_PROJECT_ID`, `RENDER_API_KEY`
-- [x] Create `.github/workflows/preview-db-reset.yml` — per-PR branch lifecycle
+- [x] Create `.github/workflows/preview-db-isolation.yml` — per-PR branch lifecycle
 - [x] Add preview `DATABASE_URL` comment to `render.yaml`
 - [x] Document setup in `features/infrastructure/CLAUDE.md` → "Preview DB Isolation" section
 - [ ] **Verify**: open PR with a new Alembic migration → check Neon `preview/pr-{N}` branch has migration stamped, `main` branch unchanged, branch deleted on PR close
