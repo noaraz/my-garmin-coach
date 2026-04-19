@@ -65,11 +65,6 @@ jobs:
         run: |
           echo "Looking for Render preview service on branch: $PR_BRANCH"
 
-          SERVICES=$(curl -s \
-            "https://api.render.com/v1/services?name=garmincoach&includePreviews=true&limit=50" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Accept: application/json")
-
           cat > /tmp/find_service.py << 'EOF'
           import sys, json, os
           data = json.load(sys.stdin)
@@ -82,17 +77,35 @@ jobs:
           sys.exit(1)
           EOF
 
-          SERVICE_ID=$(echo "$SERVICES" | python3 /tmp/find_service.py || true)
+          # Render takes 1-2 min to create a preview service after the PR is opened.
+          # Poll every 15s for up to 5 minutes.
+          SERVICE_ID=""
+          for i in $(seq 1 20); do
+            SERVICES=$(curl -s \
+              "https://api.render.com/v1/services?name=garmincoach&includePreviews=true&limit=50" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Accept: application/json")
+
+            SERVICE_ID=$(echo "$SERVICES" | python3 /tmp/find_service.py || true)
+
+            if [ -n "$SERVICE_ID" ]; then
+              break
+            fi
+
+            echo "Attempt $i/20: preview service not ready yet, retrying in 15s..."
+            sleep 15
+          done
 
           if [ -z "$SERVICE_ID" ]; then
-            echo "⚠️ No Render preview service found for branch '$PR_BRANCH'."
-            echo "   Create a preview from the Render dashboard first, then push a new commit."
+            echo "❌ Render preview service not found for branch '$PR_BRANCH' after 5 minutes."
+            echo "   Make sure 'previews: generation' is set correctly in render.yaml."
             echo "service_found=false" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Found preview service: $SERVICE_ID"
-            echo "service_id=$SERVICE_ID" >> $GITHUB_OUTPUT
-            echo "service_found=true" >> $GITHUB_OUTPUT
+            exit 1
           fi
+
+          echo "✅ Found preview service: $SERVICE_ID"
+          echo "service_id=$SERVICE_ID" >> $GITHUB_OUTPUT
+          echo "service_found=true" >> $GITHUB_OUTPUT
 
       - name: Update Render preview DATABASE_URL
         if: steps.find_preview.outputs.service_found == 'true'
