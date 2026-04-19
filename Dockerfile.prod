@@ -25,4 +25,4 @@ COPY --from=frontend-build /frontend/dist ./static
 RUN mkdir -p /data && chown appuser /data
 USER appuser
 EXPOSE 8000
-CMD ["sh", "-c", "alembic current 2>&1 | grep -q \"Can't locate\" && alembic stamp --purge h3b4c5d6e789; alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api.app:app --host 0.0.0.0 --port 8000"]

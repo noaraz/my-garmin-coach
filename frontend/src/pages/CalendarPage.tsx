@@ -51,7 +51,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const weekStart = getWeekStart(currentDate)
   const weekEnd = addDays(weekStart, 6)
 
-  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, unpair, loadRange, updateNotes, refreshOneActivity } = useCalendar(
+  const { workouts, unplannedActivities, loading, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, unpair, loadRange, updateNotes, refetchCalendar } = useCalendar(
     weekStart,
     weekEnd
   )
@@ -666,8 +666,17 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           onNavigateToBuilder={(tid) => navigate(`/builder?id=${tid}`)}
           onSync={handleSync}
           onRefreshActivity={async (updated) => {
-            await refreshOneActivity(updated.id)
+            // The panel already called refreshActivity — just refetch calendar
+            // state so compliance colors update, then patch the open panel.
+            const response = await refetchCalendar()
             setSelectedActivity(updated)
+            // For a completed (paired) workout, selectedWorkout.activity is
+            // stale until we patch it — workouts[] refetch alone doesn't update
+            // selectedWorkout (see WorkoutDetailPanel Patterns in CLAUDE.md).
+            if (selectedWorkout) {
+              const freshWorkout = response.workouts.find(w => w.id === selectedWorkout.id)
+              if (freshWorkout) setSelectedWorkout(freshWorkout)
+            }
           }}
         />
       )}

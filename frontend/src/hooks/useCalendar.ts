@@ -83,14 +83,22 @@ export function useCalendar(initialStart: Date, initialEnd: Date) {
     setWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes: updated.notes } : w))
   }
 
-  const refreshOneActivity = async (id: number): Promise<GarminActivity> => {
-    const updated = await refreshActivity(id)
+  // Refetch the current calendar range and update state, without calling Garmin.
+  // Used by CalendarPage.onRefreshActivity which already has the updated activity
+  // from the panel's API call — calling refreshActivity again would be a double-fetch.
+  const refetchCalendar = useCallback(async () => {
     const current = rangeRef.current
     const response = await fetchCalendarRange(toDateString(current.start), toDateString(current.end))
     setWorkouts(response.workouts)
     setUnplannedActivities(response.unplanned_activities)
+    return response
+  }, [])
+
+  const refreshOneActivity = async (id: number): Promise<GarminActivity> => {
+    const updated = await refreshActivity(id)
+    await refetchCalendar()
     return updated
   }
 
-  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, pair, unpair, loadRange, updateNotes, refreshOneActivity }
+  return { workouts, unplannedActivities, loading, error, schedule, reschedule, remove, syncAllWorkouts, syncOneWorkout, pair, unpair, loadRange, updateNotes, refreshOneActivity, refetchCalendar }
 }
