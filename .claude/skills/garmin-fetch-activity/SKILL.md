@@ -36,22 +36,26 @@ USER_ID = 3
 
 engine = create_async_engine(DB_URL)
 
-async def get_token():
+async def get_profile():
     async with engine.connect() as conn:
         result = await conn.execute(text(
-            'SELECT garmin_oauth_token_encrypted FROM athleteprofile WHERE user_id = :uid'
+            'SELECT garmin_oauth_token_encrypted, garmin_auth_version FROM athleteprofile WHERE user_id = :uid'
         ), {'uid': USER_ID})
-        return result.fetchone()[0]
+        return result.fetchone()
 
-encrypted = asyncio.run(get_token())
+row = asyncio.run(get_profile())
+encrypted, auth_version = row[0], row[1] or 'v1'
 
 from src.garmin.encryption import decrypt_token
-from src.garmin.client_factory import create_api_client
+from src.garmin.client_factory import create_adapter
 
 token_json = decrypt_token(USER_ID, SECRET, encrypted)
-adapter = create_api_client(token_json)
+# Always pass auth_version explicitly — env default is 'v1' and will fail for V2 tokens
+adapter = create_adapter(token_json, auth_version=auth_version)
 client = adapter._client  # garminconnect.Garmin instance
 ```
+
+**V1 vs V2:** V1 tokens use `client.garth` for raw calls; V2 tokens use `client.client`. Always read `garmin_auth_version` from the DB — never assume V1.
 
 ## Step 2 — Find Activity
 
