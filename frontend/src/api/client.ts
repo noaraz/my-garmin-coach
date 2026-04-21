@@ -261,6 +261,8 @@ export async function exportActivities(start: string, end: string): Promise<void
   const a = document.createElement('a')
   a.href = url
   a.download = `garmin-export-${start}-${end}.json`
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
 }

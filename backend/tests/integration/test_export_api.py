@@ -172,3 +172,36 @@ class TestExportAPI:
 
             # Assert
             assert response.status_code == 401
+
+    async def test_export_requires_garmin(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        from fastapi import HTTPException
+        from src.api.app import create_app
+        from src.api.dependencies import get_session
+        from src.api.routers.sync import _get_garmin_sync_service
+        from httpx import ASGITransport
+
+        app = create_app()
+
+        async def override_session():
+            yield session
+
+        async def _mock_current_user():
+            from src.auth.models import User
+            return User(id=1, email="test@example.com", is_active=True)
+
+        async def _garmin_not_connected():
+            raise HTTPException(status_code=403, detail="Garmin not connected")
+
+        app.dependency_overrides[get_session] = override_session
+        app.dependency_overrides[get_current_user] = _mock_current_user
+        app.dependency_overrides[_get_garmin_sync_service] = _garmin_not_connected
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:
+            response = await test_client.get(
+                "/api/v1/calendar/activities/export?start=2026-01-01&end=2026-01-31"
+            )
+            assert response.status_code == 403
+
+        app.dependency_overrides.clear()

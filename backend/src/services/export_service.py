@@ -3,13 +3,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import GarminActivity
 from src.garmin.adapter_protocol import GarminAdapterError
+
+if TYPE_CHECKING:
+    from src.services.sync_orchestrator import SyncOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -21,23 +24,10 @@ class ExportService:
         self,
         session: AsyncSession,
         user_id: int,
-        garmin: Any,  # SyncOrchestrator — avoid circular import
+        garmin: SyncOrchestrator,
         start: date,
         end: date,
     ) -> dict[str, Any]:
-        """Build a JSON export of all activities in the given date range.
-
-        Args:
-            session: Database session
-            user_id: User ID to filter activities
-            garmin: SyncOrchestrator instance (has get_activity and get_activity_splits)
-            start: Start date (inclusive)
-            end: End date (inclusive)
-
-        Returns:
-            Dict with exported_at, date_range, and activities list.
-            Each activity has summary and laps, or error: "fetch_failed" on failure.
-        """
         result = await session.execute(
             select(GarminActivity)
             .where(GarminActivity.user_id == user_id)
@@ -46,6 +36,7 @@ class ExportService:
             .order_by(GarminActivity.date)
         )
         activities = result.scalars().all()
+        await session.close()
 
         sem = asyncio.Semaphore(_CONCURRENCY)
 

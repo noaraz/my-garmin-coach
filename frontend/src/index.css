@@ -106,9 +106,9 @@
 
 /* react-day-picker theme overrides — must target .rdp-root (where lib declares vars) */
 .rdp-root {
-  --rdp-accent-color:                   #0057ff;
-  --rdp-accent-background-color:        rgba(0,87,255,0.1);
-  --rdp-range_middle-background-color:  rgba(0,87,255,0.1);
+  --rdp-accent-color:                   var(--accent);
+  --rdp-accent-background-color:        var(--accent-subtle);
+  --rdp-range_middle-background-color:  var(--accent-subtle);
   --rdp-day-height: 36px;
   --rdp-day-width:  36px;
   --rdp-day_button-height: 34px;
@@ -118,10 +118,10 @@
 }
 
 [data-theme="dark"] .rdp-root {
-  --rdp-accent-color:                   #2979ff;
-  --rdp-accent-background-color:        rgba(41,121,255,0.18);
-  --rdp-range_middle-background-color:  rgba(41,121,255,0.18);
-  --rdp-range_middle-color:             #e8e4dc;
+  --rdp-accent-color:                   var(--accent);
+  --rdp-accent-background-color:        var(--accent-subtle);
+  --rdp-range_middle-background-color:  var(--accent-subtle);
+  --rdp-range_middle-color:             var(--text-primary);
 }
 
 html, body, #root {
