@@ -954,3 +954,37 @@ Add `slowapi` (or similar) to limit `/api/v1/auth/login` and `/api/v1/auth/regis
 
 ### Activity Feed / History
 Show completed workouts pulled from Garmin Connect — not just scheduled ones. Useful for reviewing training load.
+
+---
+
+## FastAPI File Download Endpoints (added 2026-04-21)
+
+Use `Response` (not `response_model`) for ALL endpoints returning file downloads. Pattern:
+
+```python
+from fastapi.responses import Response
+import json
+
+@router.get("/export")
+async def export_resource(
+    start: date = Query(...),
+    end: date = Query(...),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    garmin: SyncOrchestrator = Depends(get_garmin_sync_service),
+) -> Response:
+    data = await export_service.build_export(session, current_user.id, garmin, start, end)
+    content = json.dumps(data, default=str, indent=2)
+    filename = f"resource-export-{start}-{end}.json"
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+```
+
+- **`Response` not `response_model`** — `response_model` can't express file download semantics
+- **Service layer** — business logic in a service function, not the route handler
+- **DB before Garmin** — query DB first, commit/close session work, then make external API calls
+- **Parallel external calls** — `asyncio.gather()` + `asyncio.Semaphore(5)` for concurrent Garmin calls
+- **`json.dumps(..., default=str)`** — handles datetime/date serialization automatically

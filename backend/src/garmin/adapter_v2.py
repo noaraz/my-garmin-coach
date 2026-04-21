@@ -114,6 +114,15 @@ class GarminAdapterV2:
             _translate_exception(exc)
             raise  # unreachable, satisfies type checker
 
+    def get_activity_splits(self, activity_id: str) -> list[dict]:
+        """Fetch lap/split data for a specific activity."""
+        try:
+            result = self._client.get_activity_splits(activity_id)
+            return result.get("lapDTOs", [])
+        except Exception as exc:  # noqa: BLE001
+            _translate_exception(exc)
+            raise
+
     def dump_token(self) -> str:
         """Serialize current token state as JSON string."""
         return self._client.client.dumps()

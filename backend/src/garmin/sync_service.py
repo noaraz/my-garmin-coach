@@ -107,6 +107,10 @@ class GarminSyncService:
         """Fetch a single activity by ID. Delegates to the Garmin adapter."""
         return self._client.get_activity(activity_id)
 
+    def get_activity_splits(self, activity_id: str) -> list[dict]:
+        """Fetch lap/split data for a specific activity. Delegates to the Garmin adapter."""
+        return self._client.get_activity_splits(activity_id)
+
     def dump_token(self) -> str:
         """Return the current garth token state as a JSON string."""
         return self._client.dump_token()

@@ -244,3 +244,25 @@ export async function logoutAll(): Promise<void> {
     credentials: 'include',
   })
 }
+
+export async function exportActivities(start: string, end: string): Promise<void> {
+  const token = localStorage.getItem('access_token')
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+
+  const res = await fetch(
+    `${BASE}/calendar/activities/export?start=${start}&end=${end}`,
+    { headers: { ...authHeader }, credentials: 'include' }
+  )
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `garmin-export-${start}-${end}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+}

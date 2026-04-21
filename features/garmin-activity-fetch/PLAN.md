@@ -27,7 +27,17 @@ Integration tests in `backend/tests/integration/`:
 - `backend/tests/integration/test_api_calendar.py::TestRefreshActivity` — 4 integration tests: happy path updates DB, 404 for unknown ID, 404 for `GarminNotFoundError`, 502 for `GarminRateLimitError`
 - `frontend/src/components/calendar/__tests__/WorkoutDetailPanel.refresh.test.tsx` — 4 Vitest tests: button renders, loading state, success callback, error re-enables button
 
-## Scope
+## Export Workouts (added 2026-04-21) ✅
+
+Full activity export with laps. See `docs/superpowers/specs/2026-04-21-export-workouts-design.md`.
+
+- `get_activity_splits()` on adapter protocol + V1/V2 implementations
+- `ExportService` — parallel Garmin fetch (`asyncio.gather` + `Semaphore(5)`), best-effort per activity
+- `GET /api/v1/calendar/activities/export?start=&end=` — JSON file download
+- `ExportModal` — `react-day-picker` range picker (last 30 days default)
+- Export JSON button in CalendarPage toolbar
+
+## Original Scope
 - New `GarminActivity` DB table + alembic migration
 - `ActivityFetchService` for fetch/dedup/match
 - Extract `GarminAdapter` to shared module
