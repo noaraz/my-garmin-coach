@@ -60,15 +60,6 @@
   /* Mobile layout */
   --bottom-tab-height:         56px;
   --bottom-sheet-radius:       16px;
-  /* react-day-picker overrides */
-  --rdp-accent-color:                   #0057ff;
-  --rdp-accent-background-color:        rgba(0,87,255,0.1);
-  --rdp-range_middle-background-color:  rgba(0,87,255,0.1);
-  --rdp-range_middle-color:             #111111;
-  --rdp-day-height:                     36px;
-  --rdp-day-width:                      36px;
-  --rdp-day_button-height:              34px;
-  --rdp-day_button-width:               34px;
 }
 
 /* ── Dark theme ──────────────────────────────────── */
@@ -107,34 +98,30 @@
   --color-warning-border:      rgba(202,138,4,0.25);
   --overlay-bg:                rgba(0,0,0,0.55);
   --shadow-overlay:            rgba(0,0,0,0.3);
-  /* react-day-picker overrides */
-  --rdp-accent-color:                   #2979ff;
-  --rdp-accent-background-color:        rgba(41,121,255,0.15);
-  --rdp-range_middle-background-color:  rgba(41,121,255,0.15);
-  --rdp-range_middle-color:             #e8e4dc;
-  --rdp-day-height:                     36px;
-  --rdp-day-width:                      36px;
-  --rdp-day_button-height:              34px;
-  --rdp-day_button-width:               34px;
 }
 
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
-/* react-day-picker — inherit page text color so it works in both themes */
-.rdp-day {
+/* react-day-picker theme overrides — must target .rdp-root (where lib declares vars) */
+.rdp-root {
+  --rdp-accent-color:                   #0057ff;
+  --rdp-accent-background-color:        rgba(0,87,255,0.1);
+  --rdp-range_middle-background-color:  rgba(0,87,255,0.1);
+  --rdp-day-height: 36px;
+  --rdp-day-width:  36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width:  34px;
   color: var(--text-primary);
+  font-family: var(--font-family-body);
 }
-.rdp-day_button {
-  color: inherit;
-}
-.rdp-weekday {
-  color: var(--text-muted);
-}
-.rdp-month_caption {
-  color: var(--text-primary);
-  font-family: var(--font-family-display);
+
+[data-theme="dark"] .rdp-root {
+  --rdp-accent-color:                   #2979ff;
+  --rdp-accent-background-color:        rgba(41,121,255,0.18);
+  --rdp-range_middle-background-color:  rgba(41,121,255,0.18);
+  --rdp-range_middle-color:             #e8e4dc;
 }
 
 html, body, #root {
