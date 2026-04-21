@@ -1,10 +1,20 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-21 — Export Workouts complete
+Last updated: 2026-04-21 — v1.8.3 release
 
 ## In Progress
 
-_(nothing — feature branch open for Export Workouts)_
+_(nothing)_
+
+---
+
+## v1.8.3 Release ✅
+
+| Task | Status |
+|------|--------|
+| Export activity data with full Garmin lap data | ✅ |
+| 659 backend tests passing, 81% coverage | ✅ |
+| 340 frontend tests passing | ✅ |
 
 ---
 
