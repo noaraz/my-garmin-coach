@@ -1,10 +1,25 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-21 — Export Workouts in progress
+Last updated: 2026-04-21 — Export Workouts complete
 
 ## In Progress
 
-- Export Workouts — UI button + date picker modal + JSON download with full Garmin lap data
+_(nothing — feature branch open for Export Workouts)_
+
+---
+
+## Export Workouts ✅ (2026-04-21)
+
+| Task | Status |
+|------|--------|
+| `get_activity_splits()` on adapter protocol + V1/V2 | ✅ |
+| `ExportService.build_export()` — parallel Garmin fetch, best-effort | ✅ |
+| `GET /api/v1/calendar/activities/export` — JSON file download | ✅ |
+| `ExportModal` with `react-day-picker` range picker | ✅ |
+| Export JSON button in CalendarPage toolbar | ✅ |
+| 20 new tests (13 adapter, 4 service, 3 integration) | ✅ |
+| 658 backend tests passing, 81% coverage | ✅ |
+| 340 frontend tests passing | ✅ |
 
 ---
 
