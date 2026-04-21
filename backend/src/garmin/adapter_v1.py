@@ -135,6 +135,15 @@ class GarminAdapter:
             _translate_exception(exc)
             raise  # unreachable, satisfies type checker
 
+    def get_activity_splits(self, activity_id: str) -> list[dict]:
+        """Fetch lap/split data for a specific activity."""
+        try:
+            result = self._client.get_activity_splits(activity_id)
+            return result.get("lapDTOs", [])
+        except (GarthHTTPError, requests.exceptions.HTTPError, cffi_requests.exceptions.HTTPError) as exc:
+            _translate_exception(exc)
+            raise
+
     def dump_token(self) -> str:
         """Return the current garth token state as JSON."""
         return self._client.garth.dumps()

@@ -51,6 +51,8 @@ class TestGarminAdapterProtocol:
                 return []
             def get_activity(self, activity_id: str) -> dict[str, Any]:
                 return {}
+            def get_activity_splits(self, activity_id: str) -> list[dict]:
+                return []
             def dump_token(self) -> str:
                 return ""
 

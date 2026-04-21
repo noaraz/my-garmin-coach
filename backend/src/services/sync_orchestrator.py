@@ -72,6 +72,10 @@ class SyncOrchestrator:
         """Fetch a single activity by ID from Garmin Connect."""
         return self._sync_service.get_activity(activity_id)
 
+    def get_activity_splits(self, activity_id: str) -> list[dict]:
+        """Fetch lap/split data for a specific activity."""
+        return self._sync_service.get_activity_splits(activity_id)
+
     def dump_token(self) -> str:
         """Return the current garth token state as a JSON string."""
         return self._sync_service.dump_token()
