@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -25,6 +26,7 @@ from src.auth.models import User
 from src.db.models import GarminActivity, ScheduledWorkout
 from src.garmin.token_persistence import persist_refreshed_token
 from src.services.calendar_service import get_range, reschedule, schedule, unschedule
+from src.services.export_service import export_service
 from src.services.profile_service import get_or_create_profile
 from src.services.sync_orchestrator import SyncOrchestrator
 
@@ -287,3 +289,28 @@ async def refresh_activity(
     await session.commit()
     await persist_refreshed_token(sync_service, current_user.id, session)
     return GarminActivityRead.model_validate(activity)
+
+
+@router.get("/activities/export")
+async def export_activities(
+    start: date = Query(..., description="Start date YYYY-MM-DD"),
+    end: date = Query(..., description="End date YYYY-MM-DD"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    garmin: SyncOrchestrator = Depends(_get_garmin_sync_service),
+) -> Response:
+    """Export all activities in the given date range as a JSON file.
+
+    Returns:
+        JSON file download with activity summaries and lap data.
+    """
+    data = await export_service.build_export(
+        session, current_user.id, garmin, start, end
+    )
+    content = json.dumps(data, default=str, indent=2)
+    filename = f"garmin-export-{start}-{end}.json"
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

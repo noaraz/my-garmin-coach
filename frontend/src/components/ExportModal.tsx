@@ -51,7 +51,7 @@ export default function ExportModal({ isOpen, onClose }: Props) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
+        background: 'var(--overlay-bg)',
         zIndex: 50,
         display: 'flex',
         alignItems: 'center',
@@ -100,7 +100,7 @@ export default function ExportModal({ isOpen, onClose }: Props) {
         />
 
         {state === 'error' && (
-          <p style={{ color: 'var(--text-primary)', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>
+          <p style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
