@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { DayPicker, type DateRange } from 'react-day-picker'
-import 'react-day-picker/dist/style.css'
+import 'react-day-picker/src/style.css'
 import { exportActivities } from '../api/client'
 
 interface Props {
