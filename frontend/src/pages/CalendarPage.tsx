@@ -9,6 +9,7 @@ import { MobileCalendarDayView } from '../components/calendar/MobileCalendarDayV
 import { WorkoutPicker } from '../components/calendar/WorkoutPicker'
 import { WorkoutDetailPanel } from '../components/calendar/WorkoutDetailPanel'
 import { RemoveWorkoutModal } from '../components/calendar/RemoveWorkoutModal'
+import ExportModal from '../components/ExportModal'
 import { toDateString } from '../utils/formatting'
 import { useGarminStatus } from '../contexts/GarminStatusContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -33,6 +34,7 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [reconnectDismissed, setReconnectDismissed] = useState(() =>
     sessionStorage.getItem('reconnect_prompt_dismissed') === '1'
   )
@@ -317,6 +319,21 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 Garmin
             </button>
             <button
+              onClick={() => setShowExportModal(true)}
+              aria-label="Export JSON"
+              style={{
+                height: '26px', padding: '0 12px',
+                background: 'transparent', color: 'var(--text-primary)',
+                border: '1px solid var(--border)', borderRadius: '4px',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontSize: 'clamp(9px, 2.8vw, 11px)',
+                fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              ↓ Export
+            </button>
+            <button
               onClick={handleSyncAll}
               disabled={syncing}
               aria-label={syncing ? 'Syncing…' : 'Sync All'}
@@ -445,6 +462,25 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
                 Garmin
               </button>
             )}
+            <button
+              onClick={() => setShowExportModal(true)}
+              aria-label="Export JSON"
+              style={{
+                padding: '5px 13px',
+                borderRadius: 4,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                fontSize: '10px',
+                fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              ↓ Export JSON
+            </button>
             <button
               onClick={handleSyncAll}
               disabled={syncing}
@@ -692,6 +728,9 @@ export function CalendarPage({ initialDate, templates: propTemplates }: Calendar
           isRemoving={isRemoving}
         />
       )}
+
+      {/* Export modal */}
+      <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
     </div>
   )
 }
