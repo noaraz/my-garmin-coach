@@ -95,7 +95,7 @@ class DiffResult(BaseModel):
     changed: list[WorkoutDiff]
     unchanged: list[WorkoutDiff]        # kept as-is (no DB change)
     completed_locked: list[WorkoutDiff] # matched_activity_id IS NOT NULL — never touched
-    past_locked: list[WorkoutDiff]      # date < today, absent from new plan — re-associated, never deleted
+    past_locked: list[WorkoutDiff]      # date <= today, absent from new plan — re-associated, never deleted
 ```
 
 **Priority rule**: `completed_locked` takes precedence over `past_locked`. A workout that is both past-dated and has a matched activity is classified as `completed_locked`.

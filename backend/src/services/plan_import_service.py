@@ -149,7 +149,7 @@ def _compute_diff(
 
     for date_str, active in active_by_date.items():
         if date_str not in incoming_by_date and date_str not in completed_dates:
-            if date_type.fromisoformat(date_str) < today:
+            if date_type.fromisoformat(date_str) <= today:
                 past_locked.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
             else:
                 removed.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
@@ -444,7 +444,7 @@ async def commit_plan(
     today = reference_date or datetime.now(timezone.utc).date()
     for date_str, sw in sw_by_date.items():
         if date_str not in incoming_dates and date_str not in completed_dates:
-            if date_type.fromisoformat(date_str) < today:
+            if date_type.fromisoformat(date_str) <= today:
                 kept_sw_ids.append(sw.id)  # type: ignore[arg-type]
             else:
                 ids_to_delete.append(sw.id)  # type: ignore[arg-type]

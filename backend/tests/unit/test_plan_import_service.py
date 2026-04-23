@@ -92,6 +92,20 @@ class TestComputeDiff:
         assert len(future.removed) == 1
         assert len(future.past_locked) == 0
 
+    def test_today_workout_not_in_new_plan_is_past_locked(self) -> None:
+        # A workout rescheduled to today, absent from the new plan, should be preserved
+        # (not removed) — past_locked uses <= today (inclusive)
+        today = datetime.now(timezone.utc).date()
+        today_str = today.isoformat()
+        incoming: list[ParsedWorkout] = []
+        active = [_active(today_str, "Today Run", "30m@Z2")]
+
+        result = _compute_diff(incoming, active, reference_date=today)
+
+        assert len(result.past_locked) == 1
+        assert result.past_locked[0].date == today_str
+        assert len(result.removed) == 0
+
     def test_past_completed_workout_not_in_new_plan_is_silently_preserved(self) -> None:
         # A workout that is both past and completed, absent from the new plan,
         # is silently kept (not in any diff bucket) — completed_dates gate prevents deletion
