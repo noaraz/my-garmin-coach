@@ -657,6 +657,15 @@ Implementation plan: `docs/superpowers/plans/2026-03-20-garmin-status-indicators
 | Backend: ValidateRow.template_status, validate_plan query, integration test | ✅ |
 | Frontend: ValidationTable Library column, NEW badge, 3 RTL tests | ✅ |
 
+### Plan Coach — Bugfix: rescheduled workout incorrectly removed on plan import ✅
+| Task | Status |
+|------|--------|
+| Fix `_compute_diff` + `commit_plan`: `< today` → `<= today` so today's workouts are past_locked | ✅ |
+| Fix `CalendarService.reschedule()`: sync `parsed_workouts` JSON when workout date changes | ✅ |
+| Unit test: `test_today_workout_not_in_new_plan_is_past_locked` | ✅ |
+| Unit tests: `test_reschedule_updates_plan_parsed_workouts`, `test_reschedule_no_plan_does_not_raise` | ✅ |
+| Docs: features/plan-coach/CLAUDE.md updated | ✅ |
+
 ### Plan Coach — Phase 5: Smart Plan Merge `feature/smart-plan-merge` ✅
 | Task | Status |
 |------|--------|

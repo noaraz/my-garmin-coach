@@ -149,7 +149,7 @@ def _compute_diff(
 
     for date_str, active in active_by_date.items():
         if date_str not in incoming_by_date and date_str not in completed_dates:
-            if date_type.fromisoformat(date_str) < today:
+            if date_type.fromisoformat(date_str) <= today:
                 past_locked.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
             else:
                 removed.append(WorkoutDiff(date=date_str, name=active.get("name", "")))
@@ -167,6 +167,44 @@ def _compute_diff(
 # ---------------------------------------------------------------------------
 # Service functions
 # ---------------------------------------------------------------------------
+
+async def _get_completed_dates(
+    session: AsyncSession,
+    plan_id: int,
+    active_parsed: list[dict],
+) -> set[str]:
+    """Return dates that should be treated as completed in _compute_diff / commit_plan.
+
+    Includes the actual DB date of each paired SW AND the original plan-entry date
+    for workouts that were rescheduled after import (matched by template name).
+    """
+    result = await session.exec(
+        select(ScheduledWorkout.date, WorkoutTemplate.name, WorkoutTemplate.steps)
+        .join(WorkoutTemplate, ScheduledWorkout.workout_template_id == WorkoutTemplate.id)  # type: ignore[arg-type]
+        .where(
+            ScheduledWorkout.training_plan_id == plan_id,
+            ScheduledWorkout.matched_activity_id.isnot(None),  # type: ignore[union-attr]
+            ScheduledWorkout.workout_template_id.isnot(None),  # type: ignore[union-attr]
+        )
+    )
+    rows = result.all()
+    completed_dates = {str(sw_date) for sw_date, _, _ in rows}
+
+    # Also add the plan-entry date for any paired SW that was rescheduled.
+    # Match by (name, steps_json) — not name alone — to avoid false positives
+    # when a plan has two workouts with the same name but different steps.
+    paired_name_steps = {(name, steps or "") for _, name, steps in rows}
+    for pw in active_parsed:
+        pw_steps_json = (
+            json.dumps(pw.get("steps"), sort_keys=True) if pw.get("steps") else ""
+        )
+        if (pw.get("name"), pw_steps_json) in paired_name_steps:
+            plan_date = pw.get("date")
+            if plan_date:
+                completed_dates.add(plan_date)
+
+    return completed_dates
+
 
 async def get_active_plan(session: AsyncSession, user_id: int) -> TrainingPlan | None:
     """Return the current active TrainingPlan for the user, or None."""
@@ -297,14 +335,7 @@ async def validate_plan(
     active = await get_active_plan(session, user_id)
     if active and active.parsed_workouts:
         active_parsed = json.loads(active.parsed_workouts)
-        # Fetch completed dates — single query, date column only (no full ORM objects)
-        completed_result = await session.exec(
-            select(ScheduledWorkout.date).where(
-                ScheduledWorkout.training_plan_id == active.id,
-                ScheduledWorkout.matched_activity_id.isnot(None),  # type: ignore[union-attr]
-            )
-        )
-        completed_dates = {str(row) for row in completed_result.all()}
+        completed_dates = await _get_completed_dates(session, active.id, active_parsed)
         diff = _compute_diff(parsed_list, active_parsed, completed_dates)
 
     # Determine start_date from the earliest workout date
@@ -385,14 +416,9 @@ async def commit_plan(
         all_sws = sw_result.all()
         sw_by_date = {str(sw.date): sw for sw in all_sws}
 
-        # Completed dates: only the date column — no full ORM objects
-        completed_result = await session.exec(
-            select(ScheduledWorkout.date).where(
-                ScheduledWorkout.training_plan_id == active.id,
-                ScheduledWorkout.matched_activity_id.isnot(None),  # type: ignore[union-attr]
-            )
-        )
-        completed_dates = {str(row) for row in completed_result.all()}
+        # Completed dates: paired SWs by DB date + plan-entry dates for rescheduled SWs
+        active_parsed_for_completed: list[dict] = json.loads(active.parsed_workouts or "[]")
+        completed_dates = await _get_completed_dates(session, active.id, active_parsed_for_completed)
 
         # Parse the active plan's steps_spec for comparison
         if active.parsed_workouts:
@@ -444,7 +470,7 @@ async def commit_plan(
     today = reference_date or datetime.now(timezone.utc).date()
     for date_str, sw in sw_by_date.items():
         if date_str not in incoming_dates and date_str not in completed_dates:
-            if date_type.fromisoformat(date_str) < today:
+            if date_type.fromisoformat(date_str) <= today:
                 kept_sw_ids.append(sw.id)  # type: ignore[arg-type]
             else:
                 ids_to_delete.append(sw.id)  # type: ignore[arg-type]

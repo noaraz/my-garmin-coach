@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.services.plan_import_service import (
     ParsedWorkout,
     _compute_diff,
+    _get_completed_dates,
     commit_plan,
 )
 
@@ -92,6 +93,34 @@ class TestComputeDiff:
         assert len(future.removed) == 1
         assert len(future.past_locked) == 0
 
+    def test_today_workout_not_in_new_plan_is_past_locked(self) -> None:
+        # A workout rescheduled to today, absent from the new plan, should be preserved
+        # (not removed) — past_locked uses <= today (inclusive)
+        today = datetime.now(timezone.utc).date()
+        today_str = today.isoformat()
+        incoming: list[ParsedWorkout] = []
+        active = [_active(today_str, "Today Run", "30m@Z2")]
+
+        result = _compute_diff(incoming, active, reference_date=today)
+
+        assert len(result.past_locked) == 1
+        assert result.past_locked[0].date == today_str
+        assert len(result.removed) == 0
+
+    def test_rescheduled_paired_workout_shown_as_completed_locked_not_removed(self) -> None:
+        # Workout was planned April 24, rescheduled to April 23 (today), then paired.
+        # completed_dates has "2026-04-23" (DB date) but plan JSON has "2026-04-24".
+        # The plan date should still be treated as completed_locked, not removed.
+        incoming: list[ParsedWorkout] = []
+        active = [_active("2026-04-24", "Long Run 7K", "10m@Z1 + 50m@Z2")]
+
+        # completed_dates reflects the rescheduled DB date AND the plan date (from helper)
+        result = _compute_diff(incoming, active, completed_dates={"2026-04-23", "2026-04-24"})
+
+        assert len(result.completed_locked) == 0  # absent from incoming → silent preserve
+        assert len(result.removed) == 0
+        assert len(result.past_locked) == 0
+
     def test_past_completed_workout_not_in_new_plan_is_silently_preserved(self) -> None:
         # A workout that is both past and completed, absent from the new plan,
         # is silently kept (not in any diff bucket) — completed_dates gate prevents deletion
@@ -103,6 +132,57 @@ class TestComputeDiff:
         assert len(result.completed_locked) == 0
         assert len(result.past_locked) == 0
         assert len(result.removed) == 0
+
+
+class TestGetCompletedDates:
+    async def test_duplicate_name_only_adds_matching_steps_entry(self) -> None:
+        # Plan has two "Easy Run" entries with different steps. Only one is paired.
+        # Only the matched plan-entry date should be added — not both.
+        import json as _json
+
+        steps_a = _json.dumps([{"duration_sec": 1800}], sort_keys=True)
+        active_parsed = [
+            {"date": "2026-04-01", "name": "Easy Run", "steps_spec": "30m@Z2",
+             "steps": [{"duration_sec": 1800}]},
+            {"date": "2026-04-08", "name": "Easy Run", "steps_spec": "60m@Z2",
+             "steps": [{"duration_sec": 3600}]},
+        ]
+        # Only the April 1 workout (steps_a) is paired — DB date is April 1
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            ("2026-04-01", "Easy Run", steps_a),
+        ]
+        session.exec.return_value = mock_result
+
+        completed = await _get_completed_dates(session, plan_id=1, active_parsed=active_parsed)
+
+        # DB date always included
+        assert "2026-04-01" in completed
+        # Plan-entry date for the matched (name, steps) — same date here, no reschedule
+        assert "2026-04-08" not in completed  # steps_b was NOT paired
+
+    async def test_rescheduled_paired_workout_adds_plan_entry_date(self) -> None:
+        # Workout planned April 24, rescheduled to April 23, then paired.
+        # DB date = April 23. Plan-entry date = April 24. Both should be in completed_dates.
+        import json as _json
+
+        steps_json = _json.dumps([{"duration_sec": 3600}], sort_keys=True)
+        active_parsed = [
+            {"date": "2026-04-24", "name": "Long Run", "steps_spec": "60m@Z2",
+             "steps": [{"duration_sec": 3600}]},
+        ]
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            ("2026-04-23", "Long Run", steps_json),  # rescheduled SW at April 23
+        ]
+        session.exec.return_value = mock_result
+
+        completed = await _get_completed_dates(session, plan_id=1, active_parsed=active_parsed)
+
+        assert "2026-04-23" in completed   # actual DB date
+        assert "2026-04-24" in completed   # plan-entry date added via name+steps match
 
 
 class TestCommitPlanPastLocked:

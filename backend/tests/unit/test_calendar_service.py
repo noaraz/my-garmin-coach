@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.db.models import ScheduledWorkout
+from src.db.models import ScheduledWorkout, TrainingPlan
 from src.services.calendar_service import CalendarService
 
 
@@ -94,6 +95,50 @@ class TestRescheduleSetsSyncStatus:
 
         # Assert — pending stays pending (already in sync queue)
         assert workout.sync_status == "pending"
+
+class TestRescheduleUpdatesParsedWorkouts:
+    async def test_reschedule_updates_plan_parsed_workouts_when_date_changes(self) -> None:
+        # Arrange
+        service = CalendarService()
+        workout = _make_workout(sync_status="pending", workout_date=date(2026, 4, 24))
+        workout.training_plan_id = 7
+        plan = TrainingPlan(
+            id=7, user_id=1, name="Plan", status="active", source="csv",
+            start_date=date(2026, 4, 24),
+            parsed_workouts=json.dumps([
+                {"date": "2026-04-24", "name": "Long Run 7K", "steps_spec": "10m@Z1 + 50m@Z2"},
+                {"date": "2026-04-26", "name": "Easy Run", "steps_spec": "30m@Z2"},
+            ]),
+        )
+        session = _make_session()
+        session.refresh = AsyncMock(return_value=None)
+        session.get = AsyncMock(return_value=plan)
+
+        with patch("src.services.calendar_service.scheduled_workout_repository") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=workout)
+            await service.reschedule(session, scheduled_id=1, new_date=date(2026, 4, 23), user_id=1)
+
+        # Assert — April 24 entry updated to April 23; April 26 unchanged
+        pws = json.loads(plan.parsed_workouts)
+        dates = [pw["date"] for pw in pws]
+        assert "2026-04-23" in dates
+        assert "2026-04-24" not in dates
+        assert "2026-04-26" in dates
+
+    async def test_reschedule_no_plan_does_not_raise(self) -> None:
+        # SW with no training_plan_id — reschedule should still succeed silently
+        service = CalendarService()
+        workout = _make_workout(sync_status="pending", workout_date=date(2026, 4, 24))
+        workout.training_plan_id = None
+        session = _make_session()
+        session.refresh = AsyncMock(return_value=None)
+
+        with patch("src.services.calendar_service.scheduled_workout_repository") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=workout)
+            await service.reschedule(session, scheduled_id=1, new_date=date(2026, 4, 23), user_id=1)
+
+        assert workout.date == date(2026, 4, 23)
+
 
     async def test_reschedule_does_not_change_status_when_failed(self) -> None:
         # Arrange — failed workout stays failed so sync retries it

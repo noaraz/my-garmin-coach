@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.db.models import AthleteProfile, ScheduledWorkout, WorkoutTemplate
+from src.db.models import AthleteProfile, ScheduledWorkout, TrainingPlan, WorkoutTemplate
 from src.repositories.calendar import scheduled_workout_repository
 from src.repositories.zones import hr_zone_repository, pace_zone_repository
 from src.repositories.workouts import workout_template_repository
@@ -185,9 +185,21 @@ class CalendarService:
             raise ValueError(f"ScheduledWorkout {scheduled_id} not found")
 
         if new_date is not None and new_date != scheduled.date:
+            old_date_str = str(scheduled.date)
             scheduled.date = new_date
             if scheduled.sync_status == "synced":
                 scheduled.sync_status = "modified"
+            # Keep plan's parsed_workouts in sync so _compute_diff sees the moved date
+            if scheduled.training_plan_id is not None:
+                plan = await session.get(TrainingPlan, scheduled.training_plan_id)
+                if plan and plan.parsed_workouts:
+                    pws = json.loads(plan.parsed_workouts)
+                    for pw in pws:
+                        if pw.get("date") == old_date_str:
+                            pw["date"] = str(new_date)
+                            break
+                    plan.parsed_workouts = json.dumps(pws)
+                    session.add(plan)
         if notes is not None:
             scheduled.notes = notes
         scheduled.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
