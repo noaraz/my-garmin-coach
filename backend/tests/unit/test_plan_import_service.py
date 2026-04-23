@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.services.plan_import_service import (
     ParsedWorkout,
     _compute_diff,
+    _get_completed_dates,
     commit_plan,
 )
 
@@ -131,6 +132,57 @@ class TestComputeDiff:
         assert len(result.completed_locked) == 0
         assert len(result.past_locked) == 0
         assert len(result.removed) == 0
+
+
+class TestGetCompletedDates:
+    async def test_duplicate_name_only_adds_matching_steps_entry(self) -> None:
+        # Plan has two "Easy Run" entries with different steps. Only one is paired.
+        # Only the matched plan-entry date should be added — not both.
+        import json as _json
+
+        steps_a = _json.dumps([{"duration_sec": 1800}], sort_keys=True)
+        active_parsed = [
+            {"date": "2026-04-01", "name": "Easy Run", "steps_spec": "30m@Z2",
+             "steps": [{"duration_sec": 1800}]},
+            {"date": "2026-04-08", "name": "Easy Run", "steps_spec": "60m@Z2",
+             "steps": [{"duration_sec": 3600}]},
+        ]
+        # Only the April 1 workout (steps_a) is paired — DB date is April 1
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            ("2026-04-01", "Easy Run", steps_a),
+        ]
+        session.exec.return_value = mock_result
+
+        completed = await _get_completed_dates(session, plan_id=1, active_parsed=active_parsed)
+
+        # DB date always included
+        assert "2026-04-01" in completed
+        # Plan-entry date for the matched (name, steps) — same date here, no reschedule
+        assert "2026-04-08" not in completed  # steps_b was NOT paired
+
+    async def test_rescheduled_paired_workout_adds_plan_entry_date(self) -> None:
+        # Workout planned April 24, rescheduled to April 23, then paired.
+        # DB date = April 23. Plan-entry date = April 24. Both should be in completed_dates.
+        import json as _json
+
+        steps_json = _json.dumps([{"duration_sec": 3600}], sort_keys=True)
+        active_parsed = [
+            {"date": "2026-04-24", "name": "Long Run", "steps_spec": "60m@Z2",
+             "steps": [{"duration_sec": 3600}]},
+        ]
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            ("2026-04-23", "Long Run", steps_json),  # rescheduled SW at April 23
+        ]
+        session.exec.return_value = mock_result
+
+        completed = await _get_completed_dates(session, plan_id=1, active_parsed=active_parsed)
+
+        assert "2026-04-23" in completed   # actual DB date
+        assert "2026-04-24" in completed   # plan-entry date added via name+steps match
 
 
 class TestCommitPlanPastLocked:

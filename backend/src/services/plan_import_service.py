@@ -179,7 +179,7 @@ async def _get_completed_dates(
     for workouts that were rescheduled after import (matched by template name).
     """
     result = await session.exec(
-        select(ScheduledWorkout.date, WorkoutTemplate.name)
+        select(ScheduledWorkout.date, WorkoutTemplate.name, WorkoutTemplate.steps)
         .join(WorkoutTemplate, ScheduledWorkout.workout_template_id == WorkoutTemplate.id)  # type: ignore[arg-type]
         .where(
             ScheduledWorkout.training_plan_id == plan_id,
@@ -188,14 +188,17 @@ async def _get_completed_dates(
         )
     )
     rows = result.all()
-    completed_dates = {str(sw_date) for sw_date, _ in rows}
+    completed_dates = {str(sw_date) for sw_date, _, _ in rows}
 
     # Also add the plan-entry date for any paired SW that was rescheduled.
-    # Matching by template name handles the case where the SW date drifted from
-    # the plan JSON date after a drag-reschedule.
-    paired_names = {name for _, name in rows}
+    # Match by (name, steps_json) — not name alone — to avoid false positives
+    # when a plan has two workouts with the same name but different steps.
+    paired_name_steps = {(name, steps or "") for _, name, steps in rows}
     for pw in active_parsed:
-        if pw.get("name") in paired_names:
+        pw_steps_json = (
+            json.dumps(pw.get("steps"), sort_keys=True) if pw.get("steps") else ""
+        )
+        if (pw.get("name"), pw_steps_json) in paired_name_steps:
             plan_date = pw.get("date")
             if plan_date:
                 completed_dates.add(plan_date)
