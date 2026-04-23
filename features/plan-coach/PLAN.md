@@ -181,6 +181,11 @@ Re-importing a shorter/revised plan deletes all past workouts absent from the ne
 - [x] Backend: 5 new unit tests in `test_plan_import_service.py`
 - [x] Frontend: `DiffTable.test.tsx`
 
+### Bugfix (2026-04-23): rescheduled workout still removed on plan import
+- [x] `_compute_diff()` + `commit_plan()`: `< today` → `<= today` — workouts moved to today are past_locked
+- [x] `CalendarService.reschedule()`: update `TrainingPlan.parsed_workouts` when workout date changes
+- [x] Tests: `test_today_workout_not_in_new_plan_is_past_locked`, `test_reschedule_updates_plan_parsed_workouts`, `test_reschedule_no_plan_does_not_raise`
+
 ---
 
 ## Phase 7 — Validation Template Status Column
