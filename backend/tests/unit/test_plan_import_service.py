@@ -106,6 +106,20 @@ class TestComputeDiff:
         assert result.past_locked[0].date == today_str
         assert len(result.removed) == 0
 
+    def test_rescheduled_paired_workout_shown_as_completed_locked_not_removed(self) -> None:
+        # Workout was planned April 24, rescheduled to April 23 (today), then paired.
+        # completed_dates has "2026-04-23" (DB date) but plan JSON has "2026-04-24".
+        # The plan date should still be treated as completed_locked, not removed.
+        incoming: list[ParsedWorkout] = []
+        active = [_active("2026-04-24", "Long Run 7K", "10m@Z1 + 50m@Z2")]
+
+        # completed_dates reflects the rescheduled DB date AND the plan date (from helper)
+        result = _compute_diff(incoming, active, completed_dates={"2026-04-23", "2026-04-24"})
+
+        assert len(result.completed_locked) == 0  # absent from incoming → silent preserve
+        assert len(result.removed) == 0
+        assert len(result.past_locked) == 0
+
     def test_past_completed_workout_not_in_new_plan_is_silently_preserved(self) -> None:
         # A workout that is both past and completed, absent from the new plan,
         # is silently kept (not in any diff bucket) — completed_dates gate prevents deletion
