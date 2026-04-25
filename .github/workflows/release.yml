@@ -61,7 +61,8 @@ jobs:
           # ecdsa is a transitive dep of python-jose but we use the
           # python-jose[cryptography] backend so ecdsa is never invoked.
           # CVE-2026-4539: pygments — transitive dep, no fix version available yet.
-          pip-audit --local --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539
+          # CVE-2026-3219: pip 26.0.1 — CI runner dep, no fix version available yet.
+          pip-audit --local --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219
 
       - name: Frontend dependency audit
         working-directory: frontend
