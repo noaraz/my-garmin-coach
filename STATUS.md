@@ -1,10 +1,22 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-21 — v1.8.3 release
+Last updated: 2026-04-25 — v1.8.4 release
 
 ## In Progress
 
 _(nothing)_
+
+---
+
+## v1.8.4 Release ✅
+
+| Task | Status |
+|------|--------|
+| Preserve rescheduled workout on plan import (past_locked `<= today`) | ✅ |
+| Sync `parsed_workouts` in `CalendarService.reschedule()` | ✅ |
+| Fix `_get_completed_dates` to match by (name, steps_json) not name alone | ✅ |
+| 665 backend tests passing, 81% coverage | ✅ |
+| 340 frontend tests passing | ✅ |
 
 ---
 

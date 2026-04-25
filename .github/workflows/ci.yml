@@ -34,7 +34,8 @@ jobs:
           pip install pip-audit
           # CVE-2024-23342: timing attack in ecdsa — transitive dep from garth, no fix version available
           # CVE-2026-4539: pygments — transitive dep, no fix version available yet
-          pip-audit --local --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539
+          # CVE-2026-3219: pip 26.0.1 — CI runner dep, no fix version available yet
+          pip-audit --local --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-3219
 
   frontend:
     name: Frontend tests + build
