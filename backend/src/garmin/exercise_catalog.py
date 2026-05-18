@@ -67,4 +67,6 @@ def resolve(name: str) -> tuple[str, str] | None:
         return None
     if key in ALIASES:
         key = ALIASES[key]
+    # Replace spaces with underscores to match CATALOG keys
+    key = key.replace(" ", "_")
     return CATALOG.get(key)

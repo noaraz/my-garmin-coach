@@ -18,6 +18,9 @@ Raises StepParseError on any invalid input.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
+
+from src.garmin.exercise_catalog import CATALOG, resolve
 
 # ---------------------------------------------------------------------------
 # Public exception
@@ -190,3 +193,121 @@ def _split_top_level(spec: str) -> list[str]:
     tokens.append("".join(current).strip())
     # Filter empty tokens that arise from mixed comma/plus separators
     return [t for t in tokens if t]
+
+
+# ---------------------------------------------------------------------------
+# Strength workout parser
+# ---------------------------------------------------------------------------
+
+_REVERSE_CATALOG: dict[tuple[str, str], str] = {v: k for k, v in CATALOG.items()}
+
+_SETS_RE = re.compile(r"^(?P<n>\d+)x(?P<rep>\d+)(?P<dur>s?)$", re.IGNORECASE)
+_LOAD_KG_RE = re.compile(r"^(?P<v>\d+(?:\.\d+)?)kg$", re.IGNORECASE)
+_LOAD_RPE_RE = re.compile(r"^RPE(?P<v>\d+(?:\.\d+)?)$", re.IGNORECASE)
+
+
+@dataclass
+class ParsedStrength:
+    steps: list[dict] = field(default_factory=list)
+    errors: list[dict] = field(default_factory=list)
+
+
+def _parse_load(token: str) -> dict | None:
+    token = token.strip()
+    if token.lower() == "bw":
+        return {"type": "bodyweight"}
+    if m := _LOAD_KG_RE.match(token):
+        return {"type": "kg", "value": float(m["v"]) if "." in m["v"] else int(m["v"])}
+    if m := _LOAD_RPE_RE.match(token):
+        return {"type": "rpe", "value": float(m["v"]) if "." in m["v"] else int(m["v"])}
+    return None
+
+
+def _split_name_and_sets(block: str) -> tuple[str, str] | None:
+    """Find the rightmost NxR or NxRs token; everything before is the exercise name."""
+    tokens = block.strip().split()
+    for i in range(len(tokens) - 1, -1, -1):
+        if _SETS_RE.match(tokens[i]):
+            name = " ".join(tokens[:i]).strip()
+            sets_tail = " ".join(tokens[i:])
+            if name:
+                return name, sets_tail
+    return None
+
+
+def parse_strength_steps(cell: str) -> ParsedStrength:
+    out = ParsedStrength()
+    if not cell or not cell.strip():
+        return out
+    for raw_block in cell.split(";"):
+        block = raw_block.strip()
+        if not block:
+            continue
+        # Split exercise name from sets spec
+        load_part = ""
+        if "@" in block:
+            head, load_part = block.split("@", 1)
+            head = head.strip()
+            load_part = load_part.strip()
+        else:
+            head = block
+        split = _split_name_and_sets(head)
+        if split is None:
+            out.errors.append({"code": "unparseable", "message": f"Cannot parse '{block}'"})
+            continue
+        name, sets_tail = split
+        # Sets count + reps/duration
+        m = _SETS_RE.match(sets_tail)
+        if not m:
+            out.errors.append({"code": "unparseable", "message": f"Bad sets spec in '{block}'"})
+            continue
+        n_sets = int(m["n"])
+        rep_n = int(m["rep"])
+        is_duration = bool(m["dur"])
+        # Resolve exercise
+        catalog = resolve(name)
+        if catalog is None:
+            out.errors.append({"code": "unknown_exercise", "message": f'"{name}" not in catalog'})
+            continue
+        category, garmin_name = catalog
+        # Loads
+        if is_duration:
+            if load_part:
+                out.errors.append({"code": "duration_with_load", "message": f"Duration step cannot have load in '{block}'"})
+                continue
+            sets = [{"duration_sec": rep_n} for _ in range(n_sets)]
+        else:
+            if not load_part:
+                out.errors.append({"code": "load_required", "message": f'"{name}" needs @load (kg, RPE, or bw)'})
+                continue
+            tokens = [t.strip() for t in load_part.split(",")]
+            loads: list[dict] = []
+            parse_error = False
+            for tok in tokens:
+                parsed = _parse_load(tok)
+                if parsed is None:
+                    out.errors.append({"code": "unparseable_load", "message": f'Cannot parse load "{tok}" on "{name}"'})
+                    parse_error = True
+                    break
+                loads.append(parsed)
+            if parse_error:
+                continue
+            if len(loads) == 1:
+                sets = [{"reps": rep_n, "load": loads[0]} for _ in range(n_sets)]
+            elif len(loads) == n_sets:
+                sets = [{"reps": rep_n, "load": ld} for ld in loads]
+            else:
+                out.errors.append({"code": "load_count_mismatch",
+                                   "message": f'"{name}" has {n_sets} sets but {len(loads)} loads'})
+                continue
+        # Resolve catalog key for storage
+        exercise_key = _REVERSE_CATALOG.get(catalog)
+        out.steps.append({
+            "kind": "strength_exercise",
+            "exercise_key": exercise_key,
+            "garmin_category": category,
+            "garmin_name": garmin_name,
+            "sets": sets,
+            "note": None,
+        })
+    return out
