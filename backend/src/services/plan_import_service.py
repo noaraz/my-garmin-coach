@@ -19,7 +19,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.models import ScheduledWorkout, TrainingPlan, WorkoutTemplate
-from src.services.plan_step_parser import StepParseError, parse_steps_spec
+from src.services.plan_step_parser import StepParseError, parse_steps_spec, parse_strength_steps
 from src.services.workout_description import generate_description_from_steps
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,8 @@ class ValidateRow(BaseModel):
     sport_type: str
     valid: bool
     error: str | None = None
+    errors: list[dict] = []
+    status: str = "valid"
     template_status: Literal["new", "existing"] = "new"
 
 
@@ -70,6 +72,7 @@ class ValidateResult(BaseModel):
     plan_id: int
     rows: list[ValidateRow]
     diff: DiffResult | None = None
+    sport: str = "run"
 
 
 class CommitResult(BaseModel):
@@ -206,18 +209,23 @@ async def _get_completed_dates(
     return completed_dates
 
 
-async def get_active_plan(session: AsyncSession, user_id: int) -> TrainingPlan | None:
+async def get_active_plan(
+    session: AsyncSession, user_id: int, sport: str = "run"
+) -> TrainingPlan | None:
     """Return the current active TrainingPlan for the user, or None."""
     result = await session.exec(
         select(TrainingPlan).where(
             TrainingPlan.user_id == user_id,
             TrainingPlan.status == "active",
+            TrainingPlan.sport == sport,
         )
     )
     return result.first()
 
 
-async def _cleanup_stale_drafts(session: AsyncSession, user_id: int) -> None:
+async def _cleanup_stale_drafts(
+    session: AsyncSession, user_id: int, sport: str = "run"
+) -> None:
     """Delete all draft TrainingPlans older than 24h for this user.
 
     Does NOT commit — callers commit once after all mutations.
@@ -228,6 +236,7 @@ async def _cleanup_stale_drafts(session: AsyncSession, user_id: int) -> None:
             TrainingPlan.user_id == user_id,
             TrainingPlan.status == "draft",
             TrainingPlan.created_at < cutoff,
+            TrainingPlan.sport == sport,
         )
     )
 
@@ -238,6 +247,7 @@ async def validate_plan(
     workouts: list[dict[str, Any]],
     plan_name: str,
     source: str = "csv",
+    sport: str = "run",
 ) -> ValidateResult:
     """Parse and validate a list of workout dicts.
 
@@ -253,7 +263,7 @@ async def validate_plan(
     Note: if there are validation errors, plan_id will be -1 (sentinel) and
     the caller must NOT call commit. The caller should surface row errors.
     """
-    await _cleanup_stale_drafts(session, user_id)
+    await _cleanup_stale_drafts(session, user_id, sport)
 
     rows: list[ValidateRow] = []
     parsed_list: list[ParsedWorkout] = []
@@ -275,12 +285,31 @@ async def validate_plan(
                 sport_type=sport_type,
                 valid=False,
                 error="date, name, and steps_spec are required",
+                status="error",
             ))
             all_valid = False
             continue
 
         try:
-            parsed_steps = parse_steps_spec(steps_spec)
+            if sport == "strength":
+                parsed_strength = parse_strength_steps(steps_spec)
+                if parsed_strength.errors:
+                    rows.append(ValidateRow(
+                        row=i + 1,
+                        date=date_str,
+                        name=name,
+                        steps_spec=steps_spec,
+                        sport_type=sport_type,
+                        valid=False,
+                        errors=parsed_strength.errors,
+                        status="error",
+                    ))
+                    all_valid = False
+                    continue
+                parsed_steps = parsed_strength.steps
+            else:
+                parsed_steps = parse_steps_spec(steps_spec)
+
             pw = ParsedWorkout(
                 date=date_str,
                 name=name,
@@ -307,6 +336,7 @@ async def validate_plan(
                 sport_type=sport_type,
                 valid=False,
                 error=str(exc),
+                status="error",
             ))
             all_valid = False
 
@@ -332,7 +362,7 @@ async def validate_plan(
 
     # Compute diff against active plan if one exists
     diff: DiffResult | None = None
-    active = await get_active_plan(session, user_id)
+    active = await get_active_plan(session, user_id, sport=sport)
     if active and active.parsed_workouts:
         active_parsed = json.loads(active.parsed_workouts)
         completed_dates = await _get_completed_dates(session, active.id, active_parsed)
@@ -358,12 +388,13 @@ async def validate_plan(
         status="draft",
         parsed_workouts=parsed_workouts_json,
         start_date=start_date,
+        sport=sport,
     )
     session.add(plan)
     await session.commit()
     await session.refresh(plan)
 
-    return ValidateResult(plan_id=plan.id, rows=rows, diff=diff)  # type: ignore[arg-type]
+    return ValidateResult(plan_id=plan.id, rows=rows, diff=diff, sport=sport)  # type: ignore[arg-type]
 
 
 async def commit_plan(
@@ -396,7 +427,7 @@ async def commit_plan(
 
     parsed_workouts: list[dict] = json.loads(plan.parsed_workouts or "[]")
 
-    active = await get_active_plan(session, user_id)
+    active = await get_active_plan(session, user_id, sport=plan.sport)
 
     # -----------------------------------------------------------------------
     # Smart merge setup: batch-load existing SWs and their templates
@@ -548,6 +579,7 @@ async def commit_plan(
                 name=pw.name,
                 description=generate_description_from_steps(steps_json),
                 sport_type=pw.sport_type,
+                sport=plan.sport,
                 steps=steps_json,
                 created_at=now,
                 updated_at=now,
