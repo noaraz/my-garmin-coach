@@ -157,3 +157,63 @@ def format_workout(
             }
         ],
     }
+
+
+_STRENGTH_SPORT_TYPE = {"sportTypeId": 5, "sportTypeKey": "strength_training"}
+_INTERVAL_STEP = {"stepTypeId": 3, "stepTypeKey": "interval"}
+
+
+def _build_strength_step(exercise: dict, set_spec: dict, order: int) -> dict:
+    step: dict = {
+        "type": "ExecutableStepDTO",
+        "stepOrder": order,
+        "stepType": _INTERVAL_STEP,
+        "category": exercise["garmin_category"],
+        "exerciseName": exercise["garmin_name"],
+    }
+    if "duration_sec" in set_spec:
+        step["endCondition"] = {"conditionTypeKey": "time"}
+        step["endConditionValue"] = set_spec["duration_sec"]
+        return step
+    step["endCondition"] = {"conditionTypeKey": "reps"}
+    step["endConditionValue"] = set_spec["reps"]
+    load = set_spec.get("load") or {}
+    if load.get("type") == "kg":
+        step["weightValue"] = load["value"]
+        step["weightUnit"] = {"unitKey": "kilogram"}
+    elif load.get("type") == "rpe":
+        step["description"] = f"RPE {load['value']}"
+    return step
+
+
+def format_strength_workout(template) -> dict:
+    """Format a strength WorkoutTemplate into Garmin Connect JSON."""
+    workout_steps: list[dict] = []
+    order = 1
+    for exercise in template.steps:
+        if exercise["kind"] != "strength_exercise":
+            continue
+        sets = exercise["sets"]
+        uniform = len(sets) > 1 and all(s == sets[0] for s in sets)
+        if uniform:
+            inner = _build_strength_step(exercise, sets[0], 1)
+            workout_steps.append({
+                "type": "RepetitionGroupDTO",
+                "stepOrder": order,
+                "numberOfIterations": len(sets),
+                "workoutSteps": [inner],
+            })
+            order += 1
+        else:
+            for set_spec in sets:
+                workout_steps.append(_build_strength_step(exercise, set_spec, order))
+                order += 1
+    return {
+        "workoutName": template.name,
+        "sportType": _STRENGTH_SPORT_TYPE,
+        "workoutSegments": [{
+            "segmentOrder": 1,
+            "sportType": _STRENGTH_SPORT_TYPE,
+            "workoutSteps": workout_steps,
+        }],
+    }

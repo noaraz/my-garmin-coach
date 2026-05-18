@@ -264,3 +264,33 @@ Then: `## Recent Training (last 14 days)` (only when `activities.length > 0`)
 ### Why `useEffect` was removed
 Silent auto-fetch hid what context was being injected. The explicit button lets the user see which
 activities are included before copying the prompt.
+
+---
+
+## Strength Step Format (added 2026-05-18)
+
+Strength CSV rows use the `steps` column (same CSV column as running `steps_spec`). Each cell is a semicolon-separated list of exercises.
+
+**Shorthand grammar:**
+```
+Squat 3x5@80kg             → 3 sets × 5 reps @ 80 kg
+RDL 3x8@RPE8               → 3 sets × 8 reps @ RPE 8
+Plank 3x45s                → 3 sets × 45 seconds (duration, no load)
+Walking Lunge 3x10@bw      → 3 sets × 10 reps, bodyweight
+Front Squat 3x5@60kg,70kg,80kg  → per-set variance (3 different loads)
+```
+
+**Multiple exercises per session:**
+```
+Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
+```
+
+**Error codes:** `unknown_exercise`, `unparseable_load`, `load_required`, `load_count_mismatch`, `duration_with_load`
+
+**Module:** `backend/src/garmin/exercise_catalog.py` — ~30 runner-focused exercises mapped to Garmin enums. `resolve(name)` is the single entry point: lowercases, strips, alias-checks, then catalog-looks up. Returns `(garmin_category, garmin_name)` tuple or `None`.
+
+**Parser:** `parse_strength_steps(cell: str) -> ParsedStrength` in `backend/src/services/plan_step_parser.py`. Returns `ParsedStrength.steps` (list of step dicts) and `ParsedStrength.errors` (list of `{code, message}` dicts).
+
+**Formatter:** `format_strength_workout(template) -> dict` in `backend/src/garmin/formatter.py`. Uniform sets → `RepetitionGroupDTO`. Per-set variance → flat individual steps.
+
+**Independence rule:** Strength plans and running plans are independent. A user can have one active running plan AND one active strength plan simultaneously. Re-importing one never supersedes the other. Active-plan uniqueness is `(user_id, sport) WHERE status='active'`.

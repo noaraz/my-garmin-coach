@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.garmin.auth_version import GarminAuthVersion, parse as parse_auth_version
-from src.garmin.formatter import format_workout
+from src.garmin.formatter import format_workout, format_strength_workout
 
 
 class WorkoutFacade:
@@ -53,3 +53,11 @@ class WorkoutFacade:
         (RunningWorkout, create_warmup_step, etc.) in a follow-up.
         """
         return format_workout(workout_name, resolved_steps, workout_description)
+
+    def format_strength(self, template: Any) -> dict[str, Any]:
+        """Convert strength workout template to Garmin-uploadable format.
+
+        Both V1 and V2 use the same formatter since the Garmin strength
+        workout JSON format is sport-agnostic.
+        """
+        return format_strength_workout(template)
