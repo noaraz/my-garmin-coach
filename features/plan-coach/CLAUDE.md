@@ -304,7 +304,7 @@ Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
 
 ### Strength CSV import flow
 `StrengthImportTab.tsx`:
-- Renders `StrengthGrammarReference` at the top (static reference card)
+- Renders `StrengthPromptBuilder` at the top (interactive prompt generator — replaced the static `StrengthGrammarReference`)
 - File upload → `validateStrengthCsv(csv)` → results via `StrengthValidationRow`
 - Import gated on `result.rows.every(r => r.status !== 'error')`
 - Commits with `commitPlan(plan_id, 'strength')` → navigates to `/calendar`
@@ -327,3 +327,19 @@ Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
 `Sport = 'run' | 'strength'`, `StrengthSet`, `StrengthExerciseStep`, `StrengthValidateRow`, `StrengthValidateResult` in `frontend/src/api/types.ts`.
 
 **Independence rule:** Strength plans and running plans are independent. A user can have one active running plan AND one active strength plan simultaneously. Re-importing one never supersedes the other. Active-plan uniqueness is `(user_id, sport) WHERE status='active'`.
+
+### StrengthPromptBuilder (added 2026-05-19)
+
+`StrengthPromptBuilder.tsx` lives at the top of `StrengthImportTab`. Same shape as `PlanPromptBuilder`:
+- Training days (day-of-week toggles, `aria-pressed`) — `WEEK_DAYS` / `DAY_SHORT` constants
+- Equipment multi-select (Barbell, Dumbbells, Kettlebells, Bodyweight only) — `EQUIPMENT_OPTIONS`
+- Training focus select (Full body / Lower body / Upper body / Running-specific) — `FOCUS_OPTIONS`
+- Health notes textarea
+- Fetch last 2 weeks of **strength** activities — filters `activity_type === 'strength_training'` client-side after `fetchCalendarRange`; running activities are silently excluded
+- Live prompt preview (`buildStrengthPrompt()` pure function) rendered in `<code role="code">` + copy button
+
+`buildStrengthPrompt(input: StrengthPromptInput): string` is exported separately for unit-testable pure-function tests (no component mount needed). The generated prompt includes the full strength shorthand grammar + exercise catalog inline — so the static `StrengthGrammarReference` is no longer rendered inside `StrengthImportTab` (the file is preserved for optional future use).
+
+**Fetch filter:** `activity_type === 'strength_training'` applied client-side. `fetchCalendarRange` returns all activity types; the filter runs on the paired + unplanned arrays before `setActivities`.
+
+**Style exports:** `fieldLabel`, `selectStyle`, `inputStyle`, `codeStyle` are exported from `StrengthPromptBuilder.tsx` for use by the component itself. Do not import these into unrelated files.
