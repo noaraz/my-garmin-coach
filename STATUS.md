@@ -7,7 +7,7 @@ Last updated: 2026-05-19 — Strength Plan Coach UI (Phase 2)
 ### Strength Workouts (Phase 3 — Calendar + Garmin sync)
 Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
 Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
-Branch: TBD
+Branch: feature/strength-calendar-sync
 
 ---
 
