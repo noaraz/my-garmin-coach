@@ -10,6 +10,7 @@ const makeTemplate = (id: number, name: string): WorkoutTemplate => ({
   name,
   description: null,
   sport_type: 'running',
+  sport: 'run',
   estimated_duration_sec: null,
   estimated_distance_m: null,
   tags: null,

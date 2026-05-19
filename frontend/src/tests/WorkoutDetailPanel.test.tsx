@@ -24,6 +24,7 @@ const mockTemplate: WorkoutTemplate = {
   name: 'Easy Run',
   description: '30m@Z2',
   sport_type: 'running',
+  sport: 'run',
   estimated_duration_sec: 1800,
   estimated_distance_m: 5000,
   tags: null,

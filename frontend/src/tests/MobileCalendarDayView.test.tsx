@@ -21,6 +21,7 @@ const baseTemplate: WorkoutTemplate = {
   name: 'Tempo Run',
   description: '10m@Z1, 25m@Z2, 5m@Z3',
   sport_type: 'running',
+  sport: 'run',
   estimated_duration_sec: 2400,
   estimated_distance_m: null,
   tags: null,
