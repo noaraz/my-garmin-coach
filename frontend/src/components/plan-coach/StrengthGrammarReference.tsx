@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 const SHORTHAND_REFERENCE = `date,name,steps_spec
 
 steps_spec column — semicolon-separated exercises:
@@ -34,7 +36,7 @@ Common aliases:
   lunge / lunges → walking_lunge
   bridge → glute_bridge      bw = bodyweight`
 
-const heading: React.CSSProperties = {
+const heading: CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontWeight: 700,
   fontSize: '11px',
@@ -44,7 +46,7 @@ const heading: React.CSSProperties = {
   margin: '0 0 8px 0',
 }
 
-const code: React.CSSProperties = {
+const code: CSSProperties = {
   fontFamily: "'IBM Plex Mono', monospace",
   fontSize: '11px',
   lineHeight: 1.6,

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, type CSSProperties, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { validateStrengthCsv, commitPlan } from '../../api/client'
 import type { StrengthValidateResult } from '../../api/types'
@@ -6,7 +6,7 @@ import { StrengthGrammarReference } from './StrengthGrammarReference'
 import { StrengthValidationRow } from './StrengthValidationRow'
 
 // Styles (same as CsvImportTab)
-const label: React.CSSProperties = {
+const label: CSSProperties = {
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontWeight: 700,
   fontSize: '11px',
@@ -17,7 +17,7 @@ const label: React.CSSProperties = {
   display: 'block',
 }
 
-const btn = (primary: boolean, disabled: boolean): React.CSSProperties => ({
+const btn = (primary: boolean, disabled: boolean): CSSProperties => ({
   fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
   fontWeight: 700,
   fontSize: '12px',
@@ -51,7 +51,7 @@ export function StrengthImportTab({ onImported }: StrengthImportTabProps = {}) {
   const hasFile = csvContent !== null
   const allValid = result !== null && result.rows.every(r => r.status !== 'error')
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
@@ -91,6 +91,7 @@ export function StrengthImportTab({ onImported }: StrengthImportTabProps = {}) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    } finally {
       setIsImporting(false)
     }
   }
@@ -106,7 +107,7 @@ export function StrengthImportTab({ onImported }: StrengthImportTabProps = {}) {
 
       {/* File upload */}
       <div style={{ marginBottom: '16px' }}>
-        <label style={label}>CSV file</label>
+        <span style={label}>CSV file</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label
             htmlFor="strength-csv-upload"

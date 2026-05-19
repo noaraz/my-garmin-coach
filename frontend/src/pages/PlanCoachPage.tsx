@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getActivePlan, deletePlan } from '../api/client'
-import type { ActivePlan } from '../api/types'
-import type { Sport } from '../api/types'
+import type { ActivePlan, Sport } from '../api/types'
 import { CsvImportTab } from '../components/plan-coach/CsvImportTab'
 import { ActivePlanCard } from '../components/plan-coach/ActivePlanCard'
 import { DeletePlanModal } from '../components/plan-coach/DeletePlanModal'
