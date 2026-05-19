@@ -196,6 +196,7 @@ export interface DiffResult {
 
 export interface ValidateResult {
   plan_id: number
+  sport?: Sport
   rows: ValidateRow[]
   diff: DiffResult | null
 }
@@ -242,4 +243,35 @@ export interface BootstrapResponse {
 export interface TokenResponse {
   access_token: string
   token_type: string
+}
+
+export type Sport = 'run' | 'strength'
+
+export interface StrengthSet {
+  reps?: number
+  duration_sec?: number
+  load?: { type: 'kg'; value: number } | { type: 'rpe'; value: number } | { type: 'bodyweight' }
+}
+
+export interface StrengthExerciseStep {
+  kind: 'strength_exercise'
+  exercise_key: string
+  garmin_category: string
+  garmin_name: string
+  sets: StrengthSet[]
+  note: string | null
+}
+
+export interface StrengthValidateRow {
+  date: string
+  name: string
+  status: 'valid' | 'error'
+  steps: StrengthExerciseStep[]
+  errors: Array<{ code: string; message: string }>
+}
+
+export interface StrengthValidateResult {
+  plan_id: number
+  sport: Sport
+  rows: StrengthValidateRow[]
 }

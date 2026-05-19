@@ -1,13 +1,33 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-04-25 — v1.8.4 release
+Last updated: 2026-05-19 — Strength Plan Coach UI (Phase 2)
 
 ## In Progress
 
-### Strength Workouts (Phase 1 — backend)
+### Strength Workouts (Phase 3 — Calendar + Garmin sync)
 Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
 Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
-Branch: feature/strength-backend
+Branch: TBD
+
+---
+
+## Recently Merged
+
+### Strength Workouts (Phase 1 — backend) ✅
+Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
+Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
+Branch: feature/strength-backend (merged: 2976acb)
+
+### Strength Workouts (Phase 2 — Plan Coach UI) ✅
+Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
+Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
+Branch: feature/strength-plan-coach (PR #104)
+- Running/Strength tab switcher (ARIA tablist)
+- StrengthGrammarReference + StrengthValidationRow (exercise pills, Garmin mapping disclosure)
+- StrengthImportTab (file upload → validate → commit)
+- StrengthPromptBuilder (interactive LLM prompt generator, mirrors PlanPromptBuilder)
+- Fix: ValidateRow now includes parsed steps[] for strength sport
+- 379 frontend tests, 696 backend tests, 82% coverage
 
 ---
 
