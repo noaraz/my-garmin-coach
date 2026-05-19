@@ -1,5 +1,7 @@
+import { useState, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import type { GarminActivity } from '../../api/types'
+import { fetchCalendarRange } from '../../api/client'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -147,4 +149,272 @@ export const codeStyle: CSSProperties = {
   color: 'var(--text-secondary)',
   display: 'block',
   overflowX: 'auto',
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+type CopyState = 'idle' | 'copied' | 'error'
+type FetchState = 'idle' | 'fetching' | 'done' | 'empty' | 'error'
+
+function toDateString(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+export function StrengthPromptBuilder() {
+  const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [equipment, setEquipment]       = useState<string[]>([])
+  const [focus, setFocus]               = useState('')
+  const [healthNotes, setHealthNotes]   = useState('')
+  const [activities, setActivities]     = useState<GarminActivity[]>([])
+  const [fetchState, setFetchState]     = useState<FetchState>('idle')
+  const [copyState, setCopyState]       = useState<CopyState>('idle')
+  const codeRef = useRef<HTMLElement>(null)
+
+  const prompt = buildStrengthPrompt({ days: selectedDays, equipment, focus, healthNotes, activities })
+
+  function toggleDay(day: string) {
+    setSelectedDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    )
+  }
+
+  function toggleEquipment(item: string) {
+    setEquipment(prev =>
+      prev.includes(item) ? prev.filter(e => e !== item) : [...prev, item]
+    )
+  }
+
+  async function handleFetch() {
+    setFetchState('fetching')
+    try {
+      const end   = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 13)
+      const data = await fetchCalendarRange(toDateString(start), toDateString(end))
+
+      const paired = data.workouts
+        .filter(w => w.activity !== null)
+        .map(w => w.activity as GarminActivity)
+      const all = [...paired, ...data.unplanned_activities]
+        .filter(a => a.activity_type === 'strength_training')
+        .sort((a, b) => b.date.localeCompare(a.date))
+
+      setActivities(all)
+      setFetchState(all.length > 0 ? 'done' : 'empty')
+    } catch {
+      setFetchState('error')
+    }
+  }
+
+  const handleCopy = async () => {
+    const succeed = () => { setCopyState('copied'); setTimeout(() => setCopyState('idle'), 1800) }
+    const fail    = () => { setCopyState('error');  setTimeout(() => setCopyState('idle'), 2000) }
+    if (navigator.clipboard?.writeText) {
+      try { await navigator.clipboard.writeText(prompt); succeed(); return } catch { /* fall through */ }
+    }
+    try {
+      const el = codeRef.current
+      if (!el) { fail(); return }
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      const sel = window.getSelection()
+      sel?.removeAllRanges(); sel?.addRange(range)
+      const ok = document.execCommand('copy')
+      sel?.removeAllRanges()
+      ok ? succeed() : fail()
+    } catch { fail() }
+  }
+
+  return (
+    <div style={{ marginBottom: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
+
+        {/* Training days */}
+        <div>
+          <label style={fieldLabel}>
+            Training days
+            {selectedDays.length > 0 && (
+              <span style={{ marginLeft: '8px', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                — {selectedDays.length}x/week
+              </span>
+            )}
+          </label>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {WEEK_DAYS.map((day, i) => {
+              const active = selectedDays.includes(day)
+              return (
+                <button
+                  key={day}
+                  aria-pressed={active}
+                  aria-label={DAY_SHORT[i]}
+                  onClick={() => toggleDay(day)}
+                  style={{
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '5px 10px',
+                    borderRadius: '4px',
+                    border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    background: active ? 'var(--accent-subtle)' : 'transparent',
+                    color: active ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.12s',
+                  }}
+                >
+                  {DAY_SHORT[i]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Equipment */}
+        <div>
+          <label style={fieldLabel}>Equipment available</label>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {EQUIPMENT_OPTIONS.map(item => {
+              const active = equipment.includes(item)
+              return (
+                <button
+                  key={item}
+                  aria-pressed={active}
+                  aria-label={item}
+                  onClick={() => toggleEquipment(item)}
+                  style={{
+                    fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    letterSpacing: '0.04em',
+                    padding: '5px 10px',
+                    borderRadius: '4px',
+                    border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    background: active ? 'var(--accent-subtle)' : 'transparent',
+                    color: active ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.12s',
+                  }}
+                >
+                  {item}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Focus */}
+        <div>
+          <label style={fieldLabel} htmlFor="strength-focus">Training focus</label>
+          <select
+            id="strength-focus"
+            value={focus}
+            onChange={e => setFocus(e.target.value)}
+            style={selectStyle}
+          >
+            <option value="">Select focus…</option>
+            {FOCUS_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+
+        {/* Health notes */}
+        <div>
+          <label style={fieldLabel} htmlFor="strength-health">Current health &amp; shape</label>
+          <textarea
+            id="strength-health"
+            rows={3}
+            value={healthNotes}
+            onChange={e => setHealthNotes(e.target.value)}
+            placeholder="E.g. good base, returning from injury, peak training block, feeling strong…"
+            style={{
+              ...inputStyle,
+              fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+              width: '100%',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        {/* Fetch recent strength activities */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={handleFetch}
+            disabled={fetchState === 'fetching'}
+            aria-label="Fetch last 2 weeks of strength training"
+            style={{
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontWeight: 700,
+              fontSize: '11px',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              padding: '5px 10px',
+              borderRadius: '4px',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface-2)',
+              color: 'var(--text-secondary)',
+              cursor: fetchState === 'fetching' ? 'not-allowed' : 'pointer',
+              opacity: fetchState === 'fetching' ? 0.5 : 1,
+              transition: 'opacity 0.12s',
+            }}
+          >
+            {fetchState === 'idle'     && 'Fetch last 2 weeks of strength training'}
+            {fetchState === 'fetching' && 'Fetching…'}
+            {fetchState === 'done'     && 'Refresh'}
+            {fetchState === 'empty'    && 'Retry'}
+            {fetchState === 'error'    && 'Retry'}
+          </button>
+          {fetchState === 'done' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {activities.length === 1 ? '1 activity included' : `${activities.length} activities included`}
+            </span>
+          )}
+          {fetchState === 'empty' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              No recent strength sessions found
+            </span>
+          )}
+          {fetchState === 'error' && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {activities.length > 0 ? 'Fetch failed — previous activities still included' : 'Fetch failed'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Generated prompt */}
+      <div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '8px',
+        }}>
+          <span style={fieldLabel as CSSProperties}>
+            Generated prompt — paste into Claude, ChatGPT, or Gemini
+          </span>
+          <button
+            onClick={handleCopy}
+            aria-label="Copy prompt"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${copyState === 'copied' ? 'var(--color-success)' : copyState === 'error' ? 'var(--color-error)' : 'var(--border)'}`,
+              borderRadius: '4px',
+              padding: '3px 8px',
+              cursor: 'pointer',
+              color: copyState === 'copied' ? 'var(--color-success)' : copyState === 'error' ? 'var(--color-error)' : 'var(--text-secondary)',
+              fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+              fontSize: '10px',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            {copyState === 'copied' ? '✓ Copied' : copyState === 'error' ? 'Failed' : 'Copy'}
+          </button>
+        </div>
+        <code ref={codeRef} role="code" style={codeStyle}>{prompt}</code>
+      </div>
+    </div>
+  )
 }
