@@ -201,7 +201,7 @@ def format_strength_workout(template) -> dict:
         if uniform:
             inner = _build_strength_step(exercise, sets[0], 1)
             workout_steps.append({
-                "type": "RepetitionGroupDTO",
+                "type": "RepeatGroupDTO",
                 "stepOrder": order,
                 "numberOfIterations": len(sets),
                 "workoutSteps": [inner],

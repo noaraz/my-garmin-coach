@@ -40,7 +40,7 @@ class TestFormatStrengthWorkout:
     def test_uniform_sets_use_repetition_group(self, template):
         out = format_strength_workout(template)
         steps = out["workoutSegments"][0]["workoutSteps"]
-        assert steps[0]["type"] == "RepetitionGroupDTO"
+        assert steps[0]["type"] == "RepeatGroupDTO"
         assert steps[0]["numberOfIterations"] == 3
         inner = steps[0]["workoutSteps"][0]
         assert inner["category"] == "SQUAT"
