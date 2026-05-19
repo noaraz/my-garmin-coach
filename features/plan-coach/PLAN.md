@@ -209,7 +209,7 @@ Re-importing a shorter/revised plan deletes all past workouts absent from the ne
 Spec: `docs/superpowers/specs/2026-05-18-strength-workouts-design.md`
 Plan: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
 
-### Phase 5a — Backend foundation (`feature/strength-backend`) — IN PROGRESS
+### Phase 5a — Backend foundation (`feature/strength-backend`) — ✅ MERGED (#103)
 - [x] Exercise catalog (`exercise_catalog.py`) — ~30 exercises mapped to Garmin enums
 - [x] Strength grammar parser (`parse_strength_steps`) — uniform sets, per-set variance, RPE, bw, duration
 - [x] Garmin formatter (`format_strength_workout`) — STRENGTH_TRAINING JSON
@@ -218,10 +218,15 @@ Plan: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
 - [x] Plan import service scoped by sport
 - [x] API endpoints accept `sport` parameter
 
-### Phase 5b — Plan Coach UI (`feature/strength-plan-coach`) — PENDING
-- Running/Strength tab switcher
-- Strength CSV grammar reference card
-- Strength validation row with exercise pills + Garmin mapping disclosure
+### Phase 5b — Plan Coach UI (`feature/strength-plan-coach`) — IN PROGRESS
+- [x] Running/Strength tab switcher on PlanCoachPage (ARIA tablist semantics)
+- [x] Strength CSV grammar reference card (`StrengthGrammarReference`)
+- [x] Strength validation row with exercise pills + Garmin mapping disclosure (`StrengthValidationRow`)
+- [x] `StrengthImportTab` — file upload → validate → commit (`sport='strength'`) → navigate
+- [x] `summarizeStrengthSets` helper (uniform + variance + duration)
+- [x] API types: `Sport`, `StrengthSet`, `StrengthExerciseStep`, `StrengthValidateRow`, `StrengthValidateResult`
+- [x] API client: `validateStrengthCsv`, updated `commitPlan(id, sport)`, updated `getActivePlan(sport)`
+- [x] Tests: tab switcher (3), validation row (11), import tab (6)
 
 ### Phase 5c — Calendar + Garmin sync (`feature/strength-calendar-sync`) — PENDING
 - Calendar card purple sport stripe

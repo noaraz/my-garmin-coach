@@ -294,3 +294,36 @@ Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
 **Formatter:** `format_strength_workout(template) -> dict` in `backend/src/garmin/formatter.py`. Uniform sets → `RepetitionGroupDTO`. Per-set variance → flat individual steps.
 
 **Independence rule:** Strength plans and running plans are independent. A user can have one active running plan AND one active strength plan simultaneously. Re-importing one never supersedes the other. Active-plan uniqueness is `(user_id, sport) WHERE status='active'`.
+
+---
+
+## Strength UI Patterns (added 2026-05-19)
+
+### Plan Coach tab switcher
+`PlanCoachPage.tsx` has a controlled `sport: Sport` state (`'run' | 'strength'`, default `'run'`). The tab bar uses `role="tablist"` / `role="tab"` / `role="tabpanel"` ARIA semantics with `aria-selected`, `aria-controls`, `aria-labelledby`. Running tab renders the existing `CsvImportTab` + chat + delete flow unchanged. Strength tab renders `StrengthImportTab`.
+
+### Strength CSV import flow
+`StrengthImportTab.tsx`:
+- Renders `StrengthGrammarReference` at the top (static reference card)
+- File upload → `validateStrengthCsv(csv)` → results via `StrengthValidationRow`
+- Import gated on `result.rows.every(r => r.status !== 'error')`
+- Commits with `commitPlan(plan_id, 'strength')` → navigates to `/calendar`
+- No chat sub-tab in v1 — CSV import only
+
+### Strength validation row (Option B layout)
+`StrengthValidationRow.tsx`:
+- One pill per exercise: name + `summarizeStrengthSets(sets)` summary
+- `summarizeStrengthSets`: uniform sets → `"3 × 5 @ 80kg"`, duration → `"3 × 45s"`, variance → `"5 @ 60kg · 5 @ 70kg · 5 @ 80kg"`
+- Collapsible "Show Garmin mapping" disclosure (hidden for error rows)
+- Error rows show `e.message — edit the row or pick a known exercise`
+- Export `summarizeStrengthSets` — reused by future calendar panel
+
+### API client
+- `validateStrengthCsv(csv)` — POSTs `{sport: 'strength', csv}`, returns `StrengthValidateResult`
+- `commitPlan(planId, sport = 'run')` — now passes `sport` in body
+- `getActivePlan(sport = 'run')` — now passes `?sport=` query param
+
+### Types
+`Sport = 'run' | 'strength'`, `StrengthSet`, `StrengthExerciseStep`, `StrengthValidateRow`, `StrengthValidateResult` in `frontend/src/api/types.ts`.
+
+**Independence rule:** Strength plans and running plans are independent. A user can have one active running plan AND one active strength plan simultaneously. Re-importing one never supersedes the other. Active-plan uniqueness is `(user_id, sport) WHERE status='active'`.
