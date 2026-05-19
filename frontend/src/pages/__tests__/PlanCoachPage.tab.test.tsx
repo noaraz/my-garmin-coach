@@ -32,7 +32,7 @@ describe('PlanCoachPage tab switcher', () => {
     await user.click(screen.getByRole('tab', { name: /strength/i }))
     expect(screen.getByRole('tab', { name: /strength/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: /running/i })).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByText(/strength shorthand|exercise catalog/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/strength shorthand|exercise catalog/i).length).toBeGreaterThan(0)
   })
 
   it('shows Running tab content by default', async () => {
