@@ -4,10 +4,15 @@ Last updated: 2026-04-25 — v1.8.4 release
 
 ## In Progress
 
-### Strength Workouts (Phase 1 — backend)
+### Strength Workouts (Phase 1 — backend) ✅
 Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
 Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
-Branch: feature/strength-backend
+Branch: feature/strength-backend (merged: 2976acb)
+
+### Strength Workouts (Phase 2 — Plan Coach UI)
+Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
+Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
+Branch: feature/strength-plan-coach
 
 ---
 
