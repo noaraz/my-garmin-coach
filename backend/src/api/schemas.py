@@ -94,6 +94,7 @@ class WorkoutTemplateRead(BaseModel):
     name: str
     description: Optional[str] = None
     sport_type: str
+    sport: str = "run"
     estimated_duration_sec: Optional[float] = None
     estimated_distance_m: Optional[float] = None
     tags: Optional[str] = None

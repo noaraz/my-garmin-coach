@@ -10,11 +10,14 @@ class SyncOrchestrator:
     direct I/O) and is trivially testable.
 
     Args:
-        sync_service: An instance of GarminSyncService (or compatible mock).
-        formatter:    Callable that accepts (workout_name, steps, description)
-                      and returns a Garmin-formatted workout dict.
-        resolver:     Callable that accepts (steps, ...) and returns resolved
-                      step dicts ready for formatting.
+        sync_service:        An instance of GarminSyncService (or compatible mock).
+        formatter:           Callable that accepts (workout_name, steps, description)
+                             and returns a Garmin-formatted workout dict.
+        resolver:            Callable that accepts (steps, ...) and returns resolved
+                             step dicts ready for formatting.
+        strength_formatter:  Callable that accepts a template object and returns
+                             a Garmin-formatted strength workout dict.
+                             Optional — defaults to format_strength_workout.
     """
 
     def __init__(
@@ -22,10 +25,16 @@ class SyncOrchestrator:
         sync_service: Any,
         formatter: Callable[..., dict[str, Any]],
         resolver: Callable[..., list[Any]],
+        strength_formatter: Callable[..., dict[str, Any]] | None = None,
     ) -> None:
         self._sync_service = sync_service
         self._formatter = formatter
         self._resolver = resolver
+        if strength_formatter is not None:
+            self._strength_formatter = strength_formatter
+        else:
+            from src.garmin.formatter import format_strength_workout
+            self._strength_formatter = format_strength_workout
 
     @property
     def adapter(self) -> Any:
@@ -56,6 +65,25 @@ class SyncOrchestrator:
             garmin_schedule_id is None when Garmin's response omits it.
         """
         formatted = self._formatter(workout_name, resolved_steps, workout_description)
+        garmin_id: str = await self._sync_service.push_workout(formatted)
+        schedule_id = self._sync_service.schedule_workout(garmin_id, date)
+        return garmin_id, schedule_id
+
+    async def sync_strength_workout(
+        self,
+        template: Any,
+        date: str,
+    ) -> tuple[str, str | None]:
+        """Format, push, and schedule a strength workout template.
+
+        Args:
+            template: WorkoutTemplate ORM object with sport='strength'.
+            date:     Calendar date string (YYYY-MM-DD).
+
+        Returns:
+            Tuple of (garmin_workout_id, garmin_schedule_id).
+        """
+        formatted = self._strength_formatter(template)
         garmin_id: str = await self._sync_service.push_workout(formatted)
         schedule_id = self._sync_service.schedule_workout(garmin_id, date)
         return garmin_id, schedule_id

@@ -165,6 +165,7 @@ async def _get_garmin_sync_service(
         sync_service=GarminSyncService(adapter),
         formatter=facade.build_workout,
         resolver=_resolver,
+        strength_formatter=facade.format_strength,
     )
 
 
@@ -231,6 +232,7 @@ async def background_sync(user_id: int) -> None:
                 sync_service=GarminSyncService(adapter),
                 formatter=facade.build_workout,
                 resolver=lambda steps, **_: steps,
+                strength_formatter=facade.format_strength,
             )
             await sync_modified_workouts(session, orchestrator, user)
             # Persist any OAuth2 token refresh that occurred during sync.
@@ -441,12 +443,19 @@ async def _sync_and_persist(
             )
 
     try:
-        garmin_id, _ = await sync_service.sync_workout(
-            resolved_steps=resolved_steps,
-            workout_name=workout_name,
-            workout_description=workout_description,
-            date=str(workout.date),
-        )
+        template_sport = getattr(template, "sport", "run") if template else "run"
+        if template_sport == "strength" and template is not None:
+            garmin_id, _ = await sync_service.sync_strength_workout(
+                template=template,
+                date=str(workout.date),
+            )
+        else:
+            garmin_id, _ = await sync_service.sync_workout(
+                resolved_steps=resolved_steps,
+                workout_name=workout_name,
+                workout_description=workout_description,
+                date=str(workout.date),
+            )
         workout.garmin_workout_id = garmin_id
         workout.sync_status = "synced"
         session.add(workout)
@@ -513,6 +522,7 @@ async def sync_all(
             sync_service=GarminSyncService(adapter),
             formatter=facade.build_workout,
             resolver=lambda steps, **_: steps,
+            strength_formatter=facade.format_strength,
         )
         try:
             garmin_workouts = sync_service.get_workouts()
