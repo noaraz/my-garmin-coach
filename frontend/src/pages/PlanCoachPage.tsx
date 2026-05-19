@@ -33,16 +33,16 @@ export function PlanCoachPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
-    getActivePlan().then(plan => {
+    getActivePlan(sport).then(plan => {
       setActivePlan(plan)
     }).catch(() => {
       setActivePlan(null)
     })
-  }, [])
+  }, [sport])
 
   const handlePlanImported = () => {
     setShowUpload(false)
-    getActivePlan().then(plan => {
+    getActivePlan(sport).then(plan => {
       setActivePlan(plan)
     }).catch(() => {
       setActivePlan(null)

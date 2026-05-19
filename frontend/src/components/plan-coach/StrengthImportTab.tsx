@@ -83,7 +83,7 @@ export function StrengthImportTab({ onImported }: StrengthImportTabProps = {}) {
     setIsImporting(true)
     setError(null)
     try {
-      await commitPlan(result.plan_id, 'strength')
+      await commitPlan(result.plan_id)
       if (onImported) {
         onImported()
       } else {

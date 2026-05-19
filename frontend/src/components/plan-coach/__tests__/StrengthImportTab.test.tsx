@@ -172,7 +172,7 @@ describe('StrengthImportTab', () => {
     await user.click(screen.getByRole('button', { name: /import plan/i }))
 
     await waitFor(() => {
-      expect(mockCommitPlan).toHaveBeenCalledWith(10, 'strength')
+      expect(mockCommitPlan).toHaveBeenCalledWith(10)
       expect(mockNavigate).toHaveBeenCalledWith('/calendar')
     })
   })

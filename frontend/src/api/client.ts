@@ -208,11 +208,8 @@ export const validateStrengthCsv = (csv: string) =>
     body: JSON.stringify({ sport: 'strength', csv }),
   })
 
-export const commitPlan = (planId: number, sport: Sport = 'run') =>
-  request<CommitResult>(`/plans/${planId}/commit`, {
-    method: 'POST',
-    body: JSON.stringify({ sport }),
-  })
+export const commitPlan = (planId: number) =>
+  request<CommitResult>(`/plans/${planId}/commit`, { method: 'POST' })
 
 export const getActivePlan = (sport: Sport = 'run') =>
   request<ActivePlan | null>(`/plans/active?sport=${sport}`)
