@@ -1,13 +1,10 @@
 # STATUS.md — GarminCoach Progress Tracker
 
-Last updated: 2026-05-19 — Strength Plan Coach UI (Phase 2)
+Last updated: 2026-05-19 — Strength Workouts Phase 5c (Calendar + Garmin sync) — PR #105 open
 
 ## In Progress
 
-### Strength Workouts (Phase 3 — Calendar + Garmin sync)
-Spec: docs/superpowers/specs/2026-05-18-strength-workouts-design.md
-Plan: docs/superpowers/plans/2026-05-18-strength-workouts.md
-Branch: feature/strength-calendar-sync
+PR #105 open for review: feature/strength-calendar-sync
 
 ---
 

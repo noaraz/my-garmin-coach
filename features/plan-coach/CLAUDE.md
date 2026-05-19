@@ -343,3 +343,41 @@ Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
 **Fetch filter:** `activity_type === 'strength_training'` applied client-side. `fetchCalendarRange` returns all activity types; the filter runs on the paired + unplanned arrays before `setActivities`.
 
 **Style exports:** `fieldLabel`, `selectStyle`, `inputStyle`, `codeStyle` are exported from `StrengthPromptBuilder.tsx` for use by the component itself. Do not import these into unrelated files.
+
+---
+
+## Strength Calendar + Garmin Sync Patterns (added 2026-05-19)
+
+### ScheduledWorkout.sport column
+`ScheduledWorkout` has a `sport: str = Field(default="run")` column (migration `i4c5d6e7f890`). It is always set from `template.sport` at creation time:
+- `calendar_service.schedule_workout()` → `sport=template.sport`
+- `plan_import_service._commit_workouts()` → `sport=template.sport`
+
+Never infer sport from `workout_template_id` lookup in a loop — the column is the source of truth.
+
+### Sport-aware activity pairing
+`match_activities` in `activity_fetch_service.py` indexes activities by `(date, sport_group)` where `sport_group = "strength"` for `strength_training` and `"run"` for all running types. It reads `workout.sport` directly. Do not use `getattr(workout, "sport", "run")` as a workaround — the field now exists on the model.
+
+### Calendar stripe — strength colour
+`WorkoutCard` and `WorkoutDetailPanel` use `stripeColorForTemplate(sport, sportType)` which returns `var(--color-strength)` (`#a855f7`) when `sport === 'strength'`, falling back to zone-based colours for running. The CSS token lives in `@theme` in `index.css`.
+
+### WorkoutDetailPanel — strength vs running branch
+```tsx
+{template?.sport === 'strength'
+  ? <StrengthSteps stepsJson={template?.steps} />
+  : <WorkoutSteps stepsJson={template?.steps} />
+}
+```
+`StrengthSteps` guards against non-strength JSON: if `steps[0]?.kind !== 'strength_exercise'` it returns null.
+
+### SyncOrchestrator strength push
+`SyncOrchestrator.sync_strength_workout(template, date)` calls `self._strength_formatter(template)` (injected, defaults to `format_strength_workout`). The sync router branches by `template.sport`:
+```python
+if template_sport == "strength":
+    garmin_id, _ = await sync_service.sync_strength_workout(template=template, date=...)
+else:
+    garmin_id, _ = await sync_service.sync_workout(resolved_steps=..., ...)
+```
+
+### summarizeStrengthSets / prettyExerciseName
+`summarizeStrengthSets(sets)` and `prettyExerciseName(exerciseKey)` are exported from `frontend/src/utils/workoutStats.ts`. Reuse from `StrengthExerciseRow`, `StrengthValidationRow`, and anywhere a compact set summary is needed.
