@@ -229,7 +229,6 @@ export function StrengthPromptBuilder() {
     <div style={{ marginBottom: '24px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
 
-        {/* Training days */}
         <div>
           <label style={fieldLabel}>
             Training days
@@ -270,7 +269,6 @@ export function StrengthPromptBuilder() {
           </div>
         </div>
 
-        {/* Equipment */}
         <div>
           <label style={fieldLabel}>Equipment available</label>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -303,7 +301,6 @@ export function StrengthPromptBuilder() {
           </div>
         </div>
 
-        {/* Focus */}
         <div>
           <label style={fieldLabel} htmlFor="strength-focus">Training focus</label>
           <select
@@ -317,7 +314,6 @@ export function StrengthPromptBuilder() {
           </select>
         </div>
 
-        {/* Health notes */}
         <div>
           <label style={fieldLabel} htmlFor="strength-health">Current health &amp; shape</label>
           <textarea
@@ -335,7 +331,6 @@ export function StrengthPromptBuilder() {
           />
         </div>
 
-        {/* Fetch recent strength activities */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={handleFetch}
@@ -381,7 +376,6 @@ export function StrengthPromptBuilder() {
         </div>
       </div>
 
-      {/* Generated prompt */}
       <div>
         <div style={{
           display: 'flex',
@@ -389,7 +383,7 @@ export function StrengthPromptBuilder() {
           justifyContent: 'space-between',
           marginBottom: '8px',
         }}>
-          <span style={fieldLabel as CSSProperties}>
+          <span style={fieldLabel}>
             Generated prompt — paste into Claude, ChatGPT, or Gemini
           </span>
           <button
