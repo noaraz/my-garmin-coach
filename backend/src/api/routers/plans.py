@@ -1,12 +1,10 @@
 """Plans router — validate/commit/delete training plans + Plan Coach chat."""
 from __future__ import annotations
 
-import csv as csv_module
-import io
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import select
@@ -46,9 +44,7 @@ router = APIRouter(prefix="/api/v1/plans", tags=["plans"])
 class ValidateRequest(BaseModel):
     name: str = "My Training Plan"
     source: str = "csv"
-    workouts: list[dict[str, Any]] = []
-    csv: str | None = None
-    sport: str = "run"
+    workouts: list[dict[str, Any]]
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +58,6 @@ class ActivePlanResponse(BaseModel):
     status: str
     start_date: str
     workout_count: int | None = None
-    sport: str = "run"
 
 
 class ChatMessageRequest(BaseModel):
@@ -96,33 +91,15 @@ async def post_validate(
     current_user: User = Depends(get_current_user),
 ) -> ValidateResult:
     """Parse and validate a list of workout dicts; return draft plan_id + per-row results."""
-    # Parse CSV if provided instead of workouts
-    if body.csv:
-        reader = csv_module.DictReader(io.StringIO(body.csv.strip()))
-        workouts = []
-        for row in reader:
-            workouts.append({
-                "date": row.get("date", "").strip(),
-                "name": row.get("name", "").strip(),
-                "steps_spec": (row.get("steps_spec") or row.get("steps") or "").strip(),
-                "sport_type": "strength" if body.sport == "strength" else "running",
-            })
-    else:
-        workouts = body.workouts
-
     result = await validate_plan(
         session,
         user_id=current_user.id,  # type: ignore[arg-type]
-        workouts=workouts,
+        workouts=body.workouts,
         plan_name=body.name,
         source=body.source,
-        sport=body.sport,
     )
     if result.plan_id == -1:
-        # Validation errors — return 200 with error rows for strength (structured errors)
-        # For run, keep 422 behavior for backward compatibility
-        if body.sport == "strength":
-            return result
+        # Validation errors — return 422
         raise HTTPException(
             status_code=422,
             detail={"rows": [r.model_dump() for r in result.rows]},
@@ -167,10 +144,9 @@ async def get_active(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
     response: Response = Response(),
-    sport: str = Query(default="run"),
 ) -> ActivePlanResponse | Response:
     """Return the active training plan, or 204 if none exists."""
-    plan = await get_active_plan(session, user_id=current_user.id, sport=sport)  # type: ignore[arg-type]
+    plan = await get_active_plan(session, user_id=current_user.id)  # type: ignore[arg-type]
     if plan is None:
         return Response(status_code=204)
     count_result = await session.exec(
@@ -184,7 +160,6 @@ async def get_active(
         status=plan.status,
         start_date=plan.start_date.isoformat(),
         workout_count=workout_count,
-        sport=plan.sport,
     )
 
 

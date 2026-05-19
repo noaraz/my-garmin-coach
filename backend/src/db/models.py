@@ -74,7 +74,6 @@ class WorkoutTemplate(SQLModel, table=True):
     name: str
     description: Optional[str] = Field(default=None)
     sport_type: str = Field(default="running")
-    sport: str = Field(default="run", max_length=16, index=True)
     estimated_duration_sec: Optional[float] = Field(default=None)
     estimated_distance_m: Optional[float] = Field(default=None)
     tags: Optional[str] = Field(default=None)  # JSON string
@@ -117,7 +116,6 @@ class TrainingPlan(SQLModel, table=True):
     name: str
     source: str  # "csv" | "chat"
     status: str = "draft"  # "draft" | "active" | "superseded"
-    sport: str = Field(default="run", max_length=16, index=True)
     parsed_workouts: Optional[str] = Field(default=None)  # JSON array of ParsedWorkout
     start_date: date
     created_at: datetime = Field(
