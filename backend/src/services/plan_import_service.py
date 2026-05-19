@@ -49,7 +49,6 @@ class ValidateRow(BaseModel):
     errors: list[dict] = []
     status: str = "valid"
     template_status: Literal["new", "existing"] = "new"
-    steps: list[dict] = []  # populated for strength rows; empty for running
 
 
 class WorkoutDiff(BaseModel):
@@ -327,7 +326,6 @@ async def validate_plan(
                 steps_spec=steps_spec,
                 sport_type=sport_type,
                 valid=True,
-                steps=parsed_steps if sport == "strength" else [],
             ))
         except StepParseError as exc:
             rows.append(ValidateRow(
