@@ -11,7 +11,6 @@ import type {
   TokenResponse,
   ValidateResult, CommitResult, ActivePlan, PlanWorkoutInput,
   PlanCoachMessage,
-  Sport, StrengthValidateResult,
 } from './types'
 
 const BASE = '/api/v1'
@@ -199,20 +198,14 @@ export const resetAdmins = (setupToken: string) =>
 export const validatePlan = (name: string, workouts: PlanWorkoutInput[]) =>
   request<ValidateResult>('/plans/validate', {
     method: 'POST',
-    body: JSON.stringify({ sport: 'run', name, source: 'csv', workouts }),
-  })
-
-export const validateStrengthCsv = (csv: string) =>
-  request<StrengthValidateResult>('/plans/validate', {
-    method: 'POST',
-    body: JSON.stringify({ sport: 'strength', csv }),
+    body: JSON.stringify({ name, source: 'csv', workouts }),
   })
 
 export const commitPlan = (planId: number) =>
   request<CommitResult>(`/plans/${planId}/commit`, { method: 'POST' })
 
-export const getActivePlan = (sport: Sport = 'run') =>
-  request<ActivePlan | null>(`/plans/active?sport=${sport}`)
+export const getActivePlan = () =>
+  request<ActivePlan | null>('/plans/active')
 
 export const deletePlan = (planId: number) =>
   request<void>(`/plans/${planId}`, { method: 'DELETE' })

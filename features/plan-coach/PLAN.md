@@ -4,8 +4,6 @@ Design spec: `docs/superpowers/specs/2026-03-17-plan-coach-design.md`
 Step format grammar: `features/plan-coach/CLAUDE.md` → **Step Text Format (Import Grammar)**
 Implementation plan: `docs/superpowers/plans/indexed-twirling-phoenix.md`
 
-Strength extension: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
-
 ---
 
 ## Overview
@@ -201,37 +199,3 @@ Re-importing a shorter/revised plan deletes all past workouts absent from the ne
 - [x] `ValidateRow` type: optional `template_status?: 'new' | 'existing'`
 - [x] `ValidationTable`: Library column + NEW badge / in library cell
 - [x] 3 RTL tests in `describe('ValidationTable', ...)`
-
----
-
-## Phase 5 — Strength Workouts
-
-Spec: `docs/superpowers/specs/2026-05-18-strength-workouts-design.md`
-Plan: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
-
-### Phase 5a — Backend foundation (`feature/strength-backend`) — ✅ MERGED (#103)
-- [x] Exercise catalog (`exercise_catalog.py`) — ~30 exercises mapped to Garmin enums
-- [x] Strength grammar parser (`parse_strength_steps`) — uniform sets, per-set variance, RPE, bw, duration
-- [x] Garmin formatter (`format_strength_workout`) — STRENGTH_TRAINING JSON
-- [x] WorkoutFacade `format_strength` method (V1+V2 identical)
-- [x] DB migration — `sport` column on WorkoutTemplate + TrainingPlan; per-sport active-plan index
-- [x] Plan import service scoped by sport
-- [x] API endpoints accept `sport` parameter
-
-### Phase 5b — Plan Coach UI (`feature/strength-plan-coach`) — ✅ PR #104
-- [x] Running/Strength tab switcher on PlanCoachPage (ARIA tablist semantics)
-- [x] Strength CSV grammar reference card (`StrengthGrammarReference`)
-- [x] Strength validation row with exercise pills + Garmin mapping disclosure (`StrengthValidationRow`)
-- [x] `StrengthImportTab` — file upload → validate → commit (`sport='strength'`) → navigate
-- [x] `summarizeStrengthSets` helper (uniform + variance + duration)
-- [x] API types: `Sport`, `StrengthSet`, `StrengthExerciseStep`, `StrengthValidateRow`, `StrengthValidateResult`
-- [x] API client: `validateStrengthCsv`, updated `commitPlan(id, sport)`, updated `getActivePlan(sport)`
-- [x] Tests: tab switcher (3), validation row (11), import tab (6)
-- [x] `StrengthPromptBuilder` — interactive LLM prompt generator (mirrors `PlanPromptBuilder`): day toggles, equipment, focus, health notes, fetch strength activities, live prompt + copy
-- [x] Tests: `buildStrengthPrompt` pure function (9), component interaction (10)
-- [x] Fix: `ValidateRow.steps` populated from `parsed_strength.steps` for strength sport (crash fix)
-
-### Phase 5c — Calendar + Garmin sync (`feature/strength-calendar-sync`) — PENDING
-- Calendar card purple sport stripe
-- WorkoutDetailPanel hybrid strength layout
-- SyncOrchestrator strength push + same-day pairing
