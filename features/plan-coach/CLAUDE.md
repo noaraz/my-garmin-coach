@@ -291,7 +291,15 @@ Squat 3x5@80kg; RDL 3x8@RPE8; Plank 3x45s
 
 **Parser:** `parse_strength_steps(cell: str) -> ParsedStrength` in `backend/src/services/plan_step_parser.py`. Returns `ParsedStrength.steps` (list of step dicts) and `ParsedStrength.errors` (list of `{code, message}` dicts).
 
-**Formatter:** `format_strength_workout(template) -> dict` in `backend/src/garmin/formatter.py`. Uniform sets → `RepetitionGroupDTO`. Per-set variance → flat individual steps.
+**Formatter:** `format_strength_workout(template) -> dict` in `backend/src/garmin/formatter.py`. Uniform sets → `RepeatGroupDTO` (NOT `RepetitionGroupDTO` — Garmin rejects the latter with `InvalidTypeIdException`). Per-set variance → flat individual steps.
+
+**Garmin strength step schema (confirmed from live workout):**
+- `endCondition` for reps: `{"conditionTypeId": 10, "conditionTypeKey": "reps"}` — ID 10, not 3
+- `endCondition` for time: `{"conditionTypeId": 2, "conditionTypeKey": "time"}`
+- `targetType` is required: `{"workoutTargetTypeId": 1, "workoutTargetTypeKey": "no.target", "displayOrder": 1}`
+- `weightUnit` for kg: `{"unitId": 8, "unitKey": "kilogram", "factor": 1000.0}`
+- `template.steps` is stored as a JSON string in the ORM column — always call `json.loads()` before iterating
+- Both `conditionTypeId` values are in `END_CONDITIONS` in `constants.py`
 
 **Independence rule:** Strength plans and running plans are independent. A user can have one active running plan AND one active strength plan simultaneously. Re-importing one never supersedes the other. Active-plan uniqueness is `(user_id, sport) WHERE status='active'`.
 
