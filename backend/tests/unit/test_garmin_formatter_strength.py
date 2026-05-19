@@ -48,7 +48,8 @@ class TestFormatStrengthWorkout:
         assert inner["weightValue"] == 80
         assert inner["weightUnit"]["unitKey"] == "kilogram"
         assert inner["endCondition"]["conditionTypeKey"] == "reps"
-        assert inner["endConditionValue"] == 5
+        assert inner["endCondition"]["conditionTypeId"] == 10
+        assert inner["endConditionValue"] == 5.0
 
     def test_per_set_variance_emits_individual_steps(self):
         class T:
@@ -114,6 +115,7 @@ class TestFormatStrengthWorkout:
         out = format_strength_workout(T())
         inner = out["workoutSegments"][0]["workoutSteps"][0]["workoutSteps"][0]
         assert inner["endCondition"]["conditionTypeKey"] == "time"
+        assert inner["endCondition"]["conditionTypeId"] == 2
         assert inner["endConditionValue"] == 45
 
     def test_steps_as_json_string_is_parsed(self, template):

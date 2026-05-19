@@ -164,6 +164,10 @@ _STRENGTH_SPORT_TYPE = {"sportTypeId": 5, "sportTypeKey": "strength_training"}
 _INTERVAL_STEP = {"stepTypeId": 3, "stepTypeKey": "interval"}
 
 
+_NO_TARGET = {"workoutTargetTypeId": 1, "workoutTargetTypeKey": "no.target", "displayOrder": 1}
+_WEIGHT_UNIT_KG = {"unitId": 8, "unitKey": "kilogram", "factor": 1000.0}
+
+
 def _build_strength_step(exercise: dict, set_spec: dict, order: int) -> dict:
     step: dict = {
         "type": "ExecutableStepDTO",
@@ -171,17 +175,18 @@ def _build_strength_step(exercise: dict, set_spec: dict, order: int) -> dict:
         "stepType": _INTERVAL_STEP,
         "category": exercise["garmin_category"],
         "exerciseName": exercise["garmin_name"],
+        "targetType": _NO_TARGET,
     }
     if "duration_sec" in set_spec:
-        step["endCondition"] = {"conditionTypeKey": "time"}
+        step["endCondition"] = dict(END_CONDITIONS["time"])
         step["endConditionValue"] = set_spec["duration_sec"]
         return step
-    step["endCondition"] = {"conditionTypeKey": "reps"}
-    step["endConditionValue"] = set_spec["reps"]
+    step["endCondition"] = dict(END_CONDITIONS["reps"])
+    step["endConditionValue"] = float(set_spec["reps"])
     load = set_spec.get("load") or {}
     if load.get("type") == "kg":
         step["weightValue"] = load["value"]
-        step["weightUnit"] = {"unitKey": "kilogram"}
+        step["weightUnit"] = _WEIGHT_UNIT_KG
     elif load.get("type") == "rpe":
         step["description"] = f"RPE {load['value']}"
     return step
@@ -203,6 +208,7 @@ def format_strength_workout(template) -> dict:
             workout_steps.append({
                 "type": "RepeatGroupDTO",
                 "stepOrder": order,
+                "childStepId": order,
                 "numberOfIterations": len(sets),
                 "workoutSteps": [inner],
             })

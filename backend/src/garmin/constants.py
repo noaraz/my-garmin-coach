@@ -15,6 +15,7 @@ END_CONDITIONS: dict[str, dict[str, int | str]] = {
     "time": {"conditionTypeId": 2, "conditionTypeKey": "time"},
     "distance": {"conditionTypeId": 3, "conditionTypeKey": "distance"},
     "lap_button": {"conditionTypeId": 1, "conditionTypeKey": "lap.button"},
+    "reps": {"conditionTypeId": 10, "conditionTypeKey": "reps"},
 }
 
 TARGET_TYPES: dict[str, dict[str, int | str]] = {
