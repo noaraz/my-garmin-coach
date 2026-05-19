@@ -50,7 +50,7 @@ export function buildStrengthPrompt(input: StrengthPromptInput): string {
   const { days, equipment, focus, healthNotes, activities } = input
 
   const daysLine      = days.length ? days.join(', ') : '[your training days]'
-  const nDays         = days.length || 'N'
+  const nDays: string = days.length ? String(days.length) : 'N'
   const equipmentLine = equipment.length ? equipment.join(', ') : '[any equipment]'
   const focusLine     = focus || 'General strength'
 
