@@ -218,7 +218,7 @@ Plan: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
 - [x] Plan import service scoped by sport
 - [x] API endpoints accept `sport` parameter
 
-### Phase 5b — Plan Coach UI (`feature/strength-plan-coach`) — IN PROGRESS
+### Phase 5b — Plan Coach UI (`feature/strength-plan-coach`) — ✅ PR #104
 - [x] Running/Strength tab switcher on PlanCoachPage (ARIA tablist semantics)
 - [x] Strength CSV grammar reference card (`StrengthGrammarReference`)
 - [x] Strength validation row with exercise pills + Garmin mapping disclosure (`StrengthValidationRow`)
@@ -227,6 +227,9 @@ Plan: `docs/superpowers/plans/2026-05-18-strength-workouts.md`
 - [x] API types: `Sport`, `StrengthSet`, `StrengthExerciseStep`, `StrengthValidateRow`, `StrengthValidateResult`
 - [x] API client: `validateStrengthCsv`, updated `commitPlan(id, sport)`, updated `getActivePlan(sport)`
 - [x] Tests: tab switcher (3), validation row (11), import tab (6)
+- [x] `StrengthPromptBuilder` — interactive LLM prompt generator (mirrors `PlanPromptBuilder`): day toggles, equipment, focus, health notes, fetch strength activities, live prompt + copy
+- [x] Tests: `buildStrengthPrompt` pure function (9), component interaction (10)
+- [x] Fix: `ValidateRow.steps` populated from `parsed_strength.steps` for strength sport (crash fix)
 
 ### Phase 5c — Calendar + Garmin sync (`feature/strength-calendar-sync`) — PENDING
 - Calendar card purple sport stripe
