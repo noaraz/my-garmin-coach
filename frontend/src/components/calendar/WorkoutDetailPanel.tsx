@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import type { ScheduledWorkoutWithActivity, GarminActivity, WorkoutTemplate, SyncStatus } from '../../api/types'
+import type { ScheduledWorkoutWithActivity, GarminActivity, WorkoutTemplate, SyncStatus, StrengthExerciseStep } from '../../api/types'
 import { computeDurationFromSteps, computeDistanceFromSteps, formatClock, formatKm } from '../../utils/workoutStats'
 import { formatDateHeader, formatPace } from '../../utils/formatting'
 import { computeCompliance, type ComplianceLevel } from '../../utils/compliance'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { refreshActivity } from '../../api/client'
+import { StrengthExerciseRow } from './StrengthExerciseRow'
 
 // ---------------------------------------------------------------------------
 // Step rendering helpers
@@ -95,6 +96,46 @@ function WorkoutSteps({ stepsJson }: { stepsJson: string | null | undefined }) {
   )
 }
 
+function StrengthSteps({ stepsJson }: { stepsJson: string | null | undefined }) {
+  if (!stepsJson) return null
+  let steps: StrengthExerciseStep[]
+  try {
+    steps = JSON.parse(stepsJson) as StrengthExerciseStep[]
+  } catch {
+    return null
+  }
+  if (!steps.length || steps[0]?.kind !== 'strength_exercise') return null
+  return (
+    <div
+      style={{
+        background: 'var(--bg-surface-2)',
+        padding: '12px',
+        borderRadius: '4px',
+        marginBottom: '16px',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '0.05em',
+          color: 'var(--text-muted)',
+          marginBottom: '8px',
+          textTransform: 'uppercase',
+        }}
+      >
+        Exercises
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {steps.map((step, i) => (
+          <StrengthExerciseRow key={i} step={step} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface WorkoutDetailPanelProps {
   workout?: ScheduledWorkoutWithActivity | null
   activity?: GarminActivity | null
@@ -129,7 +170,8 @@ function syncStatusText(status: SyncStatus): string {
   return texts[status]
 }
 
-function zoneStripeColor(sportType: string | undefined): string {
+function stripeColorForTemplate(sport: string | undefined, sportType: string | undefined): string {
+  if (sport === 'strength') return 'var(--color-strength)'
   if (sportType === 'running') return 'var(--color-zone-1)'
   if (sportType === 'cycling') return 'var(--color-zone-2)'
   return 'var(--zone-default)'
@@ -160,7 +202,7 @@ function WorkoutDetailPlanned({
 
   const durationSec = template?.estimated_duration_sec ?? computeDurationFromSteps(template?.steps)
   const distanceM = template?.estimated_distance_m ?? computeDistanceFromSteps(template?.steps)
-  const stripeColor = zoneStripeColor(template?.sport_type)
+  const stripeColor = stripeColorForTemplate(template?.sport, template?.sport_type)
 
   // Clean up debounce timer on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
@@ -269,8 +311,11 @@ function WorkoutDetailPlanned({
           </div>
         )}
 
-        {/* Workout Steps (parsed zones) */}
-        <WorkoutSteps stepsJson={template?.steps} />
+        {/* Workout Steps — running zones or strength exercises */}
+        {template?.sport === 'strength'
+          ? <StrengthSteps stepsJson={template?.steps} />
+          : <WorkoutSteps stepsJson={template?.steps} />
+        }
 
         {/* Sync status + button */}
         <div

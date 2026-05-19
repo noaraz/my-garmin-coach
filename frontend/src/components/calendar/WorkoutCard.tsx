@@ -34,7 +34,8 @@ function syncStatusLabel(status: SyncStatus): string {
   return labels[status]
 }
 
-function zoneStripeColor(sportType: string | undefined): string {
+function stripeColorForTemplate(sport: string | undefined, sportType: string | undefined): string {
+  if (sport === 'strength') return 'var(--color-strength)'
   if (sportType === 'running') return 'var(--color-zone-1)'
   if (sportType === 'cycling') return 'var(--color-zone-2)'
   return 'var(--zone-default)'
@@ -64,7 +65,7 @@ export function WorkoutCard({ workout, template, onRemove, onCardClick, displayN
   const description = generateDescriptionFromSteps(template?.steps)
 
   const complianceColor = getComplianceStripeColor(template, workout.activity, durationSec, distanceM)
-  const stripeColor = complianceColor ?? zoneStripeColor(template?.sport_type)
+  const stripeColor = complianceColor ?? stripeColorForTemplate(template?.sport, template?.sport_type)
 
   const handleCardClick = () => {
     if (onCardClick) {

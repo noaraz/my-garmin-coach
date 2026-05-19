@@ -56,6 +56,7 @@ export interface WorkoutTemplate {
   name: string
   description: string | null
   sport_type: string
+  sport: string
   estimated_duration_sec: number | null
   estimated_distance_m: number | null
   tags: string | null
