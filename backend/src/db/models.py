@@ -94,6 +94,7 @@ class ScheduledWorkout(SQLModel, table=True):
     workout_template_id: Optional[int] = Field(
         default=None, foreign_key="workouttemplate.id"
     )
+    sport: str = Field(default="run", max_length=16)
     resolved_steps: Optional[str] = Field(default=None)  # JSON string
     garmin_workout_id: Optional[str] = Field(default=None)
     sync_status: str = Field(default="pending")  # pending | synced | modified | failed

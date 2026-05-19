@@ -166,6 +166,7 @@ class CalendarService:
             user_id=profile.user_id,
             date=workout_date,
             workout_template_id=template_id,
+            sport=template.sport,
             resolved_steps=resolved_steps_json,
             sync_status="pending",
         )

@@ -597,6 +597,7 @@ async def commit_plan(
             user_id=user_id,
             date=workout_date,
             workout_template_id=template.id,
+            sport=template.sport,
             training_plan_id=plan_id,
             notes=pw.description or None,
             sync_status="modified" if matched_garmin_id else "pending",

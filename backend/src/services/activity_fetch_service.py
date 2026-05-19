@@ -16,6 +16,7 @@ from src.garmin.converters import speed_to_pace
 logger = logging.getLogger(__name__)
 
 _RUNNING_TYPES = ("running", "trail_running", "treadmill_running", "track_running")
+_STRENGTH_TYPES = ("strength_training",)
 
 
 @dataclass
@@ -56,7 +57,7 @@ class ActivityFetchService:
         Returns None if the activity is not a running type.
         """
         type_key = raw.get("activityType", {}).get("typeKey", "")
-        if type_key not in _RUNNING_TYPES:
+        if type_key not in _RUNNING_TYPES and type_key not in _STRENGTH_TYPES:
             return None
 
         avg_speed = raw.get("averageSpeed", 0.0) or 0.0
@@ -191,15 +192,19 @@ class ActivityFetchService:
             )
         ).all()
 
-        activities_by_date: dict[date, list[GarminActivity]] = {}
+        # Index activities by (date, sport_group) for sport-aware pairing.
+        # sport_group: "strength" for strength_training, "run" for all running types.
+        activities_by_date_sport: dict[tuple[date, str], list[GarminActivity]] = {}
         for a in all_activities:
             if a.id in paired_ids:
                 continue
-            activities_by_date.setdefault(a.date, []).append(a)
+            sport_group = "strength" if a.activity_type in _STRENGTH_TYPES else "run"
+            activities_by_date_sport.setdefault((a.date, sport_group), []).append(a)
 
         match_count = 0
         for workout in unmatched_workouts:
-            candidates = activities_by_date.get(workout.date, [])
+            workout_sport = getattr(workout, "sport", "run") or "run"
+            candidates = activities_by_date_sport.get((workout.date, workout_sport), [])
             best = self._pick_best_match(candidates)
             if best is not None:
                 workout.matched_activity_id = best.id
