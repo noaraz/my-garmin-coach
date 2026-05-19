@@ -457,6 +457,24 @@ The `/ship` workflow runs the **migration-validator** agent (`.claude/agents/mig
 
 **If a code review suggests renaming a migration ID** (e.g. non-hex prefix), reject the suggestion — Alembic revision IDs are arbitrary strings, not required to be hex.
 
+### Finding the Alembic head without a local DB (added 2026-05-19)
+
+When writing a migration manually (no local DB to run `alembic autogenerate`), never pick the parent revision from `ls` output — filenames sort alphabetically, not by chain order. Find the true head by identifying which Revision ID is never referenced as a `down_revision`:
+
+```bash
+grep -h "^Revision ID\|^down_revision" backend/alembic/versions/*.py
+# The head = the Revision ID that never appears as a down_revision value
+```
+
+Or with a one-liner:
+```bash
+comm -23 \
+  <(grep -h "^Revision ID:" backend/alembic/versions/*.py | awk '{print $3}' | sort) \
+  <(grep -h "^down_revision" backend/alembic/versions/*.py | grep -oP "'[a-f0-9]+'" | tr -d "'" | sort)
+```
+
+Two migrations with the same `down_revision` = multiple heads = `alembic upgrade head` fails at container startup.
+
 ### Deleting a migration added on the current branch
 
 If a migration was added in the current PR (not yet merged to `main`), the production Neon DB has not applied it — deleting the file is safe for production. The Render Preview DB will be at that revision and will fail `alembic upgrade head` on the next push. Reset it with `alembic stamp <previous-revision-id>` or let the preview environment rebuild from scratch.
