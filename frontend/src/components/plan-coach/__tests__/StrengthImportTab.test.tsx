@@ -6,10 +6,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { StrengthImportTab } from '../StrengthImportTab'
 import type { StrengthValidateResult } from '../../../api/types'
 
-const { mockValidateStrengthCsv, mockCommitPlan, mockNavigate } = vi.hoisted(() => ({
+const { mockValidateStrengthCsv, mockCommitPlan, mockNavigate, mockFetchCalendarRange } = vi.hoisted(() => ({
   mockValidateStrengthCsv: vi.fn(),
   mockCommitPlan: vi.fn(),
   mockNavigate: vi.fn(),
+  mockFetchCalendarRange: vi.fn(),
 }))
 
 vi.mock('../../../api/client', async (importOriginal) => {
@@ -18,6 +19,7 @@ vi.mock('../../../api/client', async (importOriginal) => {
     ...actual,
     validateStrengthCsv: mockValidateStrengthCsv,
     commitPlan: mockCommitPlan,
+    fetchCalendarRange: mockFetchCalendarRange,
   }
 })
 
@@ -80,12 +82,17 @@ describe('StrengthImportTab', () => {
     mockValidateStrengthCsv.mockReset()
     mockCommitPlan.mockReset()
     mockNavigate.mockReset()
+    mockFetchCalendarRange.mockResolvedValue({
+      workouts: [],
+      unplanned_activities: [],
+      week_start: '2026-05-19',
+    })
   })
 
-  it('renders grammar reference and file upload', () => {
+  it('renders prompt builder and file upload', () => {
     renderTab()
-    // Grammar reference should be present (contains shorthand text)
-    expect(screen.getByText(/Strength Shorthand Format/i)).toBeInTheDocument()
+    // Prompt builder should be present (contains generated prompt)
+    expect(screen.getByText(/generated prompt/i)).toBeInTheDocument()
     // File input present
     expect(document.querySelector('input[type="file"]')).toBeInTheDocument()
   })

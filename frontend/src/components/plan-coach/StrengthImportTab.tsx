@@ -2,7 +2,7 @@ import { useState, useRef, type CSSProperties, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { validateStrengthCsv, commitPlan } from '../../api/client'
 import type { StrengthValidateResult } from '../../api/types'
-import { StrengthGrammarReference } from './StrengthGrammarReference'
+import { StrengthPromptBuilder } from './StrengthPromptBuilder'
 import { StrengthValidationRow } from './StrengthValidationRow'
 
 // Styles (same as CsvImportTab)
@@ -103,7 +103,7 @@ export function StrengthImportTab({ onImported }: StrengthImportTabProps = {}) {
       borderRadius: '8px',
       padding: '20px 20px 24px',
     }}>
-      <StrengthGrammarReference />
+      <StrengthPromptBuilder />
 
       {/* File upload */}
       <div style={{ marginBottom: '16px' }}>
