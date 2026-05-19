@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from src.garmin.constants import END_CONDITIONS, SPORT_TYPE, STEP_TYPES, TARGET_TYPES
@@ -188,9 +189,11 @@ def _build_strength_step(exercise: dict, set_spec: dict, order: int) -> dict:
 
 def format_strength_workout(template) -> dict:
     """Format a strength WorkoutTemplate into Garmin Connect JSON."""
+    steps_raw = template.steps
+    exercises: list[dict] = json.loads(steps_raw) if isinstance(steps_raw, str) else (steps_raw or [])
     workout_steps: list[dict] = []
     order = 1
-    for exercise in template.steps:
+    for exercise in exercises:
         if exercise["kind"] != "strength_exercise":
             continue
         sets = exercise["sets"]

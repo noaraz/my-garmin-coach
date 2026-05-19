@@ -1,3 +1,4 @@
+import json
 import pytest
 from src.garmin.formatter import format_strength_workout
 
@@ -114,3 +115,14 @@ class TestFormatStrengthWorkout:
         inner = out["workoutSegments"][0]["workoutSteps"][0]["workoutSteps"][0]
         assert inner["endCondition"]["conditionTypeKey"] == "time"
         assert inner["endConditionValue"] == 45
+
+    def test_steps_as_json_string_is_parsed(self, template):
+        """ORM stores steps as a JSON string — formatter must parse it."""
+        class T:
+            name = template.name
+            sport = template.sport
+            steps = json.dumps(template.steps)  # simulate DB ORM column value
+
+        out = format_strength_workout(T())
+        assert out["sportType"]["sportTypeKey"] == "strength_training"
+        assert len(out["workoutSegments"][0]["workoutSteps"]) > 0
