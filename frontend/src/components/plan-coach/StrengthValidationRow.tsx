@@ -102,7 +102,7 @@ export function StrengthValidationRow({ row }: { row: StrengthValidateRow }) {
             <p key={i} style={{
               fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
               fontSize: '12px',
-              color: 'var(--color-error, #e53e3e)',
+              color: 'var(--color-error)',
               margin: '0 0 4px 0',
             }}>
               {e.message} — edit the row or pick a known exercise
